@@ -1,6 +1,7 @@
 import { container } from "@medusajs/framework"
 import { Modules } from "@medusajs/framework/utils"
 import { DEFAULT_PARCEL, ParcelConfig, validateParcelConfig } from "../delivery/parcel"
+import { Markup, NO_MARKUP } from "../delivery/free-shipping"
 
 /**
  * Настройки магазина, которые меняются в админке («Доставка и оплата»).
@@ -21,6 +22,8 @@ export type ShopSettings = {
   cdek_tariff_door_mode: number
   /** Адрес магазина для тарифов «от двери» (курьер СДЭК забирает посылку) */
   sender_address: string
+  /** Наценка на доставку для покупателя (к цене перевозчика) */
+  markup: { cdek: Markup; pochta: Markup }
   /** Вес и коробка по умолчанию — если у товара не заполнены */
   parcel: ParcelConfig
 }
@@ -36,6 +39,7 @@ export function defaultSettings(): ShopSettings {
     cdek_tariff_door_mode: 3,
     sender_address: "ул. Партизанская, 5а/8",
     parcel: DEFAULT_PARCEL,
+    markup: { cdek: NO_MARKUP, pochta: NO_MARKUP },
   }
 }
 
@@ -53,7 +57,7 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) } }
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) } }
     cache = { value, at: Date.now() }
     return value
   } catch {
@@ -90,6 +94,18 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
     const n = Number(input[k])
     if (!Number.isInteger(n) || n < 1 || n > 9999) return { error: "Код тарифа СДЭК — целое число" }
     out[k] = n
+  }
+  if (input.markup !== undefined) {
+    const m: { cdek: Markup; pochta: Markup } = { cdek: NO_MARKUP, pochta: NO_MARKUP }
+    for (const k of ["cdek", "pochta"] as const) {
+      const x = input.markup?.[k] ?? NO_MARKUP
+      const type = x.type === "pct" ? "pct" : "rub"
+      const value = Math.round(Number(x.value) * 100) / 100
+      const max = type === "pct" ? 300 : 10000
+      if (!Number.isFinite(value) || value < 0 || value > max) return { error: `Наценка: от 0 до ${max} ${type === "pct" ? "%" : "₽"}` }
+      m[k] = { type, value }
+    }
+    out.markup = m
   }
   if (input.parcel !== undefined) {
     const r = validateParcelConfig(input.parcel)

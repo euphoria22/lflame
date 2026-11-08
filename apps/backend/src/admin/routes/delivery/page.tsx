@@ -22,7 +22,9 @@ type Settings = {
   cdek_tariff_door_mode: number
   sender_address: string
   parcel: Parcel
+  markup: { cdek: Markup; pochta: Markup }
 }
+type Markup = { type: "rub" | "pct"; value: number }
 type Tariff = { code: number; name: string; mode: number; sum: number; days_min: number; days_max: number }
 type Data = {
   settings: Settings
@@ -143,6 +145,39 @@ const DeliveryPage = () => {
             <Input id="free" inputMode="numeric" value={String(s.free_shipping_from)} onChange={(e) => set("free_shipping_from", Number(e.target.value.replace(/\D/g, "") || 0))} />
             <Text size="small" className="text-ui-fg-subtle">СДЭК и Почта России бесплатно, если товаров в корзине на эту сумму или больше. 0 — выключить.</Text>
           </div>
+        </div>
+      </Container>
+
+      <Container className="divide-y p-0">
+        <div className="px-6 py-4">
+          <Heading level="h2">Наценка на доставку</Heading>
+          <Text size="small" className="text-ui-fg-subtle">Добавляется к цене СДЭК или Почты, которую видит покупатель. Например, на упаковку. 0 — без наценки.</Text>
+        </div>
+        <div className="grid gap-6 px-6 py-5 md:grid-cols-2">
+          {(["cdek", "pochta"] as const).map((k) => {
+            const m = s.markup[k]
+            const example = Math.ceil(400 + (m.type === "pct" ? (400 * m.value) / 100 : m.value))
+            return (
+              <div key={k} className="flex flex-col gap-y-2">
+                <Label>{k === "cdek" ? "СДЭК (пункт выдачи и курьер)" : "Почта России"}</Label>
+                <div className="grid grid-cols-[1fr_140px] gap-2">
+                  <Input inputMode="numeric" value={String(m.value)}
+                    onChange={(e) => set("markup", { ...s.markup, [k]: { ...m, value: Number(e.target.value.replace(/\D/g, "") || 0) } })} />
+                  <Select value={m.type} onValueChange={(v) => set("markup", { ...s.markup, [k]: { ...m, type: v as Markup["type"] } })}>
+                    <Select.Trigger><Select.Value /></Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="rub">₽</Select.Item>
+                      <Select.Item value="pct">%</Select.Item>
+                    </Select.Content>
+                  </Select>
+                </div>
+                <Text size="small" className="text-ui-fg-subtle">
+                  {m.value ? `Пример: доставка 400 ₽ → покупатель увидит ${example} ₽` : "Без наценки: покупатель видит цену перевозчика"}
+                </Text>
+              </div>
+            )
+          })}
+          <Text size="xsmall" className="text-ui-fg-subtle md:col-span-2">Бесплатная доставка от суммы заказа действует как раньше — наценка тогда не берётся.</Text>
         </div>
       </Container>
 
