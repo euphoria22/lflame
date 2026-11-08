@@ -16,10 +16,10 @@ import { DeliveryPicker } from "./delivery-picker"
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
  * Без обязательной регистрации. Согласие на обработку ПД — отдельная галочка, не отмечена (п. 8.7).
  */
-export function CheckoutForm({ onlinePayment, notice }: { onlinePayment: boolean; notice?: string | null }) {
+export function CheckoutForm({ onlinePayment, notice, defaults }: { onlinePayment: boolean; notice?: string | null; defaults?: Partial<CheckoutInput> }) {
   const { cart, clear } = useCart()
   const router = useRouter()
-  const [v, setV] = useState<Partial<CheckoutInput>>({ consent: false, marketing: false })
+  const [v, setV] = useState<Partial<CheckoutInput>>({ consent: false, marketing: false, ...defaults })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(notice ?? null)
   const [payment, setPayment] = useState<PaymentMethod>(onlinePayment ? "tbank" : "cod")
