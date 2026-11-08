@@ -98,5 +98,20 @@ module.exports = defineConfig({
   admin: {
     backendUrl: process.env.MEDUSA_BACKEND_URL,
   },
-  modules: [...redisModules, ...fileModules],
+  modules: [
+    ...redisModules,
+    ...fileModules,
+    { resolve: "./src/modules/brand" },
+    {
+      resolve: "./src/modules/moysklad",
+      options: {
+        token: process.env.MOYSKLAD_TOKEN,
+        storeName: process.env.MOYSKLAD_STORE_NAME,
+        salePriceName: process.env.MOYSKLAD_SALE_PRICE,
+        oldPriceName: process.env.MOYSKLAD_OLD_PRICE,
+        webhookSecret: process.env.MOYSKLAD_WEBHOOK_SECRET,
+        scheduleEnabled: process.env.MOYSKLAD_SCHEDULE_ENABLED === "true",
+      },
+    },
+  ],
 })
