@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 
@@ -19,6 +20,8 @@ type Props = {
   showCategories: boolean
   /** sidebar — колонка слева (десктоп); toolbar — строка над сеткой и панель на телефоне */
   mode: "sidebar" | "toolbar"
+  /** Переключатель «Все / Мужское / Женское» в верху фильтра */
+  genderLinks?: { label: string; href: string; active?: boolean }[]
 }
 
 /** Цвет кружка в фильтре цвета. */
@@ -33,7 +36,7 @@ const SWATCH: Record<string, string> = {
  * Фильтры и сортировка (ТЗ, п. 6.2). Десктоп — колонка слева, телефон — стеклянная панель снизу.
  * Изменение фильтра меняет адрес: параметры не индексируются, canonical — на страницу без них (п. 7.3).
  */
-export function FilterPanel({ basePath, filters, facets, total, showBrands, showCategories, mode }: Props) {
+export function FilterPanel({ basePath, filters, facets, total, showBrands, showCategories, mode, genderLinks }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [open, setOpen] = useState(false)
@@ -53,11 +56,24 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
     return () => { document.documentElement.style.overflow = "" }
   }, [open])
 
-  const body = (
-    <div className={`flex flex-col gap-8 ${pending ? "opacity-60" : ""}`}>
+  const brandsShown = showBrands && facets.brands.length > 1
+  // fill — колонка на десктопе растянута до низа экрана, блок брендов занимает остаток высоты
+  const body = (fill: boolean) => (
+    <div className={`flex flex-col gap-8 ${fill ? "h-full" : ""} ${pending ? "opacity-60" : ""}`}>
+      {!!genderLinks?.length && (
+        <nav aria-label="Раздел" className="flex rounded-full bg-surface p-1 text-[13px]">
+          {genderLinks.map((g) => (
+            <Link key={g.href} href={g.href} aria-current={g.active ? "page" : undefined}
+              className={`flex-1 rounded-full py-2 text-center transition-colors ${g.active ? "bg-background shadow-sm" : "text-muted hover:text-foreground"}`}>
+              {g.label}
+            </Link>
+          ))}
+        </nav>
+      )}
+
       {showCategories && facets.categories.length > 1 && (
         <Group title="Категория">
-          <ul className="max-h-44 space-y-2 overflow-y-auto pr-1">
+          <ul className="max-h-44 space-y-2 overflow-y-auto scroll-subtle pr-1">
             {facets.categories.map((c) => (
               <li key={c.value}>
                 <Check checked={filters.categories.includes(c.value)} onChange={() => toggle("categories", c.value)} label={c.label} count={c.count} />
@@ -79,7 +95,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
 
       {facets.colors.length > 0 && (
         <Group title="Цвет">
-          <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
+          <ul className="max-h-40 space-y-2 overflow-y-auto scroll-subtle pr-1">
             {facets.colors.map((c) => {
               const on = filters.colors.includes(c.value)
               return (
@@ -96,7 +112,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
         </Group>
       )}
 
-      {showBrands && facets.brands.length > 1 && <BrandFilter facets={facets.brands} selected={filters.brands} onToggle={(v) => toggle("brands", v)} />}
+      {brandsShown && <BrandFilter fill={fill} facets={facets.brands} selected={filters.brands} onToggle={(v) => toggle("brands", v)} />}
 
       {active > 0 && (
         <button type="button" onClick={() => go({ categories: [], brands: [], sizes: [], colors: [], priceMin: null, priceMax: null })} className="eyebrow self-start underline underline-offset-4">
@@ -110,7 +126,12 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
     return (
       // h-full: закреплённому блоку нужен родитель во всю высоту каталога, иначе ему некуда ехать
       <aside aria-label="Фильтры" className="hidden h-full lg:block">
-        <SmartSticky>{body}</SmartSticky>
+        {brandsShown ? (
+          // Высота — до низа экрана: без пустого места снизу; бренды заполняют остаток
+          <div className="scroll-subtle sticky top-[96px] h-[calc(100vh-112px)] overflow-y-auto pb-4 pl-8 pr-4">{body(true)}</div>
+        ) : (
+          <SmartSticky>{body(false)}</SmartSticky>
+        )}
       </aside>
     )
   }
@@ -140,7 +161,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
               <p className="text-[17px]">Фильтры</p>
               <button type="button" aria-label="Закрыть" onClick={() => setOpen(false)} className="rounded-full p-2 hover:bg-black/5"><CloseIcon className="size-6" /></button>
             </div>
-            <div className="overflow-y-auto px-5 pb-4 pt-2">{body}</div>
+            <div className="overflow-y-auto px-5 pb-4 pt-2">{body(false)}</div>
             <div className="p-3">
               <button type="button" onClick={() => setOpen(false)} className="h-12 w-full rounded-full bg-foreground text-[14px] text-background">
                 Показать {total}
@@ -192,11 +213,11 @@ function SizeFilter({ facets, selected, onToggle }: { facets: ListingResult["fac
   )
   const cols = left.length && right.length
   return (
-    <div className="max-h-52 overflow-y-auto pr-1">
+    <div className="max-h-52 overflow-y-auto scroll-subtle pr-1">
       {(left.length > 0 || right.length > 0) && (
         <div className={cols ? "grid grid-cols-2 gap-x-4" : ""}>
-          {left.length > 0 && <ul className={`space-y-2 ${!cols ? "grid grid-cols-2 gap-x-4 space-y-0 gap-y-2" : ""}`}>{left.map(item)}</ul>}
-          {right.length > 0 && <ul className={`space-y-2 ${!cols ? "grid grid-cols-2 gap-x-4 space-y-0 gap-y-2" : ""}`}>{right.map(item)}</ul>}
+          {left.length > 0 && <ul className={cols ? "space-y-2" : "grid grid-cols-2 gap-x-4 gap-y-2"}>{left.map(item)}</ul>}
+          {right.length > 0 && <ul className={cols ? "space-y-2" : "grid grid-cols-2 gap-x-4 gap-y-2"}>{right.map(item)}</ul>}
         </div>
       )}
       {shoes.length > 0 && (
@@ -221,26 +242,33 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-function BrandFilter({ facets, selected, onToggle }: { facets: ListingResult["facets"]["brands"]; selected: string[]; onToggle: (v: string) => void }) {
+function BrandFilter({ facets, selected, onToggle, fill }: { facets: ListingResult["facets"]["brands"]; selected: string[]; onToggle: (v: string) => void; fill: boolean }) {
   const [q, setQ] = useState("")
+  const [open, setOpen] = useState(true)
   const shown = useMemo(() => facets.filter((b) => b.label.toLowerCase().includes(q.toLowerCase())), [facets, q])
   return (
-    <Group title="Бренд">
-      {facets.length > 8 && (
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск бренда"
-          className="mb-3 w-full border-b border-line bg-transparent py-2 text-[13px] outline-none focus:border-foreground" />
+    <div className={fill && open ? "flex min-h-[160px] flex-1 flex-col" : ""}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="mb-3 flex w-full items-center justify-between text-left text-[13px] font-medium">
+        Бренд
+        <ChevronIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <>
+          {facets.length > 8 && (
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск бренда"
+              className="mb-3 w-full border-b border-line bg-transparent py-2 text-[13px] outline-none focus:border-foreground" />
+          )}
+          <ul className={`scroll-subtle space-y-2 overflow-y-auto pr-1 ${fill ? "min-h-0 flex-1" : "max-h-44"}`}>
+            {shown.map((b) => (
+              <li key={b.value}>
+                <Check checked={selected.includes(b.value)} onChange={() => onToggle(b.value)} label={b.label} count={b.count} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-      <ul className="max-h-44 space-y-2 overflow-y-auto pr-1">
-        {shown.map((b) => {
-          const on = selected.includes(b.value)
-          return (
-            <li key={b.value}>
-              <Check checked={on} onChange={() => onToggle(b.value)} label={b.label} count={b.count} />
-            </li>
-          )
-        })}
-      </ul>
-    </Group>
+    </div>
   )
 }
 

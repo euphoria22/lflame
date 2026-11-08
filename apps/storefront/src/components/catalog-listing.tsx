@@ -24,6 +24,7 @@ export type CatalogListingProps = {
   seoText?: string | null
   /** Быстрые ссылки над сеткой: посадочные «категория + бренд» и т.п. (ТЗ, п. 7.12) */
   chips?: { label: string; href: string; active?: boolean }[]
+  genderLinks?: { label: string; href: string; active?: boolean }[]
   showBrandFilter?: boolean
   searchParams: Promise<SearchParams>
 }
@@ -60,7 +61,7 @@ export async function CatalogListing(props: CatalogListingProps) {
   )
 }
 
-async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, filters, h1 }: CatalogListingProps & { filters: ListingFilters }) {
+async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, filters, h1, genderLinks }: CatalogListingProps & { filters: ListingFilters }) {
   const items = await getCatalog()
   const scoped = scopeItems(items, scope)
   const result = runListing(scoped, filters)
@@ -69,10 +70,10 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
     <>
       <div className="grid border-t border-line lg:grid-cols-[300px_1fr]">
         <div className="lg:border-r lg:border-line lg:pt-4">
-          <FilterPanel mode="sidebar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} />
+          <FilterPanel mode="sidebar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} genderLinks={genderLinks} />
         </div>
         <div>
-          <FilterPanel mode="toolbar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} />
+          <FilterPanel mode="toolbar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} genderLinks={genderLinks} />
           {result.items.length ? (
             <ul className={GRID}>
               {result.items.map((item, i) => (

@@ -123,6 +123,26 @@ body {
   margin: 1.2em 0 0.4em;
 }
 
+/* Прокрутка внутри групп фильтра: полоса видна только при наведении (и, значит, при прокрутке колесом) */
+.scroll-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.scroll-subtle:hover,
+.scroll-subtle:focus-within {
+  scrollbar-color: var(--subtle) transparent;
+}
+.scroll-subtle::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-subtle::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+.scroll-subtle:hover::-webkit-scrollbar-thumb {
+  background: var(--subtle);
+}
+
 details > summary {
   list-style: none;
   cursor: pointer;

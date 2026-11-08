@@ -24,6 +24,8 @@ type Ctx = {
   description: string
   crumbs: { name: string; href: string }[]
   chips?: { label: string; href: string; active?: boolean }[]
+  /** Переключатель разделов в верху фильтра (обратная связь 08.11.2026) */
+  genderLinks?: { label: string; href: string; active?: boolean }[]
   intro?: string | null
   seoText?: string | null
   showBrandFilter?: boolean
@@ -83,6 +85,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
         crumbs: [{ name: g!.name, href: routes.gender(g!.slug) }],
         // Категории выбираются в фильтре; сверху — популярные бренды раздела (обратная связь 08.11.2026)
         chips: brandChips(scoped, (b) => routes.brandGender(b, g!.slug)),
+        genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.gender(x.slug), active: x.slug === g!.slug })),
       }
     }
     case "category": {
@@ -95,6 +98,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
         description: cat!.seo_description ?? describe(h1, scoped),
         crumbs: [{ name: g!.name, href: routes.gender(g!.slug) }, { name: cat!.name, href: routes.category(g!.slug, cat!.handle) }],
         chips: brandChips(scoped, (b) => routes.categoryBrand(g!.slug, cat!.handle, b)),
+        genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.category(x.slug, cat!.handle), active: x.slug === g!.slug })),
         intro: cat!.description, seoText: cat!.seo_text,
       }
     }
@@ -113,6 +117,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
           { name: brand!.name, href: routes.categoryBrand(g!.slug, cat!.handle, brand!.handle) },
         ],
         chips: brandChips(parent, (b) => routes.categoryBrand(g!.slug, cat!.handle, b), brand!.handle),
+        genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.categoryBrand(x.slug, cat!.handle, brand!.handle), active: x.slug === g!.slug })),
         showBrandFilter: false,
       }
     }
@@ -124,7 +129,8 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
         title: brand!.seo_title ?? `${brand!.name} — одежда и обувь, купить в ${SITE_NAME}`,
         description: brand!.seo_description ?? describe(brand!.name, scoped),
         crumbs: [{ name: "Бренды", href: routes.brands() }, { name: brand!.name, href: routes.brand(brand!.handle) }],
-        chips: [
+        genderLinks: [
+          { label: "Все", href: routes.brand(brand!.handle), active: true },
           ...GENDERS.filter((x) => scopeItems(scoped, { gender: x.slug }).length).map((x) => ({ label: x.name, href: routes.brandGender(brand!.handle, x.slug) })),
         ],
         intro: brand!.short_description, seoText: brand!.seo_text ?? brand!.description,
@@ -145,6 +151,10 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
           { name: g!.name, href: routes.brandGender(brand!.handle, g!.slug) },
         ],
         chips: categoryChips(scoped, (c) => routes.categoryBrand(g!.slug, c, brand!.handle)),
+        genderLinks: [
+          { label: "Все", href: routes.brand(brand!.handle) },
+          ...GENDERS.map((x) => ({ label: x.name, href: routes.brandGender(brand!.handle, x.slug), active: x.slug === g!.slug })),
+        ],
         showBrandFilter: false,
       }
     }
@@ -163,7 +173,10 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
           { name: base, href: isSale ? routes.sale() : routes.newIn() },
           ...(g ? [{ name: g.name, href: isSale ? routes.sale(g.slug) : routes.newIn(g.slug) }] : []),
         ],
-        chips: GENDERS.map((x) => ({ label: x.name, href: isSale ? routes.sale(x.slug) : routes.newIn(x.slug), active: x.slug === g?.slug })),
+        genderLinks: [
+          { label: "Все", href: isSale ? routes.sale() : routes.newIn(), active: !g },
+          ...GENDERS.map((x) => ({ label: x.name, href: isSale ? routes.sale(x.slug) : routes.newIn(x.slug), active: x.slug === g?.slug })),
+        ],
       }
     }
   }
