@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState, useTransition } from "react"
 
 import { formatPrice, plural } from "@/lib/format"
+import { sizeKind } from "@/lib/size-groups"
 import { filtersToQuery, ListingFilters, ListingResult, SORTS, SortKey, withQuery } from "@/lib/listing"
 import { ChevronIcon, CloseIcon, FilterIcon } from "./icons"
 
@@ -58,19 +59,13 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
 
       {facets.sizes.length > 0 && (
         <Group title="Размер">
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {facets.sizes.map((s) => (
-              <li key={s.value}>
-                <Check checked={filters.sizes.includes(s.value)} onChange={() => toggle("sizes", s.value)} label={s.label} />
-              </li>
-            ))}
-          </ul>
+          <SizeFilter facets={facets.sizes} selected={filters.sizes} onToggle={(v) => toggle("sizes", v)} />
         </Group>
       )}
 
       {facets.colors.length > 0 && (
         <Group title="Цвет">
-          <ul className="space-y-2">
+          <ul className="max-h-48 space-y-2 overflow-y-auto pr-1">
             {facets.colors.map((c) => {
               const on = filters.colors.includes(c.value)
               return (
@@ -100,7 +95,8 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
   if (mode === "sidebar") {
     return (
       <aside aria-label="Фильтры" className="hidden lg:block">
-        <div className="sticky top-[96px] max-h-[calc(100vh-110px)] overflow-y-auto pb-8 pl-8 pr-4">{body}</div>
+        {/* Закреплён и едет вместе со страницей; прокрутка — внутри каждого фильтра */}
+        <div className="sticky top-[96px] pb-8 pl-8 pr-4">{body}</div>
       </aside>
     )
   }
@@ -143,6 +139,37 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
   )
 }
 
+/**
+ * Размеры (обратная связь 08.11.2026): слева одежда XS–3XL, затем One Size и прочие;
+ * справа джинсы по талии; ниже обувь в два столбца. Общая прокрутка внутри блока.
+ */
+function SizeFilter({ facets, selected, onToggle }: { facets: ListingResult["facets"]["sizes"]; selected: string[]; onToggle: (v: string) => void }) {
+  const by = (kinds: string[]) => facets.filter((s) => kinds.includes(sizeKind(s.value)))
+  const left = [...by(["letter"]), ...by(["one"]), ...by(["other"])]
+  const right = by(["waist"])
+  const shoes = by(["shoe"])
+  const item = (s: { value: string; label: string }) => (
+    <li key={s.value}><Check checked={selected.includes(s.value)} onChange={() => onToggle(s.value)} label={s.label} /></li>
+  )
+  const cols = left.length && right.length
+  return (
+    <div className="max-h-64 overflow-y-auto pr-1">
+      {(left.length > 0 || right.length > 0) && (
+        <div className={cols ? "grid grid-cols-2 gap-x-4" : ""}>
+          {left.length > 0 && <ul className={`space-y-2 ${!cols ? "grid grid-cols-2 gap-x-4 space-y-0 gap-y-2" : ""}`}>{left.map(item)}</ul>}
+          {right.length > 0 && <ul className={`space-y-2 ${!cols ? "grid grid-cols-2 gap-x-4 space-y-0 gap-y-2" : ""}`}>{right.map(item)}</ul>}
+        </div>
+      )}
+      {shoes.length > 0 && (
+        <>
+          {(left.length > 0 || right.length > 0) && <p className="mb-2 mt-4 text-[12px] text-muted">Обувь</p>}
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-2">{shoes.map(item)}</ul>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details open className="group/f">
@@ -164,7 +191,7 @@ function BrandFilter({ facets, selected, onToggle }: { facets: ListingResult["fa
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск бренда"
           className="mb-3 w-full border-b border-line bg-transparent py-2 text-[13px] outline-none focus:border-foreground" />
       )}
-      <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
+      <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
         {shown.map((b) => {
           const on = selected.includes(b.value)
           return (

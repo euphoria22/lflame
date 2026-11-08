@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 import { getCatalog } from "@/lib/catalog"
-import { ListingFilters, ListingScope, parseFilters, runListing, scopeItems } from "@/lib/listing"
+import { ListingFilters, ListingScope, PAGE_SIZE, parseFilters, runListing, scopeItems } from "@/lib/listing"
 import { SITE_URL } from "@/lib/site"
 import { routes } from "@/lib/routes"
 import { Breadcrumbs, Crumb } from "./breadcrumbs"
@@ -9,6 +9,9 @@ import { FilterPanel } from "./filter-panel"
 import { JsonLd } from "./json-ld"
 import { Pagination } from "./pagination"
 import { ProductCard } from "./product-card"
+
+const GRID = "grid-lines grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+const CELL = "[&:nth-child(2n)]:border-r-0 md:[&:nth-child(2n)]:border-r md:[&:nth-child(3n)]:border-r-0 xl:[&:nth-child(3n)]:border-r xl:[&:nth-child(4n)]:border-r-0"
 
 export type SearchParams = Record<string, string | string[] | undefined>
 
@@ -71,9 +74,9 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
         <div>
           <FilterPanel mode="toolbar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} />
           {result.items.length ? (
-            <ul className="grid-lines grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            <ul className={GRID}>
               {result.items.map((item, i) => (
-                <li key={item.id} className="[&:nth-child(2n)]:border-r-0 md:[&:nth-child(2n)]:border-r md:[&:nth-child(3n)]:border-r-0 xl:[&:nth-child(3n)]:border-r xl:[&:nth-child(4n)]:border-r-0">
+                <li key={item.id} className={CELL}>
                   <ProductCard item={item} priority={i < 4} />
                 </li>
               ))}
@@ -84,7 +87,8 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
               <p className="mt-2 text-[14px] text-muted">Попробуйте изменить фильтры или посмотрите <Link href={routes.newIn()} className="underline underline-offset-4">новинки</Link>.</p>
             </div>
           )}
-          <Pagination basePath={basePath} filters={filters} page={result.page} pages={result.pages} />
+          <Pagination key={`${basePath}${result.page}`} basePath={basePath} filters={filters} page={result.page} pages={result.pages}
+            scope={scope} gridClass={`${GRID} border-t-0`} cellClass={CELL} />
         </div>
       </div>
 
@@ -104,7 +108,7 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
         numberOfItems: result.total,
         itemListElement: result.items.map((item, i) => ({
           "@type": "ListItem",
-          position: (result.page - 1) * 48 + i + 1,
+          position: (result.page - 1) * PAGE_SIZE + i + 1,
           url: `${SITE_URL}${routes.product(item.handle)}`,
           name: item.title,
         })),

@@ -23,6 +23,14 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
   const onlyOneSize = variants.length === 1 && variants[0].size === "One Size"
   const chosen = variants.find((v) => v.id === selected)
 
+  // Размер из ссылки ?size=… (кнопки размеров в карточке каталога)
+  useEffect(() => {
+    const size = new URLSearchParams(window.location.search).get("size")
+    const v = size ? variants.find((x) => x.size === size && x.available > 0) : null
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- адрес доступен только в браузере
+    if (v) setSelected(v.id)
+  }, [variants])
+
   // Панель на телефоне появляется, когда блок с кнопкой ушёл с экрана
   useEffect(() => {
     const el = box.current
@@ -43,7 +51,7 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
 
   const button = (
     <button type="button" onClick={add} disabled={!anyAvailable}
-      className="h-12 w-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted">
+      className="h-12 w-full rounded-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted">
       {!anyAvailable ? "Нет в наличии" : chosen || onlyOneSize ? "В корзину" : "Выберите размер"}
     </button>
   )
@@ -55,20 +63,20 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
           <legend className="mb-3 flex w-full items-center justify-between text-[13px]">
             <span>Размер{chosen ? `: ${chosen.size}` : ""}</span>
           </legend>
-          <div className="grid grid-cols-4 border-l border-t border-line">
+          <div className="grid grid-cols-4 gap-1.5">
             {variants.map((v) => {
               const out = v.available <= 0
               const on = v.id === selected
               return (
                 <button key={v.id} type="button" disabled={out} aria-pressed={on}
                   onClick={() => { setSelected(v.id); setMessage(null) }}
-                  className={`h-11 border-b border-r border-line text-[13px] transition-colors ${on ? "bg-foreground text-background" : out ? "cursor-not-allowed text-subtle line-through" : "hover:bg-surface"}`}>
+                  className={`relative flex h-12 flex-col items-center justify-center rounded-xl border text-[13px] transition-colors ${on ? "border-foreground bg-foreground text-background" : out ? "cursor-not-allowed border-line text-subtle line-through" : "border-line hover:border-foreground"}`}>
                   {v.size}
+                  {v.available === 1 && <span className={`eyebrow text-[9px] ${on ? "text-background/70" : "text-muted"}`}>последний</span>}
                 </button>
               )
             })}
           </div>
-          {chosen?.available === 1 && <p className="mt-2 text-[12px] text-sale">Последний размер в наличии</p>}
         </fieldset>
       )}
       <div className="mt-5">{button}</div>

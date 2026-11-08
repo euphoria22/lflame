@@ -35,7 +35,7 @@ export type ListingFilters = {
   page: number
 }
 
-export const PAGE_SIZE = 48
+export const PAGE_SIZE = 80
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -221,6 +221,30 @@ export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingRes
       colors,
       price: { min: prices.length ? Math.min(...prices) : 0, max: prices.length ? Math.max(...prices) : 0 },
     },
+  }
+}
+
+/** Область листинга в параметры адреса — для подгрузки «Показать ещё» через /api/listing. */
+export function scopeToQuery(scope: ListingScope): string {
+  const p = new URLSearchParams()
+  if (scope.gender) p.set("s_gender", scope.gender)
+  if (scope.category) p.set("s_category", scope.category)
+  if (scope.brand) p.set("s_brand", scope.brand)
+  if (scope.onlyNew) p.set("s_new", "1")
+  if (scope.onlySale) p.set("s_sale", "1")
+  if (scope.q) p.set("s_q", scope.q)
+  return p.toString()
+}
+
+export function scopeFromQuery(p: URLSearchParams): ListingScope {
+  const g = p.get("s_gender")
+  return {
+    gender: g === "men" || g === "women" ? g : undefined,
+    category: p.get("s_category") ?? undefined,
+    brand: p.get("s_brand") ?? undefined,
+    onlyNew: p.get("s_new") === "1",
+    onlySale: p.get("s_sale") === "1",
+    q: p.get("s_q") ?? undefined,
   }
 }
 
