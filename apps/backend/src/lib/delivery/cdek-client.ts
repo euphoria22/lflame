@@ -30,7 +30,7 @@ async function getToken(cfg: CdekConfig): Promise<string> {
   return token.value
 }
 
-export async function cdekRequest<T>(path: string, init: { method?: string; body?: unknown; query?: Record<string, string | number | undefined> } = {}): Promise<T> {
+export async function cdekRequest<T>(path: string, init: { method?: string; body?: unknown; query?: Record<string, string | number | undefined>; raw?: boolean } = {}): Promise<T> {
   const cfg = cdekConfig()
   if (!cfg.clientId || !cfg.clientSecret) throw new MedusaError(MedusaError.Types.UNEXPECTED_STATE, "СДЭК: не заданы CDEK_CLIENT_ID / CDEK_CLIENT_SECRET")
   const url = new URL(`${cfg.baseUrl}${path}`)
@@ -40,8 +40,12 @@ export async function cdekRequest<T>(path: string, init: { method?: string; body
     headers: { Authorization: `Bearer ${await getToken(cfg)}`, "Content-Type": "application/json" },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   })
-  const data = (await res.json().catch(() => ({}))) as T & { errors?: { message: string }[] }
-  if (!res.ok) throw new MedusaError(MedusaError.Types.UNEXPECTED_STATE, `СДЭК ${res.status}: ${data.errors?.map((e) => e.message).join("; ") ?? ""}`)
+  if (init.raw && res.ok) return (await res.arrayBuffer()) as T
+  const data = (await res.json().catch(() => ({}))) as T & { errors?: { message: string }[]; requests?: { errors?: { message: string }[] }[] }
+  if (!res.ok) {
+    const errors = data.errors ?? data.requests?.flatMap((r) => r.errors ?? []) ?? []
+    throw new MedusaError(MedusaError.Types.UNEXPECTED_STATE, `СДЭК ${res.status}: ${errors.map((e) => e.message).join("; ")}`)
+  }
   return data
 }
 

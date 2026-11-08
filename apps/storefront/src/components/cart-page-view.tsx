@@ -5,6 +5,7 @@ import Link from "next/link"
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
+import { FreeShippingNote } from "./free-shipping-note"
 import { CartLines } from "./cart-lines"
 
 export function CartPageView() {
@@ -18,7 +19,7 @@ export function CartPageView() {
           <CartLines cart={cart} />
           <aside className="h-fit rounded-[22px] bg-surface p-6 md:sticky md:top-[96px]">
             <div className="flex justify-between text-[15px]"><span>Товары</span><span>{formatPrice(cart.item_total)}</span></div>
-            <p className="mt-1 text-[12px] text-muted">Доставка рассчитывается при оформлении</p>
+            <FreeShippingNote total={cart.item_total} />
             <Link href="/checkout" className="mt-6 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
           </aside>
         </div>

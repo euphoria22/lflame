@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
-import { CheckoutInput, validateCheckout } from "@/lib/checkout"
+import { CheckoutInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
@@ -16,12 +16,13 @@ import { DeliveryPicker } from "./delivery-picker"
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
  * Без обязательной регистрации. Согласие на обработку ПД — отдельная галочка, не отмечена (п. 8.7).
  */
-export function CheckoutForm() {
+export function CheckoutForm({ onlinePayment, notice }: { onlinePayment: boolean; notice?: string | null }) {
   const { cart, clear } = useCart()
   const router = useRouter()
   const [v, setV] = useState<Partial<CheckoutInput>>({ consent: false, marketing: false })
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(notice ?? null)
+  const [payment, setPayment] = useState<PaymentMethod>(onlinePayment ? "tbank" : "cod")
   const [sending, setSending] = useState(false)
   const [delivery, setDelivery] = useState<DeliveryChoice>({ kind: "pickup" })
   const [quote, setQuote] = useState<Quote | null>({ amount: 0, days_min: 0, days_max: 0 })
@@ -42,8 +43,13 @@ export function CheckoutForm() {
     setSending(true)
     setError(null)
     try {
-      const res = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...v, delivery }) })
-      const data = (await res.json()) as { order?: { number: number }; error?: string; errors?: Record<string, string> }
+      const res = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...v, delivery, payment }) })
+      const data = (await res.json()) as { order?: { number: number }; redirect?: string; error?: string; errors?: Record<string, string> }
+      if (res.ok && data.redirect) {
+        // Переход на платёжную форму Т-Банка; корзина сохраняется до подтверждения оплаты
+        window.location.assign(data.redirect)
+        return
+      }
       if (!res.ok || !data.order) {
         if (data.errors) setErrors(data.errors)
         setError(data.error ?? "Проверьте данные")
@@ -93,13 +99,14 @@ export function CheckoutForm() {
 
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">3. Оплата</h2>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-foreground p-4">
-            <input type="radio" name="payment" defaultChecked className="mt-1 accent-black" />
-            <span className="text-[14px]">
-              Оплата при получении
-              <span className="mt-1 block text-[12px] text-muted">Онлайн-оплата картой, СБП и частями (Т-Касса, Яндекс Сплит) подключается.</span>
-            </span>
-          </label>
+          <div className="space-y-2">
+            {onlinePayment && (
+              <PayOption checked={payment === "tbank"} onSelect={() => setPayment("tbank")} title="Картой или СБП онлайн"
+                hint="Visa, Mastercard, МИР, СБП, T-Pay — безопасная оплата на странице Т-Банка" />
+            )}
+            <PayOption checked={payment === "cod"} onSelect={() => setPayment("cod")} title="При получении"
+              hint={delivery.kind === "pickup" ? "Картой или наличными в магазине" : "Картой или наличными в пункте выдачи, курьеру или на почте"} />
+          </div>
         </section>
 
         <section className="mt-10">
@@ -131,14 +138,26 @@ export function CheckoutForm() {
         </ul>
         <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
           <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice(cart?.item_total ?? 0)}</span></div>
-          <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{quote ? formatPrice(quote.amount) : "—"}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{!quote ? "—" : quote.amount === 0 ? "Бесплатно" : formatPrice(quote.amount)}</span></div>
           <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice((cart?.item_total ?? 0) + (quote?.amount ?? 0))}</span></div>
         </div>
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
-          {sending ? "Оформляем…" : "Подтвердить заказ"}
+          {sending ? "Оформляем…" : payment === "tbank" ? "Перейти к оплате" : "Подтвердить заказ"}
         </button>
       </aside>
     </form>
+  )
+}
+
+function PayOption({ checked, onSelect, title, hint }: { checked: boolean; onSelect: () => void; title: string; hint: string }) {
+  return (
+    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${checked ? "border-foreground" : "border-line"}`}>
+      <input type="radio" name="payment" checked={checked} onChange={onSelect} className="mt-1 accent-black" />
+      <span className="text-[14px]">
+        {title}
+        <span className="mt-1 block text-[12px] text-muted">{hint}</span>
+      </span>
+    </label>
   )
 }

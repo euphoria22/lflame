@@ -8,6 +8,7 @@ import { formatPrice, plural } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
+import { FreeShippingNote } from "./free-shipping-note"
 import { CloseIcon } from "./icons"
 
 /** Выезжающая панель корзины (Liquid Glass) — открывается после добавления товара. */
@@ -44,7 +45,7 @@ export function CartDrawer() {
             <div className="scroll-subtle flex-1 overflow-y-auto px-6"><CartLines cart={cart} onNavigate={() => setOpen(false)} /></div>
             <div className="border-t border-line px-6 pb-5 pt-4">
               <div className="flex justify-between text-[15px]"><span>Итого</span><span>{formatPrice(cart.item_total)}</span></div>
-              <p className="mt-1 text-[12px] text-muted">Доставка рассчитывается при оформлении</p>
+              <FreeShippingNote total={cart.item_total} />
               <Link href="/checkout" onClick={() => setOpen(false)} className="mt-4 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
               <Link href={routes.cart()} onClick={() => setOpen(false)} className="mt-2 block text-center text-[13px] text-muted underline underline-offset-4">Перейти в корзину</Link>
             </div>

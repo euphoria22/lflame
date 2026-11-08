@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { CheckoutInput, normalizePhone, validateCheckout } from "@/lib/checkout"
+import { CheckoutInput, normalizePhone, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, PICKUP, validateDelivery } from "@/lib/delivery"
+import { SITE_URL } from "@/lib/site"
 import { cartRequest, retrieveCart, setCartId, storeFetch } from "@/lib/store-api"
 
 /**
  * Оформление заказа (ТЗ, п. 6.4): контакты → способ получения → оплата → заказ.
  * Получение: самовывоз в Омске, СДЭК (пункт выдачи, курьер), Почта России.
- * Оплата пока «при получении» (pp_system_default); Т-Касса — следующим шагом.
+ * Оплата: при получении (pp_system_default) — заказ создаётся сразу;
+ * онлайн через Т-Кассу (pp_tbank_tbank) — возвращаем ссылку на платёжную форму,
+ * заказ создаётся после оплаты (/checkout/paid или уведомление Т-Кассы в Medusa).
  */
 export async function POST(req: NextRequest) {
-  const input = (await req.json().catch(() => ({}))) as Partial<CheckoutInput> & { delivery?: Partial<DeliveryChoice> }
+  const input = (await req.json().catch(() => ({}))) as Partial<CheckoutInput> & { delivery?: Partial<DeliveryChoice>; payment?: PaymentMethod }
   const errors = validateCheckout(input)
   const deliveryError = validateDelivery(input.delivery)
   if (deliveryError) errors.delivery = deliveryError
@@ -22,6 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Корзина пуста" }, { status: 400 })
   }
 
+  const payment: PaymentMethod = input.payment === "tbank" ? "tbank" : "cod"
   const phone = normalizePhone(input.phone!)!
   const d = input.delivery as DeliveryChoice
   const clean = (s: string | undefined, n = 200) => (s ?? "").trim().slice(0, n)
@@ -52,6 +56,7 @@ export async function POST(req: NextRequest) {
         // ТЗ, п. 6.4, 8.7: отдельное согласие на обработку ПД и на рассылки — с датой
         pd_consent_at: new Date().toISOString(),
         marketing_consent: Boolean(input.marketing),
+        payment_method: payment,
       },
     })
 
@@ -66,6 +71,36 @@ export async function POST(req: NextRequest) {
       method: "POST",
       body: { cart_id: cart.id },
     })
+
+    if (payment === "tbank") {
+      // Чек 54-ФЗ: позиции заказа и доставка (используется, если касса подключена в Т-Кассе)
+      const fresh = await retrieveCart()
+      const receipt = [
+        ...(fresh?.items ?? []).map((i) => ({ name: [i.product_title, i.variant_title].filter(Boolean).join(", "), price: Number(i.unit_price), quantity: i.quantity })),
+        ...(fresh && Number(fresh.shipping_total) > 0 ? [{ name: "Доставка", price: Number(fresh.shipping_total), quantity: 1, kind: "service" }] : []),
+      ]
+      const { payment_collection: pc } = await storeFetch<{ payment_collection: { payment_sessions?: { provider_id: string; data?: { PaymentURL?: string } }[] } }>(
+        `/store/payment-collections/${payment_collection.id}/payment-sessions`,
+        {
+          method: "POST",
+          body: {
+            provider_id: "pp_tbank_tbank",
+            data: {
+              success_url: `${SITE_URL}/checkout/paid`,
+              fail_url: `${SITE_URL}/checkout?payment=failed`,
+              description: "Заказ в магазине LAFLAMME",
+              email: input.email!.trim().toLowerCase(),
+              phone,
+              receipt,
+            },
+          },
+        }
+      )
+      const url = pc.payment_sessions?.find((s) => s.provider_id === "pp_tbank_tbank")?.data?.PaymentURL
+      if (!url) throw new Error("Т-Касса: нет ссылки на оплату")
+      return NextResponse.json({ redirect: url })
+    }
+
     await storeFetch(`/store/payment-collections/${payment_collection.id}/payment-sessions`, {
       method: "POST",
       body: { provider_id: "pp_system_default" },
@@ -84,6 +119,8 @@ export async function POST(req: NextRequest) {
     const msg = e instanceof Error ? e.message : ""
     const human = /inventory|stock|insufficient/i.test(msg)
       ? "Пока вы оформляли заказ, часть товаров закончилась. Проверьте корзину."
+      : /Т-Касса|оплат/i.test(msg)
+        ? "Онлайн-оплата сейчас недоступна. Выберите оплату при получении или попробуйте позже."
       : /СДЭК|Почта|город|пункт|индекс/i.test(msg)
         ? "Не получилось рассчитать доставку. Проверьте адрес или выберите другой способ."
         : "Не получилось оформить заказ. Попробуйте ещё раз или позвоните нам."

@@ -6,13 +6,25 @@ import type {
   FulfillmentOption,
 } from "@medusajs/framework/types"
 import { CDEK_TARIFFS, cdekQuote } from "../../lib/delivery/cdek-client"
+import { CdekOrderInput, createCdekOrder, deleteCdekOrder } from "../../lib/delivery/cdek-orders"
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
+import { applyFreeShipping, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
 
 /**
  * Провайдер доставки СДЭК (ТЗ, п. 5). Цена считается по API СДЭК на каждый запрос.
  * data способа доставки (с витрины): city_code — код города СДЭК; pvz_code — для пункта выдачи.
- * Создание заказа в СДЭК (createFulfillment) — следующим шагом, после ключей боевого кабинета.
+ * При создании отправки в админке заказ регистрируется в СДЭК (номер накладной и ярлык — в отправке).
  */
+type FulfillmentOrder = {
+  display_id?: number
+  email?: string | null
+  customer?: { email?: string | null } | null
+  metadata?: Record<string, unknown> | null
+  shipping_address?: { first_name?: string; last_name?: string; phone?: string; address_1?: string } | null
+  shipping_methods?: { amount?: unknown }[]
+  items?: { id: string; title?: string; product_title?: string; variant_sku?: string | null; unit_price?: unknown; variant?: { weight?: number | null } | null }[]
+}
+
 class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService {
   static identifier = "cdek"
 
@@ -47,15 +59,60 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
     if (!cityCode) throw new MedusaError(MedusaError.Types.INVALID_DATA, "СДЭК: не выбран город")
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[])
     const quote = await cdekQuote(Number(optionData.tariff), cityCode, parcel)
-    return { calculated_amount: quote.amount, is_calculated_price_tax_inclusive: true }
+    return { calculated_amount: applyFreeShipping(quote.amount, itemsTotal((context.items ?? []) as unknown as PricedItem[])), is_calculated_price_tax_inclusive: true }
   }
 
-  async createFulfillment(): Promise<CreateFulfillmentResult> {
-    // Регистрация заказа в СДЭК будет добавлена с ключами боевого кабинета
-    return { data: {}, labels: [] }
+  async createFulfillment(
+    data: Record<string, unknown>,
+    items: Record<string, unknown>[],
+    order: Record<string, unknown> | undefined,
+    fulfillment: Record<string, unknown>
+  ): Promise<CreateFulfillmentResult> {
+    const o = (order ?? {}) as unknown as FulfillmentOrder
+    const addr = (fulfillment.delivery_address ?? o.shipping_address ?? {}) as FulfillmentOrder["shipping_address"]
+    const byLine = new Map((o.items ?? []).map((i) => [i.id, i]))
+    const lines = items.map((fi) => {
+      const li = byLine.get(String(fi.line_item_id))
+      return {
+        id: String(fi.line_item_id ?? fi.id),
+        title: String(fi.title ?? li?.title ?? ""),
+        product_title: li?.product_title ?? null,
+        sku: (fi.sku as string) || li?.variant_sku || null,
+        quantity: Number(fi.quantity ?? 1),
+        unit_price: Number(li?.unit_price ?? 0),
+        variant: { weight: li?.variant?.weight ?? null },
+      }
+    })
+    const paidOnline = o.metadata?.payment_method === "tbank"
+    const shipping = (o.shipping_methods ?? []).reduce((s, m) => s + Number(m.amount ?? 0), 0)
+    const input: CdekOrderInput = {
+      displayId: Number(o.display_id ?? 0),
+      kind: data.pvz_code ? "pvz" : "door",
+      cityCode: Number(data.city_code),
+      pvzCode: (data.pvz_code as string) ?? null,
+      address: addr?.address_1 ?? null,
+      recipient: {
+        name: [addr?.first_name, addr?.last_name].filter(Boolean).join(" ") || "Получатель",
+        phone: addr?.phone ?? "",
+        email: o.email ?? o.customer?.email ?? null,
+      },
+      items: lines,
+      cod: !paidOnline,
+      shippingAmount: shipping,
+      comment: `Заказ LAFLAMME № ${o.display_id}`,
+    }
+    const r = await createCdekOrder(input)
+    return {
+      data: { ...data, cdek_uuid: r.uuid, cdek_number: r.cdek_number, cdek_order_number: r.number, cod: input.cod },
+      labels: r.cdek_number
+        ? [{ tracking_number: r.cdek_number, tracking_url: r.tracking_url ?? "", label_url: `/admin/cdek/label/${r.uuid}` }]
+        : [],
+    }
   }
 
-  async cancelFulfillment(): Promise<Record<string, unknown>> {
+  async cancelFulfillment(fulfillment: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const data = (fulfillment.data ?? fulfillment) as Record<string, unknown>
+    if (data.cdek_uuid) await deleteCdekOrder(String(data.cdek_uuid))
     return {}
   }
 

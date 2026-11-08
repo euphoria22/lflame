@@ -25,3 +25,6 @@ export function validateCheckout(v: Partial<CheckoutInput>): Record<string, stri
   if (!v.consent) e.consent = "Нужно согласие на обработку персональных данных"
   return e
 }
+
+/** Способ оплаты: при получении или онлайн через Т-Кассу. */
+export type PaymentMethod = "cod" | "tbank"
