@@ -1,5 +1,5 @@
 import { container } from "@medusajs/framework"
-import { Modules } from "@medusajs/framework/utils"
+import { MedusaError, Modules } from "@medusajs/framework/utils"
 import { DEFAULT_PARCEL, ParcelConfig, validateParcelConfig } from "../delivery/parcel"
 import { Markup, NO_MARKUP } from "../delivery/free-shipping"
 
@@ -117,7 +117,7 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
 
 export async function saveShopSettings(patch: Partial<ShopSettings>): Promise<ShopSettings> {
   const store = await firstStore()
-  if (!store) throw new Error("Магазин не найден")
+  if (!store) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Магазин не найден")
   const current = { ...defaultSettings(), ...((store.metadata?.shop_settings ?? {}) as Partial<ShopSettings>), ...patch }
   await container.resolve(Modules.STORE).updateStores(store.id, { metadata: { ...(store.metadata ?? {}), shop_settings: current } })
   cache = { value: current, at: Date.now() }
