@@ -40,11 +40,11 @@ export async function CatalogListing(props: CatalogListingProps) {
         <h1 className="mt-6 text-[28px] font-normal leading-tight tracking-tight md:text-[40px]">{h1}</h1>
         {intro && <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-muted">{intro}</p>}
         {!!chips?.length && (
-          <ul className="rail -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
+          <ul className="rail -mx-4 mt-5 flex gap-x-5 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:gap-y-1 md:px-0">
             {chips.map((c) => (
               <li key={c.href} className="shrink-0">
                 <Link href={c.href} aria-current={c.active ? "page" : undefined}
-                  className={`block rounded-full px-4 py-2 text-[13px] transition-colors ${c.active ? "bg-foreground text-background" : "bg-surface hover:bg-surface-2"}`}>
+                  className={`block py-1 text-[14px] underline-offset-4 transition-colors ${c.active ? "underline" : "text-muted hover:text-foreground"}`}>
                   {c.label}
                 </Link>
               </li>

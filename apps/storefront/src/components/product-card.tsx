@@ -18,7 +18,6 @@ export function ProductCard({ item, priority = false, sizes = "(min-width: 1280p
 }) {
   const off = discountPercent(item.price, item.compare_at)
   const inStock = item.sizes.filter((s) => s.in_stock)
-  const lastSize = inStock.length === 1 && item.sizes.length > 1
   const alt = `${item.title} — фото`
 
   return (
@@ -32,11 +31,7 @@ export function ProductCard({ item, priority = false, sizes = "(min-width: 1280p
           <Image src={item.hover_image} alt="" fill sizes={sizes} loading="lazy"
             className="blend hidden object-contain opacity-0 transition-opacity duration-300 md:block md:group-hover:opacity-100" />
         )}
-        <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
-          {off && <span className="eyebrow rounded-full bg-sale px-2 py-1 text-white">−{off}%</span>}
-          {isNew(item) && !off && <span className="eyebrow glass rounded-full px-2 py-1">New</span>}
-          {lastSize && <span className="eyebrow glass rounded-full px-2 py-1">Последний размер</span>}
-        </div>
+        {isNew(item) && !off && <span className="eyebrow absolute left-3 top-3">New</span>}
         {inStock.length > 0 && !(inStock.length === 1 && inStock[0].size === "One Size") && (
           <div className="glass absolute inset-x-3 bottom-3 hidden translate-y-2 rounded-full px-4 py-2 text-center text-[12px] opacity-0 transition-all duration-200 md:block md:group-hover:translate-y-0 md:group-hover:opacity-100">
             {inStock.map((s) => s.size).join(" · ")}

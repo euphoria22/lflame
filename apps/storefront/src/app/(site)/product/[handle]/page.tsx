@@ -11,7 +11,7 @@ import { ProductRail } from "@/components/product-rail"
 import { RecentlyViewed } from "@/components/recently-viewed"
 import { ChevronIcon } from "@/components/icons"
 import { getCatalog, getProduct } from "@/lib/catalog"
-import { discountPercent, formatPrice } from "@/lib/format"
+import { formatPrice } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { GenderSlug, genderInfo, routes } from "@/lib/routes"
 import { clip, pageMeta } from "@/lib/seo"
@@ -64,7 +64,6 @@ export default async function ProductPage({ params }: Props) {
   const similar = pool
     .filter((i) => i.category?.handle === product.category?.handle && (i.gender === product.gender || i.gender === "unisex"))
     .sort((a, b) => Math.abs(a.price - product.price) - Math.abs(b.price - product.price))
-  const off = discountPercent(product.price, product.compare_at)
   const inStock = product.variants.some((v) => v.available > 0)
   const gInfo = genderInfo(g)!
 
@@ -94,9 +93,8 @@ export default async function ProductPage({ params }: Props) {
               <Link href={routes.brand(product.brand.handle)} className="eyebrow hover:opacity-60">{product.brand.name}</Link>
             )}
             <h1 className="mt-2 text-[22px] font-normal leading-snug tracking-tight md:text-[26px]">{product.title}</h1>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4">
               <Price price={product.price} compareAt={product.compare_at} size="lg" />
-              {off && <span className="eyebrow rounded-full bg-sale px-2 py-1 text-white">−{off}%</span>}
             </div>
             {product.color_name && <p className="mt-2 text-[13px] text-muted">Цвет: {product.color_name}</p>}
 

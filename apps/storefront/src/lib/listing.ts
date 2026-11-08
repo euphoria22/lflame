@@ -1,4 +1,4 @@
-import { sortSizes } from "./sizes"
+import { sizeKeyRank, sizeKeys, sizeLabel } from "./size-groups"
 import type { CatalogItem } from "./types"
 import type { GenderSlug } from "./routes"
 
@@ -79,7 +79,7 @@ export function filtersToQuery(f: Partial<ListingFilters>): string {
   if (f.page && f.page > 1) params.push(["page", String(f.page)])
   if (f.priceMax) params.push(["price_max", String(f.priceMax)])
   if (f.priceMin) params.push(["price_min", String(f.priceMin)])
-  if (f.sizes?.length) params.push(["size", sortSizes(f.sizes).join(",")])
+  if (f.sizes?.length) params.push(["size", [...f.sizes].sort((a, b) => sizeKeyRank(a) - sizeKeyRank(b)).join(",")])
   if (f.sort && f.sort !== "popular") params.push(["sort", f.sort])
   params.sort(([a], [b]) => a.localeCompare(b))
   const qs = new URLSearchParams(params).toString()
@@ -164,7 +164,7 @@ export type ListingResult = {
 function matches(i: CatalogItem, f: ListingFilters, skip?: "brand" | "size" | "color" | "price"): boolean {
   if (skip !== "brand" && f.brands.length && !f.brands.includes(i.brand?.handle ?? "")) return false
   if (skip !== "color" && f.colors.length && !f.colors.includes(i.color ?? "")) return false
-  if (skip !== "size" && f.sizes.length && !i.sizes.some((s) => s.in_stock && f.sizes.includes(s.size))) return false
+  if (skip !== "size" && f.sizes.length && !i.sizes.some((s) => s.in_stock && sizeKeys(s.size).some((k) => f.sizes.includes(k)))) return false
   if (skip !== "price") {
     if (f.priceMin && i.price < f.priceMin) return false
     if (f.priceMax && i.price > f.priceMax) return false
@@ -196,13 +196,12 @@ export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingRes
     (b) => [b.handle, b.name]
   ).sort((a, b) => a.label.localeCompare(b.label))
 
+  // Размеры сгруппированы: «46 (S)» входит в «S», «30x32» — в «W30» (lib/size-groups.ts)
   const sizeFacets = count(
     scoped.filter((i) => matches(i, f, "size")),
-    (i) => i.sizes.filter((s) => s.in_stock).map((s) => s.size),
-    (s) => [s, s]
-  )
-  const order = sortSizes(sizeFacets.map((s) => s.value))
-  sizeFacets.sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value))
+    (i) => i.sizes.filter((s) => s.in_stock).flatMap((s) => sizeKeys(s.size)),
+    (k) => [k, sizeLabel(k)]
+  ).sort((a, b) => sizeKeyRank(a.value) - sizeKeyRank(b.value))
 
   const colors = count(
     scoped.filter((i) => matches(i, f, "color")),

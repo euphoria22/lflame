@@ -58,17 +58,13 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
 
       {facets.sizes.length > 0 && (
         <Group title="Размер">
-          <div className="flex flex-wrap gap-1.5">
-            {facets.sizes.map((s) => {
-              const on = filters.sizes.includes(s.value)
-              return (
-                <button key={s.value} type="button" onClick={() => toggle("sizes", s.value)} aria-pressed={on}
-                  className={`h-9 min-w-[52px] rounded-full border px-3 text-[12px] transition-colors ${on ? "border-foreground bg-foreground text-background" : "border-line hover:border-foreground"}`}>
-                  {s.label}
-                </button>
-              )
-            })}
-          </div>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {facets.sizes.map((s) => (
+              <li key={s.value}>
+                <Check checked={filters.sizes.includes(s.value)} onChange={() => toggle("sizes", s.value)} label={s.label} />
+              </li>
+            ))}
+          </ul>
         </Group>
       )}
 
@@ -112,17 +108,17 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
   return (
     <>
       <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
-        <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-2 rounded-full border border-line px-4 py-2 text-[13px] lg:hidden">
+        <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-2 py-2 text-[13px] lg:hidden">
           <FilterIcon className="size-4" /> Фильтр{active ? ` · ${active}` : ""}
         </button>
         <p className="hidden text-[13px] text-muted lg:block">{total} {plural(total, ["товар", "товара", "товаров"])}</p>
-        <label className="relative flex items-center gap-2 text-[13px]">
-          <span className="sr-only">Сортировка</span>
+        <label className="relative flex items-center text-[13px]">
+          <span className="text-muted">Сортировка:&nbsp;</span>
           <select value={filters.sort} onChange={(e) => go({ sort: e.target.value as SortKey })}
-            className="appearance-none rounded-full border border-line bg-transparent py-2 pl-4 pr-9 text-[13px]">
+            className="cursor-pointer appearance-none bg-transparent py-2 pr-6 text-[13px] outline-none">
             {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
-          <ChevronIcon className="pointer-events-none absolute right-3 size-4" />
+          <ChevronIcon className="pointer-events-none absolute right-0 size-4" />
         </label>
       </div>
 
@@ -166,18 +162,14 @@ function BrandFilter({ facets, selected, onToggle }: { facets: ListingResult["fa
     <Group title="Бренд">
       {facets.length > 8 && (
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск бренда"
-          className="mb-3 h-9 w-full rounded-full border border-line px-4 text-[13px] outline-none focus:border-foreground" />
+          className="mb-3 w-full border-b border-line bg-transparent py-2 text-[13px] outline-none focus:border-foreground" />
       )}
       <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
         {shown.map((b) => {
           const on = selected.includes(b.value)
           return (
             <li key={b.value}>
-              <label className="flex cursor-pointer items-center gap-3 text-[13px]">
-                <input type="checkbox" checked={on} onChange={() => onToggle(b.value)} className="size-4 accent-black" />
-                <span className="flex-1">{b.label}</span>
-                <span className="text-subtle">{b.count}</span>
-              </label>
+              <Check checked={on} onChange={() => onToggle(b.value)} label={b.label} count={b.count} />
             </li>
           )
         })}
@@ -190,16 +182,43 @@ function PriceFilter({ min, max, valueMin, valueMax, onApply }: {
   min: number; max: number; valueMin: number | null; valueMax: number | null
   onApply: (min: number | null, max: number | null) => void
 }) {
-  const [lo, setLo] = useState(valueMin ? String(valueMin) : "")
-  const [hi, setHi] = useState(valueMax ? String(valueMax) : "")
-  const apply = () => onApply(Number(lo) || null, Number(hi) || null)
-  const field = "h-9 w-full rounded-full border border-line px-4 text-[13px] outline-none focus:border-foreground"
+  // Шаг 100 ₽; ползунок с двумя ручками из двух input[type=range]
+  const lo0 = Math.floor(min / 100) * 100
+  const hi0 = Math.ceil(max / 100) * 100
+  const [lo, setLo] = useState(valueMin ?? lo0)
+  const [hi, setHi] = useState(valueMax ?? hi0)
+  if (hi0 <= lo0) return null
+  const pct = (v: number) => ((v - lo0) / (hi0 - lo0)) * 100
+  const commit = () => onApply(lo > lo0 ? lo : null, hi < hi0 ? hi : null)
+  const thumb = "pointer-events-none absolute inset-x-0 top-1/2 h-0 w-full -translate-y-1/2 appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-foreground [&::-webkit-slider-thumb]:bg-background [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-foreground [&::-moz-range-thumb]:bg-background"
   return (
     <Group title="Цена">
-      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); apply() }}>
-        <input inputMode="numeric" value={lo} onChange={(e) => setLo(e.target.value.replace(/\D/g, ""))} onBlur={apply} placeholder={`от ${formatPrice(min)}`} aria-label="Цена от" className={field} />
-        <input inputMode="numeric" value={hi} onChange={(e) => setHi(e.target.value.replace(/\D/g, ""))} onBlur={apply} placeholder={`до ${formatPrice(max)}`} aria-label="Цена до" className={field} />
-      </form>
+      <div className="flex justify-between text-[13px]">
+        <span>{formatPrice(lo)}</span>
+        <span>{formatPrice(hi)}</span>
+      </div>
+      <div className="relative mx-2 mt-4 h-4">
+        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-line" />
+        <div className="absolute top-1/2 h-px -translate-y-1/2 bg-foreground" style={{ left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }} />
+        <input type="range" aria-label="Цена от" min={lo0} max={hi0} step={100} value={lo}
+          onChange={(e) => setLo(Math.min(Number(e.target.value), hi - 100))}
+          onPointerUp={commit} onKeyUp={commit} onTouchEnd={commit} className={thumb} />
+        <input type="range" aria-label="Цена до" min={lo0} max={hi0} step={100} value={hi}
+          onChange={(e) => setHi(Math.max(Number(e.target.value), lo + 100))}
+          onPointerUp={commit} onKeyUp={commit} onTouchEnd={commit} className={thumb} />
+      </div>
     </Group>
+  )
+}
+
+/** Квадратная галочка в стиле сайта. */
+function Check({ checked, onChange, label, count }: { checked: boolean; onChange: () => void; label: string; count?: number }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2.5 text-[13px]">
+      <input type="checkbox" checked={checked} onChange={onChange}
+        className="size-4 shrink-0 cursor-pointer appearance-none border border-subtle bg-background bg-center bg-no-repeat checked:border-foreground checked:bg-foreground checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><path d=%22M4 8.5l2.5 2.5L12 5.5%22 fill=%22none%22 stroke=%22white%22 stroke-width=%221.6%22/></svg>')]" />
+      <span className="flex-1">{label}</span>
+      {count !== undefined && <span className="text-subtle">{count}</span>}
+    </label>
   )
 }
