@@ -13,7 +13,8 @@
     "test": "turbo test",
     "backend:seed": "turbo seed --filter=@lflame/backend",
     "backend:dev": "turbo dev --filter=@lflame/backend",
-    "storefront:dev": "turbo dev --filter=@lflame/storefront"
+    "storefront:dev": "turbo dev --filter=@lflame/storefront",
+    "cms:dev": "turbo dev --filter=@lflame/cms"
   },
   "devDependencies": {
     "@medusajs/eslint-plugin": "2.22.3",

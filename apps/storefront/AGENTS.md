@@ -10,8 +10,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## LAFLAMME storefront rules
 
-- Two root layouts via route groups: `src/app/(site)` is the public shop (`<html lang="ru">`), `src/app/(payload)` is Payload CMS (admin at `/cms`, REST at `/api`). Do not add `src/app/layout.tsx`.
-- `cacheComponents` is on. Fetch Medusa/Payload data in server-only functions marked `"use cache"` with `cacheTag(...)`; invalidate with `revalidateTag` from webhooks. Never read cookies/headers inside a cached scope.
+- Public routes live in `src/app/(site)` (root layout, `<html lang="ru">`). Payload CMS is NOT here: it is the separate app `apps/cms`; read its content over REST (`CMS_URL`) inside `"use cache"` functions.
+- `cacheComponents` is on. Fetch Medusa/CMS data in server-only functions marked `"use cache"` with `cacheTag(...)`; invalidate with `revalidateTag` from webhooks. Never read cookies/headers inside a cached scope.
 - URL scheme, redirects, meta, JSON-LD and robots rules: `docs/TZ.md`, п. 7. Indexable content must be in the server HTML.
 - Styling: Tailwind v4, tokens in `src/app/(site)/globals.css`. Mobile-first (375 px).
 - Code style: no semicolons, double quotes, 2-space indent (same as backend).

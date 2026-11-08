@@ -1,6 +1,6 @@
 # Техническое задание: интернет-магазин мультибрендовой одежды LAFLAMME
 
-Версия 1.2 · 08.11.2026 (утверждены правила программы лояльности, п. 6.7)
+Версия 1.3 · 08.11.2026 (CMS вынесена в отдельное приложение, п. 1.3)
 
 Документ — единый источник требований. Весь код пишется по нему. Если требование меняется, сначала правится ТЗ, потом код.
 
@@ -30,7 +30,7 @@
 |---|---|
 | Бэкенд, админка магазина | Medusa v2 (Node.js, TypeScript) |
 | Витрина | Next.js 16 (App Router, React Server Components), TypeScript |
-| Контент (баннеры, страницы, главная, журнал) | Payload CMS 3, встроена в приложение Next.js по адресу `/cms` |
+| Контент (баннеры, страницы, главная, журнал) | Payload CMS 3, отдельное приложение `apps/cms` (админка `/cms`) на admin-поддомене; витрина получает контент через REST API |
 | База данных | PostgreSQL 16: отдельные базы для Medusa и Payload |
 | Кэш, очереди, события | Redis 7 |
 | Поиск и фильтры каталога | Meilisearch |
@@ -38,7 +38,7 @@
 | Оплата | Т-Касса (`@gorgo/medusa-payment-tkassa`), Яндекс Сплит / Яндекс Пэй (свой провайдер) |
 | Доставка | ApiShip (`@gorgo/medusa-fulfillment-apiship`): СДЭК, Почта России, Яндекс Доставка |
 | Развёртывание | Docker Compose, сервер в РФ, деплой через GitHub Actions |
-| Структура репозитория | монорепозиторий: `apps/backend`, `apps/storefront`, `packages/*`, `infra/`, `docs/` |
+| Структура репозитория | монорепозиторий: `apps/backend`, `apps/storefront`, `apps/cms`, `packages/*`, `infra/`, `docs/` |
 
 ---
 
@@ -351,7 +351,7 @@
 - В sitemap только канонические адреса с кодом 200 и `index`. `lastmod` — реальная дата изменения.
 - Генерация по расписанию раз в час и по событию, отдача из кэша.
 - `robots.txt`:
-  - `Disallow: /cart`, `/checkout`, `/account`, `/search`, `/favorites`, `/api/`, `/cms`;
+  - `Disallow: /cart`, `/checkout`, `/account`, `/search`, `/favorites`, `/api/`;
   - для Яндекса: `Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&from&sort&view`;
   - ссылка на sitemap.
 - Staging и все тестовые окружения закрыты: basic auth + `X-Robots-Tag: noindex` + `Disallow: /`.

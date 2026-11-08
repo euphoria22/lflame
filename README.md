@@ -6,67 +6,153 @@
 
 ## Из чего состоит проект
 
-| Часть | Папка | Адрес локально | Что это |
+| Часть | Папка | Адрес на компьютере | Что это |
 |---|---|---|---|
-| Бэкенд и админка магазина | `apps/backend` | http://localhost:9000/app | Medusa v2: товары, заказы, клиенты, оплата, доставка, интеграции |
 | Витрина | `apps/storefront` | http://localhost:8000 | Next.js 16: сайт, который видят покупатели |
-| Админка контента | `apps/storefront` | http://localhost:8000/cms | Payload CMS: баннеры, главная, страницы, журнал |
+| Админка магазина | `apps/backend` | http://localhost:9000/app | Medusa v2: товары, заказы, клиенты, оплата, доставка, интеграции |
+| Админка контента | `apps/cms` | http://localhost:3001/cms | Payload CMS: баннеры, главная, страницы, журнал |
 | Инфраструктура | `infra/` | — | Docker Compose, настройки серверов |
 | Документация | `docs/` | — | ТЗ, инструкции |
 
-## Запуск на своём компьютере
+---
 
-Нужно установить: [Node.js 22](https://nodejs.org) и [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+## Запуск на своём компьютере (Windows)
 
-1. Запустить базу данных и Redis:
+### Подготовка: установить программы (один раз)
 
-   ```bash
-   docker compose -f infra/docker-compose.dev.yml up -d
-   ```
+1. **Node.js 22** — https://nodejs.org → кнопка **LTS** → установить, везде «Next».
+2. **Docker Desktop** — https://www.docker.com/products/docker-desktop/
+   Если установщик пишет про «Virtual Machine Platform»: «Пуск» → наберите **PowerShell** → правой кнопкой → **«Запуск от имени администратора»** → выполните `wsl --install` → **перезагрузите компьютер** → запустите установщик Docker ещё раз.
+3. **Visual Studio Code** — https://code.visualstudio.com → установить.
 
-2. Установить зависимости:
+### Шаг 1. Скачать код
 
-   ```bash
-   npm install
-   ```
+1. На странице репозитория нажмите зелёную кнопку **«Code» → «Download ZIP»**.
+2. Распакуйте в `C:\Projects\`. Получится `C:\Projects\lflame-main`.
 
-3. Создать файлы настроек из шаблонов и заполнить их (подсказки внутри):
+> В пути к папке **не должно быть русских букв и пробелов**. Папки вида `C:\Users\Алексей\Desktop` не подходят.
 
-   ```bash
-   cp apps/backend/.env.template apps/backend/.env
-   ```
+### Шаг 2. Открыть проект
 
-   ```bash
-   cp apps/storefront/.env.template apps/storefront/.env
-   ```
+1. VS Code → **File → Open Folder…** → `C:\Projects\lflame-main`. На вопрос «Do you trust the authors?» → **Yes**.
+2. **Terminal → New Terminal**. Внизу откроется терминал, строка начинается с `PS C:\Projects\lflame-main>`.
 
-4. Создать таблицы и базовые настройки магазина (Россия, рубли, склад, канал продаж):
+Команды ниже копируйте в этот терминал (вставка — Ctrl+V или правая кнопка мыши) и нажимайте Enter.
 
-   ```bash
-   cd apps/backend && npx medusa db:migrate
-   ```
+**Если появилась ошибка «выполнение сценариев отключено в этой системе»**, выполните один раз:
 
-5. Создать администратора магазина:
+```bash
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
 
-   ```bash
-   cd apps/backend && npx medusa user -e you@example.com -p 'надёжный-пароль'
-   ```
+На вопрос ответьте `Y`. Затем закройте терминал (значок корзины) и откройте новый.
 
-6. Взять ключ витрины (Settings → Publishable API Keys → «Витрина LAFLAMME» в админке Medusa) и вписать его в `apps/storefront/.env` в `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`.
+### Шаг 3. Запустить базу данных
 
-7. Запустить всё:
+Docker Desktop должен быть запущен: в трее у часов есть значок кита.
 
-   ```bash
-   npm run dev
-   ```
+```bash
+docker compose -f infra/docker-compose.dev.yml up -d
+```
 
-При первом входе в `/cms` Payload предложит создать первого пользователя.
+✅ Появятся строки `Started` / `Running`.
 
-Русский язык в админке Medusa: профиль (внизу слева) → Profile → Edit → Language → Русский.
+### Шаг 4. Установить зависимости
+
+```bash
+npm install
+```
+
+✅ 3–10 минут. Жёлтые `npm warn` — нормально. В конце `added … packages`.
+
+### Шаг 5. Создать файлы настроек
+
+Выполните три команды по очереди:
+
+```bash
+cp apps/backend/.env.template apps/backend/.env
+```
+
+```bash
+cp apps/storefront/.env.template apps/storefront/.env
+```
+
+```bash
+cp apps/cms/.env.template apps/cms/.env
+```
+
+Затем в VS Code слева откройте `apps` → `cms` → **`.env`**. В строке `PAYLOAD_SECRET=` допишите после `=` любые 40 случайных букв и цифр, например:
+
+```
+PAYLOAD_SECRET=k3j4h5g6f7d8s9a0q1w2e3r4t5y6u7i8o9p0z1x2
+```
+
+Сохраните: **Ctrl+S**. Остальные файлы пока не трогайте.
+
+### Шаг 6. Создать таблицы магазина
+
+```bash
+cd apps/backend
+```
+
+```bash
+npx medusa db:migrate
+```
+
+✅ В конце `Migration scripts completed`, выше — `LAFLAMME: базовая настройка завершена.`
+
+### Шаг 7. Создать себе вход в админку магазина
+
+Подставьте свою почту и пароль:
+
+```bash
+npx medusa user -e ваша@почта.ru -p ВашПароль123
+```
+
+✅ `User created successfully`.
+
+### Шаг 8. Запустить всё
+
+```bash
+cd ../..
+```
+
+```bash
+npm run dev
+```
+
+✅ Через минуту появятся `Server is ready on port: 9000` и несколько строк `Ready`.
+**Терминал не закрывайте**: пока он открыт, сайт работает. Остановить — **Ctrl+C**.
+
+### Шаг 9. Подключить витрину к магазину
+
+1. Откройте http://localhost:9000/app и войдите (почта и пароль из шага 7).
+2. Русский язык: внизу слева нажмите на свою почту → **Profile** → **Edit** → **Language** → **Русский** → **Save**.
+3. **Настройки** (внизу слева) → **Публикуемые API-ключи** → **«Витрина LAFLAMME»** → скопируйте ключ (начинается с `pk_`).
+4. В VS Code откройте `apps/storefront/.env`, вставьте ключ после `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=` и сохраните (**Ctrl+S**).
+5. Перезапустите: в терминале **Ctrl+C**, затем снова `npm run dev`.
+
+### Шаг 10. Смотреть
+
+| Что | Адрес | Что увидите |
+|---|---|---|
+| Витрина | http://localhost:8000 | LAFLAMME и «Medusa подключена: регион «Россия», валюта RUB» |
+| Админка магазина | http://localhost:9000/app | товары, заказы, клиенты (пока пусто) |
+| Админка контента | http://localhost:3001/cms | при первом входе создайте пользователя |
+
+### В следующие разы
+
+Запустите Docker Desktop, откройте папку в VS Code → **Terminal → New Terminal** →
+
+```bash
+npm run dev
+```
+
+---
 
 ## Этапы
 
-Текущий этап отмечен в [ТЗ, раздел 12](docs/TZ.md#12-этапы).
+Подробно — в [ТЗ, раздел 12](docs/TZ.md#12-этапы).
 
 - [x] Этап 1. Каркас: Medusa, Next.js, Payload, Россия / RUB / русский язык
 - [ ] Этап 2. Каталог и синхронизация с МоимСкладом

@@ -15,10 +15,12 @@ const dirname = path.dirname(filename)
 /**
  * Payload CMS: контент сайта (ТЗ, п. 1.3, 9).
  * Баннеры, блоки главной, страницы, журнал. Товары и заказы — в Medusa.
- * Админка: /cms. На production доступна только с admin-поддомена (ТЗ, п. 8.2).
+ * Отдельное приложение apps/cms, админка по адресу /cms.
+ * На production доступна только с admin-поддомена (ТЗ, п. 8.2).
+ * Витрина читает контент через REST API (/api) и кэширует его тегами.
  */
 export default buildConfig({
-  serverURL: process.env.NEXT_PUBLIC_SITE_URL,
+  serverURL: process.env.CMS_URL,
   routes: {
     admin: "/cms",
   },

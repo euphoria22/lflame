@@ -1,0 +1,35 @@
+{
+  "name": "@lflame/cms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LAFLAMME: CMS контента (Payload) — баннеры, главная, страницы",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "eslint",
+    "payload": "payload",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "payload": "3.93.0",
+    "@payloadcms/next": "3.93.0",
+    "@payloadcms/db-postgres": "3.93.0",
+    "@payloadcms/richtext-lexical": "3.93.0",
+    "@payloadcms/translations": "3.93.0",
+    "@payloadcms/ui": "3.93.0",
+    "graphql": "^16.8.1",
+    "sharp": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "typescript": "^5"
+  }
+}

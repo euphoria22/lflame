@@ -2,7 +2,7 @@
 
 ## Overview
 
-LAFLAMME — multi-brand clothing store. Turborepo workspace monorepo: Medusa backend (`@lflame/backend`, `@medusajs/medusa` 2.x, Node 22.22+, PostgreSQL 16) and a Next.js 16 storefront with embedded Payload CMS 3 (`@lflame/storefront`).
+LAFLAMME — multi-brand clothing store. Turborepo workspace monorepo: Medusa backend (`@lflame/backend`, `@medusajs/medusa` 2.x, Node 22.22+, PostgreSQL 16), a Next.js 16 storefront (`@lflame/storefront`, port 8000) and a separate Payload CMS 3 app (`@lflame/cms`, port 3001). Payload lives in its own app because its admin does not support Next.js Cache Components, which the storefront relies on.
 
 ## Project Rules (read first)
 
@@ -38,7 +38,7 @@ LAFLAMME — multi-brand clothing store. Turborepo workspace monorepo: Medusa ba
 | Tests | `apps/backend/integration-tests/`, `src/**/__tests__/` | `@medusajs/test-utils` |
 | Storefront API calls | `apps/storefront/src/lib/` (server-only, `"use cache"` + `cacheTag`) | `@medusajs/js-sdk`, `@medusajs/types` (`HttpTypes`), `apps/storefront/AGENTS.md` |
 | Storefront pages | `apps/storefront/src/app/(site)/` (URL scheme: ТЗ, п. 6.1, 7.2) | Next.js docs in `node_modules/next/dist/docs/` |
-| CMS collections / blocks | `apps/storefront/src/collections/`, `src/payload.config.ts`; admin UI routes in `src/app/(payload)/` | `payload` docs |
+| CMS collections / blocks | `apps/cms/src/collections/`, `apps/cms/src/payload.config.ts` (admin UI routes in `apps/cms/src/app/(payload)/` are Payload-generated) | `payload` docs |
 | Lint failure | the flagged file | `@medusajs/eslint-plugin` |
 
 ## Directory Structure
@@ -60,12 +60,14 @@ LAFLAMME — multi-brand clothing store. Turborepo workspace monorepo: Medusa ba
 │   │       ├── search/           # Product search index definition
 │   │       ├── subscribers/      # Event subscribers
 │   │       └── workflows/        # Workflows and workflow steps
-│   └── storefront/               # Next.js storefront + Payload CMS (@lflame/storefront)
+│   ├── storefront/               # Next.js storefront (@lflame/storefront), Cache Components on
+│   │   └── src/
+│   │       ├── app/(site)/       # Public site routes (root layout, lang="ru")
+│   │       └── lib/              # Server-side Medusa / CMS clients and helpers
+│   └── cms/                      # Payload CMS (@lflame/cms), admin at /cms, REST at /api
 │       └── src/
-│           ├── app/(site)/       # Public site routes (root layout, lang="ru")
-│           ├── app/(payload)/    # Payload admin at /cms and its REST API at /api
-│           ├── collections/      # Payload collections (content: banners, pages, media)
-│           ├── lib/              # Server-side Medusa client and helpers
+│           ├── app/(payload)/    # Payload-generated admin routes
+│           ├── collections/      # Content: banners, pages, media
 │           └── payload.config.ts
 ├── docs/                         # TZ.md (specification), manuals
 ├── infra/                        # docker-compose for dev, server setup
@@ -73,7 +75,7 @@ LAFLAMME — multi-brand clothing store. Turborepo workspace monorepo: Medusa ba
 └── turbo.json                    # Task graph: build, dev, start, lint, test, seed
 ```
 
-`apps/storefront` is part of this project (it is not the optional Medusa starter storefront). It uses its own conventions: see `apps/storefront/AGENTS.md`.
+`apps/storefront` and `apps/cms` are part of this project (the storefront is not the optional Medusa starter storefront). Each has its own `AGENTS.md`.
 
 Each app can have its own nested `AGENTS.md`; agents read the nearest one in the directory tree, so put app-specific context there rather than expanding this file.
 
