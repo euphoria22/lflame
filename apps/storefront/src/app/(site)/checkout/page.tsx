@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { connection } from "next/server"
 
 import { CheckoutForm } from "@/components/checkout-form"
 import { NOINDEX } from "@/lib/seo"
@@ -9,7 +10,8 @@ export const metadata: Metadata = { title: "Оформление заказа �
 type Options = { online_payment: boolean; free_shipping_from: number }
 
 export default async function CheckoutPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
-  // Сначала параметры запроса: страница рендерится только по запросу, не при сборке
+  // Страница рендерится только по запросу: настройки из админки должны быть свежими
+  await connection()
   const { payment } = await searchParams
   const options = await storeFetch<Options>("/store/checkout/options").catch(() => ({ online_payment: false, free_shipping_from: 0 }))
   const notice = payment === "failed" ? "Оплата не прошла. Попробуйте ещё раз или выберите оплату при получении."

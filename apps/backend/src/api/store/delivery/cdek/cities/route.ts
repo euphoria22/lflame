@@ -10,7 +10,8 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   }
   try {
     res.json({ cities: await cdekSuggestCities(q) })
-  } catch {
+  } catch (e) {
+    req.scope.resolve("logger").warn(`СДЭК: подсказки городов недоступны: ${(e as Error).message}`)
     res.status(502).json({ cities: [], message: "СДЭК временно недоступен" })
   }
 }

@@ -7,11 +7,16 @@ import { MedusaError } from "@medusajs/framework/utils"
  */
 export type CdekConfig = { baseUrl: string; clientId: string; clientSecret: string; fromCityCode: number }
 
+/** Общедоступный тестовый аккаунт СДЭК из документации (только для api.edu.cdek.ru). */
+const CDEK_TEST_ACCOUNT = { id: "wqGwiQx0gg8mLtiEKsUinjVSICCjtTEP", secret: "RmAmgvSgSl1yirlz9QupbzOJVqhCxcP5" }
+
 export function cdekConfig(): CdekConfig {
+  const baseUrl = (process.env.CDEK_API_URL || "https://api.edu.cdek.ru/v2").replace(/\/+$/, "")
+  const isTest = baseUrl.includes(".edu.")
   return {
-    baseUrl: (process.env.CDEK_API_URL || "https://api.edu.cdek.ru/v2").replace(/\/+$/, ""),
-    clientId: process.env.CDEK_CLIENT_ID || "",
-    clientSecret: process.env.CDEK_CLIENT_SECRET || "",
+    baseUrl,
+    clientId: process.env.CDEK_CLIENT_ID || (isTest ? CDEK_TEST_ACCOUNT.id : ""),
+    clientSecret: process.env.CDEK_CLIENT_SECRET || (isTest ? CDEK_TEST_ACCOUNT.secret : ""),
     // Омск (код города СДЭК)
     fromCityCode: Number(process.env.CDEK_FROM_CITY_CODE || 268),
   }
@@ -88,4 +93,11 @@ export async function cdekPoints(cityCode: number): Promise<CdekPoint[]> {
     lat: p.location.latitude,
     lon: p.location.longitude,
   }))
+}
+
+/** Координаты центра города СДЭК (для карты и поиска отделений Почты). */
+export async function cdekCityCenter(code: number): Promise<{ lat: number; lon: number; city: string } | null> {
+  const rows = await cdekRequest<{ city: string; latitude?: number; longitude?: number }[]>("/location/cities", { query: { code, country_codes: "RU" } })
+  const c = rows[0]
+  return c?.latitude && c?.longitude ? { lat: c.latitude, lon: c.longitude, city: c.city } : null
 }

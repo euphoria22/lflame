@@ -8,7 +8,7 @@ import type {
 import { CDEK_TARIFFS, cdekQuote } from "../../lib/delivery/cdek-client"
 import { CdekOrderInput, createCdekOrder, deleteCdekOrder } from "../../lib/delivery/cdek-orders"
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
-import { applyFreeShipping, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
+import { applyFreeShipping, freeShippingFrom, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
 
 /**
  * Провайдер доставки СДЭК (ТЗ, п. 5). Цена считается по API СДЭК на каждый запрос.
@@ -59,7 +59,7 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
     if (!cityCode) throw new MedusaError(MedusaError.Types.INVALID_DATA, "СДЭК: не выбран город")
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[])
     const quote = await cdekQuote(Number(optionData.tariff), cityCode, parcel)
-    return { calculated_amount: applyFreeShipping(quote.amount, itemsTotal((context.items ?? []) as unknown as PricedItem[])), is_calculated_price_tax_inclusive: true }
+    return { calculated_amount: applyFreeShipping(quote.amount, itemsTotal((context.items ?? []) as unknown as PricedItem[]), await freeShippingFrom()), is_calculated_price_tax_inclusive: true }
   }
 
   async createFulfillment(
@@ -103,7 +103,7 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
     }
     const r = await createCdekOrder(input)
     return {
-      data: { ...data, cdek_uuid: r.uuid, cdek_number: r.cdek_number, cdek_order_number: r.number, cod: input.cod },
+      data: { ...data, cdek_uuid: r.uuid, cdek_number: r.cdek_number, cdek_order_number: r.number, cod: input.cod, cdek_status: "ACCEPTED", cdek_status_name: "Принят" },
       labels: r.cdek_number
         ? [{ tracking_number: r.cdek_number, tracking_url: r.tracking_url ?? "", label_url: `/admin/cdek/label/${r.uuid}` }]
         : [],

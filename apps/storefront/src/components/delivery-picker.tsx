@@ -2,8 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { CdekCity, CdekPoint, daysLabel, DeliveryChoice, DeliveryKind, PICKUP, Quote } from "@/lib/delivery"
+import dynamic from "next/dynamic"
+
+import { CdekCity, CdekPoint, daysLabel, DeliveryChoice, DeliveryKind, PICKUP, PochtaOffice, Quote } from "@/lib/delivery"
 import { formatPrice } from "@/lib/format"
+
+// Карта грузится только когда нужна (Leaflet работает лишь в браузере)
+const PickupMap = dynamic(() => import("./pickup-map").then((m) => m.PickupMap), {
+  ssr: false,
+  loading: () => <div className="h-[320px] w-full animate-pulse rounded-xl bg-surface md:h-[380px]" />,
+})
 
 type Props = {
   value: DeliveryChoice
@@ -17,13 +25,12 @@ const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
   { kind: "pickup", title: "Самовывоз из магазина", hint: `${PICKUP.address}, ${PICKUP.hours}` },
   { kind: "cdek-pvz", title: "СДЭК — пункт выдачи", hint: "Доставка до пункта выдачи СДЭК" },
   { kind: "cdek-door", title: "СДЭК — курьер", hint: "Курьер привезёт заказ по адресу" },
-  { kind: "pochta", title: "Почта России", hint: "Посылка до отделения по индексу" },
+  { kind: "pochta", title: "Почта России", hint: "Посылка до почтового отделения" },
 ]
 
 /**
- * Выбор способа получения (ТЗ, п. 5.2): город с подсказками СДЭК, пункты выдачи списком
- * с поиском, адрес для курьера и Почты; цена и срок пересчитываются сразу.
- * Карта пунктов выдачи — следующим шагом (нужен ключ Яндекс Карт).
+ * Выбор способа получения (ТЗ, п. 5.2): город с подсказками СДЭК, пункты выдачи и отделения
+ * Почты на карте и списком с поиском, адрес для курьера; цена и срок пересчитываются сразу.
  */
 export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props) {
   const [quoteError, setQuoteError] = useState<string | null>(null)
@@ -81,25 +88,17 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props
 
             {on && o.kind !== "pickup" && (
               <div className="space-y-3 border-t border-line p-4">
-                {(o.kind === "cdek-pvz" || o.kind === "cdek-door") && (
-                  <CityInput value={value.city ?? ""} onSelect={(c) => set({ city: c.city, city_code: c.code, pvz_code: undefined, pvz_address: undefined })} />
-                )}
+                <CityInput value={value.city ?? ""}
+                  onSelect={(c) => set({ city: c.city, city_code: c.code, pvz_code: undefined, pvz_address: undefined, ...(o.kind === "pochta" ? { postal_code: undefined, address: undefined } : {}) })} />
                 {o.kind === "cdek-pvz" && value.city_code && (
-                  <PointList cityCode={value.city_code} selected={value.pvz_code}
+                  <CdekPoints cityCode={value.city_code} selected={value.pvz_code}
                     onSelect={(p) => set({ pvz_code: p.code, pvz_address: p.address, postal_code: p.postal_code })} />
                 )}
                 {o.kind === "cdek-door" && (
                   <input className={FIELD} placeholder="Улица, дом, квартира" autoComplete="street-address" value={value.address ?? ""} onChange={(e) => set({ address: e.target.value })} />
                 )}
-                {o.kind === "pochta" && (
-                  <>
-                    <div className="grid grid-cols-[1fr_140px] gap-3">
-                      <input className={FIELD} placeholder="Город" autoComplete="address-level2" value={value.city ?? ""} onChange={(e) => set({ city: e.target.value })} />
-                      <input className={FIELD} placeholder="Индекс" inputMode="numeric" autoComplete="postal-code" maxLength={6}
-                        value={value.postal_code ?? ""} onChange={(e) => set({ postal_code: e.target.value.replace(/\D/g, "").slice(0, 6) })} />
-                    </div>
-                    <input className={FIELD} placeholder="Улица, дом, квартира" autoComplete="street-address" value={value.address ?? ""} onChange={(e) => set({ address: e.target.value })} />
-                  </>
+                {o.kind === "pochta" && value.city_code && (
+                  <PochtaOffices cityCode={value.city_code} value={value} onChange={set} />
                 )}
                 {quoteError && <p className="text-[12px] text-sale">{quoteError}</p>}
               </div>
@@ -119,6 +118,7 @@ function CityInput({ value, onSelect }: { value: string; onSelect: (c: CdekCity)
   const [q, setQ] = useState(value)
   const [list, setList] = useState<CdekCity[]>([])
   const [open, setOpen] = useState(false)
+  const [failed, setFailed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const search = (text: string) => {
@@ -127,9 +127,10 @@ function CityInput({ value, onSelect }: { value: string; onSelect: (c: CdekCity)
     if (timer.current) clearTimeout(timer.current)
     if (text.trim().length < 2) { setList([]); return }
     timer.current = setTimeout(async () => {
-      const r = await fetch(`/api/delivery/cities?q=${encodeURIComponent(text.trim())}`)
-      const d = (await r.json().catch(() => ({ cities: [] }))) as { cities: CdekCity[] }
-      setList(d.cities ?? [])
+      const r = await fetch(`/api/delivery/cities?q=${encodeURIComponent(text.trim())}`).catch(() => null)
+      const d = (await r?.json().catch(() => null)) as { cities?: CdekCity[] } | null
+      setFailed(!r?.ok)
+      setList(d?.cities ?? [])
     }, 250)
   }
 
@@ -149,14 +150,69 @@ function CityInput({ value, onSelect }: { value: string; onSelect: (c: CdekCity)
           ))}
         </ul>
       )}
+      {failed && <p className="mt-1 text-[12px] text-sale">Не удалось загрузить города: СДЭК не отвечает. Попробуйте через минуту.</p>}
     </div>
   )
 }
 
-/** Пункты выдачи СДЭК списком с поиском по адресу. */
-function PointList({ cityCode, selected, onSelect }: { cityCode: number; selected?: string; onSelect: (p: CdekPoint) => void }) {
-  const [points, setPoints] = useState<CdekPoint[] | null>(null)
+type Place = { id: string; address: string; sub: string; lat: number; lon: number }
+
+/** Карта + поиск + список. Выбор на карте и в списке синхронизирован. */
+function PlacePicker({ places, selected, onSelect, noun }: { places: Place[]; selected?: string; onSelect: (id: string) => void; noun: string }) {
   const [q, setQ] = useState("")
+  const [view, setView] = useState<"map" | "list">("map")
+  const shown = useMemo(() => places.filter((p) => `${p.address} ${p.id}`.toLowerCase().includes(q.toLowerCase())), [places, q])
+  const points = useMemo(() => places.map((p) => ({ id: p.id, lat: p.lat, lon: p.lon, title: p.address })), [places])
+  const chosen = places.find((p) => p.id === selected)
+  const list = useRef<HTMLUListElement>(null)
+
+  // Выбор на карте — прокручиваем список к пункту
+  useEffect(() => {
+    list.current?.querySelector(`[data-id="${CSS.escape(selected ?? "")}"]`)?.scrollIntoView({ block: "nearest" })
+  }, [selected])
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1 md:hidden" role="tablist">
+        {(["map", "list"] as const).map((v) => (
+          <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
+            className={`h-9 flex-1 rounded-full text-[13px] ${view === v ? "bg-foreground text-background" : "bg-surface"}`}>
+            {v === "map" ? "На карте" : "Списком"}
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-3 md:grid-cols-[1fr_260px]">
+        <div className={view === "list" ? "hidden md:block" : ""}>
+          <PickupMap points={points} selected={selected} onSelect={onSelect} />
+        </div>
+        <div className={`flex flex-col ${view === "map" ? "hidden md:flex" : ""}`}>
+          <input className={`${FIELD} mb-2 h-10 text-[13px]`} placeholder={`Поиск · ${places.length} ${noun}`} value={q} onChange={(e) => setQ(e.target.value)} />
+          <ul ref={list} className="scroll-subtle max-h-[320px] space-y-1 overflow-y-auto pr-1 md:max-h-[330px]">
+            {shown.map((p) => (
+              <li key={p.id} data-id={p.id}>
+                <button type="button" onClick={() => onSelect(p.id)}
+                  className={`block w-full rounded-lg border px-3 py-2 text-left text-[13px] transition-colors ${selected === p.id ? "border-foreground bg-surface" : "border-transparent hover:bg-surface"}`}>
+                  {p.address}
+                  <span className="block text-[11px] text-muted">{p.sub}</span>
+                </button>
+              </li>
+            ))}
+            {!shown.length && <li className="px-3 py-2 text-[13px] text-muted">Ничего не нашлось</li>}
+          </ul>
+        </div>
+      </div>
+      {chosen && (
+        <p className="rounded-lg bg-surface px-3 py-2 text-[13px]">
+          <span className="text-muted">Выбран: </span>{chosen.address}<span className="block text-[11px] text-muted">{chosen.sub}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Пункты выдачи СДЭК города. */
+function CdekPoints({ cityCode, selected, onSelect }: { cityCode: number; selected?: string; onSelect: (p: CdekPoint) => void }) {
+  const [points, setPoints] = useState<CdekPoint[] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -169,27 +225,55 @@ function PointList({ cityCode, selected, onSelect }: { cityCode: number; selecte
     return () => { cancelled = true }
   }, [cityCode])
 
-  const shown = useMemo(() => (points ?? []).filter((p) => `${p.address} ${p.name}`.toLowerCase().includes(q.toLowerCase())), [points, q])
+  const places = useMemo(() => (points ?? []).map((p) => ({ id: p.code, address: p.address, sub: p.work_time, lat: p.lat, lon: p.lon })), [points])
 
   if (points === null) return <p className="text-[13px] text-muted">Загружаем пункты выдачи…</p>
   if (!points.length) return <p className="text-[13px] text-muted">В этом городе нет пунктов выдачи СДЭК. Выберите курьера или Почту.</p>
+  return <PlacePicker places={places} selected={selected} noun="пунктов" onSelect={(id) => { const p = points.find((x) => x.code === id); if (p) onSelect(p) }} />
+}
+
+/** Отделения Почты: карта, если подключён API «Отправки», иначе — индекс и адрес вручную. */
+function PochtaOffices({ cityCode, value, onChange }: { cityCode: number; value: DeliveryChoice; onChange: (p: Partial<DeliveryChoice>) => void }) {
+  const [data, setData] = useState<{ available: boolean; offices: PochtaOffice[] } | null>(null)
+  const [manual, setManual] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- сброс списка при смене города
+    setData(null)
+    fetch(`/api/delivery/pochta-offices?city_code=${cityCode}`)
+      .then((r) => r.json())
+      .then((d: { available: boolean; offices: PochtaOffice[] }) => { if (!cancelled) setData({ available: d.available, offices: d.offices ?? [] }) })
+      .catch(() => { if (!cancelled) setData({ available: false, offices: [] }) })
+    return () => { cancelled = true }
+  }, [cityCode])
+
+  const places = useMemo(() => (data?.offices ?? []).map((o) => ({ id: o.postal_code, address: o.address, sub: `${o.postal_code} · ${o.work_time}`, lat: o.lat, lon: o.lon })), [data])
+
+  if (data === null) return <p className="text-[13px] text-muted">Загружаем отделения…</p>
+
+  if (data.offices.length && !manual) {
+    return (
+      <>
+        <PlacePicker places={places} selected={value.pvz_code} noun="отделений" onSelect={(id) => {
+          const o = data.offices.find((x) => x.postal_code === id)
+          if (o) onChange({ pvz_code: o.postal_code, pvz_address: o.address, postal_code: o.postal_code, address: `До востребования, отделение ${o.postal_code}` })
+        }} />
+        <button type="button" className="text-[12px] text-muted underline underline-offset-4" onClick={() => { setManual(true); onChange({ pvz_code: undefined, address: "" }) }}>
+          Доставить на домашний адрес
+        </button>
+      </>
+    )
+  }
 
   return (
-    <div>
-      {points.length > 5 && (
-        <input className={`${FIELD} mb-2`} placeholder={`Поиск по адресу · ${points.length} пунктов`} value={q} onChange={(e) => setQ(e.target.value)} />
-      )}
-      <ul className="scroll-subtle max-h-64 space-y-1 overflow-y-auto pr-1">
-        {shown.map((p) => (
-          <li key={p.code}>
-            <button type="button" onClick={() => onSelect(p)}
-              className={`block w-full rounded-lg border px-3 py-2 text-left text-[13px] transition-colors ${selected === p.code ? "border-foreground bg-surface" : "border-transparent hover:bg-surface"}`}>
-              {p.address}
-              <span className="block text-[11px] text-muted">{p.work_time}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <div className="grid grid-cols-[1fr_140px] gap-3">
+        <input className={FIELD} placeholder="Улица, дом, квартира" autoComplete="street-address" value={value.address ?? ""} onChange={(e) => onChange({ address: e.target.value })} />
+        <input className={FIELD} placeholder="Индекс" inputMode="numeric" autoComplete="postal-code" maxLength={6}
+          value={value.postal_code ?? ""} onChange={(e) => onChange({ postal_code: e.target.value.replace(/\D/g, "").slice(0, 6) })} />
+      </div>
+      <p className="text-[12px] text-muted">Посылка придёт в отделение по вашему индексу, извещение — в приложении Почты или в ящике.</p>
+    </>
   )
 }
