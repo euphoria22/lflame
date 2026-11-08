@@ -2,7 +2,8 @@
 export type DeliveryKind = "pickup" | "cdek-pvz" | "cdek-door" | "pochta"
 
 export type CdekCity = { code: number; city: string; full_name: string }
-export type CdekPoint = { code: string; name: string; address: string; full_address: string; work_time: string; postal_code: string }
+export type CdekPoint = { code: string; name: string; address: string; full_address: string; work_time: string; postal_code: string; lat: number; lon: number }
+export type PochtaOffice = { code: string; postal_code: string; address: string; lat: number; lon: number; work_time: string; type: string }
 export type Quote = { amount: number; days_min: number; days_max: number; full_amount?: number; free?: boolean }
 
 /** Данные выбранной доставки, которые форма отправляет при оформлении. */

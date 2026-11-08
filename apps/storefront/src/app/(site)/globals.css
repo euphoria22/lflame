@@ -163,3 +163,33 @@ details > summary::-webkit-details-marker {
     scroll-behavior: auto !important;
   }
 }
+
+/* Карта пунктов выдачи: спокойная серая подложка и чёрные метки */
+.lf-map .leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.95) brightness(1.04);
+}
+.lf-map .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.lf-map .leaflet-bar a {
+  color: var(--foreground);
+}
+.lf-pin {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--foreground);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
+  cursor: pointer;
+}
+.lf-pin:hover {
+  transform: scale(1.15);
+}
+.lf-pin--on {
+  background: var(--sale);
+  border-width: 4px;
+}

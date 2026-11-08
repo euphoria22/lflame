@@ -1,5 +1,6 @@
 import { MedusaError } from "@medusajs/framework/utils"
 import { CDEK_TARIFFS, cdekConfig, cdekRequest } from "./cdek-client"
+import { getShopSettings } from "../settings/shop-settings"
 import { estimateParcel, itemWeight, ParcelItem } from "./parcel"
 
 /**
@@ -29,14 +30,11 @@ type CdekOrderInfo = {
   requests?: { type: string; state: string; errors?: { code: string; message: string }[] }[]
 }
 
-export function cdekShipmentPoint(): string {
-  return process.env.CDEK_SHIPMENT_POINT || "OMS6"
-}
 
 export const cdekTrackingUrl = (num: string) => `https://www.cdek.ru/ru/tracking/?order_id=${num}`
 
 /** Тело запроса POST /v2/orders. Вынесено отдельно для тестов. */
-export function buildCdekOrder(input: CdekOrderInput, isTest: boolean) {
+export function buildCdekOrder(input: CdekOrderInput, isTest: boolean, shipmentPoint = "OMS6") {
   const parcel = estimateParcel(input.items)
   // В общем тестовом аккаунте номера заказов пересекаются с чужими — добавляем хвост
   const number = `LF-${input.displayId}${isTest ? `-${Date.now().toString(36)}` : ""}`
@@ -45,7 +43,7 @@ export function buildCdekOrder(input: CdekOrderInput, isTest: boolean) {
     number,
     tariff_code: input.kind === "pvz" ? CDEK_TARIFFS.pvz : CDEK_TARIFFS.door,
     comment: input.comment || undefined,
-    shipment_point: cdekShipmentPoint(),
+    shipment_point: shipmentPoint,
     ...(input.kind === "pvz"
       ? { delivery_point: input.pvzCode }
       : { to_location: { code: input.cityCode, address: input.address } }),
@@ -74,7 +72,7 @@ export function buildCdekOrder(input: CdekOrderInput, isTest: boolean) {
 }
 
 export async function createCdekOrder(input: CdekOrderInput): Promise<CdekOrderResult> {
-  const body = buildCdekOrder(input, cdekConfig().baseUrl.includes(".edu."))
+  const body = buildCdekOrder(input, cdekConfig().baseUrl.includes(".edu."), (await getShopSettings()).cdek_shipment_point)
   const created = await cdekRequest<CdekOrderInfo>("/orders", { method: "POST", body })
   const uuid = created.entity?.uuid
   if (!uuid) throw new MedusaError(MedusaError.Types.UNEXPECTED_STATE, `СДЭК не принял заказ: ${errorsOf(created)}`)

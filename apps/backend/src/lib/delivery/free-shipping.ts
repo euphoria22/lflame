@@ -1,10 +1,11 @@
+import { getShopSettings } from "../settings/shop-settings"
+
 /**
- * Бесплатная доставка от суммы заказа (по умолчанию 12 000 ₽).
- * Порог — FREE_SHIPPING_FROM в .env (0 — выключено). Сумма — товары по ценам продажи.
+ * Бесплатная доставка от суммы товаров. Порог меняется в админке («Доставка и оплата»),
+ * по умолчанию — FREE_SHIPPING_FROM из .env (12 000 ₽). 0 — выключено.
  */
-export function freeShippingFrom(): number {
-  const v = Number(process.env.FREE_SHIPPING_FROM ?? 12000)
-  return Number.isFinite(v) && v > 0 ? v : 0
+export async function freeShippingFrom(): Promise<number> {
+  return (await getShopSettings()).free_shipping_from
 }
 
 export type PricedItem = { unit_price?: unknown; quantity?: unknown }
@@ -14,7 +15,6 @@ export function itemsTotal(items: PricedItem[]): number {
 }
 
 /** Цена доставки с учётом порога. */
-export function applyFreeShipping(amount: number, total: number): number {
-  const from = freeShippingFrom()
+export function applyFreeShipping(amount: number, total: number, from: number): number {
   return from && total >= from ? 0 : amount
 }

@@ -34,8 +34,9 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
       ? await pochtaQuote(String(postal_code ?? ""), parcel.weight)
       : await cdekQuote(kind === "cdek-pvz" ? CDEK_TARIFFS.pvz : CDEK_TARIFFS.door, Number(city_code), parcel)
     const total = itemsTotal(cart.items)
-    const amount = applyFreeShipping(quote.amount, total)
-    res.json({ quote: { ...quote, amount, full_amount: quote.amount, free: amount === 0 && quote.amount > 0 }, free_from: freeShippingFrom() })
+    const from = await freeShippingFrom()
+    const amount = applyFreeShipping(quote.amount, total, from)
+    res.json({ quote: { ...quote, amount, full_amount: quote.amount, free: amount === 0 && quote.amount > 0 }, free_from: from })
   } catch (e) {
     res.status(422).json({ message: (e as Error).message.replace(/^(СДЭК|Почта)( \d+)?: /, "") || "Доставка недоступна" })
   }

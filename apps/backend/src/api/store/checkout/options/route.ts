@@ -5,6 +5,6 @@ import { freeShippingFrom } from "../../../../lib/delivery/free-shipping"
 export async function GET(_req: MedusaRequest, res: MedusaResponse) {
   res.json({
     online_payment: Boolean(process.env.TBANK_TERMINAL_KEY && process.env.TBANK_PASSWORD),
-    free_shipping_from: freeShippingFrom(),
+    free_shipping_from: await freeShippingFrom(),
   })
 }

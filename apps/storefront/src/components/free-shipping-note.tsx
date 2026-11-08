@@ -1,11 +1,27 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
 import { formatPrice } from "@/lib/format"
-import { FREE_SHIPPING_FROM } from "@/lib/site"
+
+// Один запрос настроек на вкладку; порог меняется в админке («Доставка и оплата»)
+let pending: Promise<number> | null = null
+function loadThreshold(): Promise<number> {
+  pending ??= fetch("/api/checkout/options")
+    .then((r) => r.json())
+    .then((d: { free_shipping_from?: number }) => Number(d.free_shipping_from ?? 0))
+    .catch(() => 0)
+  return pending
+}
 
 /** Подсказка в корзине: сколько осталось до бесплатной доставки. */
 export function FreeShippingNote({ total }: { total: number }) {
-  if (!FREE_SHIPPING_FROM) return <p className="mt-1 text-[12px] text-muted">Доставка рассчитывается при оформлении</p>
-  const left = FREE_SHIPPING_FROM - total
-  const pct = Math.min(100, Math.round((total / FREE_SHIPPING_FROM) * 100))
+  const [from, setFrom] = useState<number | null>(null)
+  useEffect(() => { loadThreshold().then(setFrom) }, [])
+
+  if (!from) return <p className="mt-1 text-[12px] text-muted">Доставка рассчитывается при оформлении</p>
+  const left = from - total
+  const pct = Math.min(100, Math.round((total / from) * 100))
   return (
     <div className="mt-2">
       <p className="text-[12px] text-muted">
