@@ -1,11 +1,33 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { RocketLaunch } from "@medusajs/icons"
-import { Badge, Button, Container, Heading, Input, Label, Select, Text, toast } from "@medusajs/ui"
-import { useCallback, useEffect, useState } from "react"
+import { Plus, RocketLaunch, Trash } from "@medusajs/icons"
+import { Badge, Button, Container, Heading, IconButton, Input, Label, Select, Text, toast } from "@medusajs/ui"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
+type WeightRule = { keywords: string; weight: number }
+type Parcel = {
+  box_length: number
+  box_width: number
+  height_per_item: number
+  min_height: number
+  max_height: number
+  fallback_weight: number
+  weights: WeightRule[]
+}
+type Settings = {
+  free_shipping_from: number
+  cdek_shipment_point: string
+  cdek_tariff_pvz: number
+  cdek_tariff_door: number
+  cdek_tariff_pvz_mode: number
+  cdek_tariff_door_mode: number
+  sender_address: string
+  parcel: Parcel
+}
+type Tariff = { code: number; name: string; mode: number; sum: number; days_min: number; days_max: number }
 type Data = {
-  settings: { free_shipping_from: number; cdek_shipment_point: string }
-  cdek: { mode: "test" | "production"; own_keys: boolean; error: string | null; points: { code: string; address: string }[]; webhook_url: string }
+  settings: Settings
+  defaults: { parcel: Parcel }
+  cdek: { mode: "test" | "production"; own_keys: boolean; error: string | null; points: { code: string; address: string }[]; tariffs: Tariff[]; example: string; webhook_url: string }
   tbank: { configured: boolean; mode: "off" | "test" | "production"; terminal: string | null; receipts: boolean; notification_url: string }
 }
 
@@ -21,36 +43,63 @@ const MODE = {
   production: { label: "Боевой режим", color: "green" as const },
   off: { label: "Не подключена", color: "grey" as const },
 }
+const FROM_DOOR = new Set([1, 2, 7])
+const PVZ_MODES = [4, 2, 6, 7]
+const DOOR_MODES = [3, 1]
+const MODE_HINT: Record<number, string> = {
+  1: "курьер СДЭК заберёт из магазина и привезёт покупателю",
+  2: "курьер СДЭК заберёт из магазина, покупатель получит в пункте",
+  3: "вы сдаёте в пункт СДЭК, курьер привезёт покупателю",
+  4: "вы сдаёте в пункт СДЭК, покупатель получит в пункте",
+  6: "вы сдаёте в пункт СДЭК, покупатель получит в постамате",
+  7: "курьер СДЭК заберёт из магазина, покупатель получит в постамате",
+}
+
+const days = (t: Tariff) => (t.days_min === t.days_max ? `${t.days_max + 1} дн.` : `${t.days_min + 1}–${t.days_max + 1} дн.`)
+
+function NumberField({ label, value, onChange, hint }: { label: string; value: number; onChange: (n: number) => void; hint?: string }) {
+  return (
+    <div className="flex flex-col gap-y-1">
+      <Label size="small">{label}</Label>
+      <Input size="small" inputMode="numeric" value={String(value)} onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, "") || 0))} />
+      {hint && <Text size="xsmall" className="text-ui-fg-subtle">{hint}</Text>}
+    </div>
+  )
+}
 
 /**
- * «Доставка и оплата»: порог бесплатной доставки, пункт сдачи посылок СДЭК,
- * состояние подключений СДЭК и Т-Кассы. Ключи хранятся в .env на сервере и здесь не показываются.
+ * «Доставка и оплата»: бесплатная доставка, тарифы и пункт сдачи СДЭК, вес и коробка по умолчанию,
+ * состояние подключений. Ключи хранятся в .env на сервере и здесь не показываются.
  */
 const DeliveryPage = () => {
   const [data, setData] = useState<Data | null>(null)
-  const [free, setFree] = useState("")
-  const [point, setPoint] = useState("")
+  const [s, setS] = useState<Settings | null>(null)
+  const [manualPoint, setManualPoint] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     const d = await api<Data>("/admin/shop-settings")
     setData(d)
-    setFree(String(d.settings.free_shipping_from))
-    setPoint(d.settings.cdek_shipment_point)
+    setS(d.settings)
+    setManualPoint(!d.cdek.points.some((p) => p.code === d.settings.cdek_shipment_point))
   }, [])
 
   useEffect(() => {
     load().catch((e) => toast.error((e as Error).message))
   }, [load])
 
+  const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setS((x) => (x ? { ...x, [k]: v } : x))
+  const setParcel = <K extends keyof Parcel>(k: K, v: Parcel[K]) => setS((x) => (x ? { ...x, parcel: { ...x.parcel, [k]: v } } : x))
+
+  const pvzTariffs = useMemo(() => (data?.cdek.tariffs ?? []).filter((t) => PVZ_MODES.includes(t.mode)).sort((a, b) => a.sum - b.sum), [data])
+  const doorTariffs = useMemo(() => (data?.cdek.tariffs ?? []).filter((t) => DOOR_MODES.includes(t.mode)).sort((a, b) => a.sum - b.sum), [data])
+
   const save = async () => {
+    if (!s) return
     setSaving(true)
     try {
-      await api("/admin/shop-settings", {
-        method: "POST",
-        body: JSON.stringify({ free_shipping_from: Number(free.replace(/\s/g, "") || 0), cdek_shipment_point: point }),
-      })
-      toast.success("Сохранено. На сайте изменится в течение минуты.")
+      await api("/admin/shop-settings", { method: "POST", body: JSON.stringify(s) })
+      toast.success("Сохранено — на сайте уже действует")
       await load()
     } catch (e) {
       toast.error((e as Error).message)
@@ -59,42 +108,41 @@ const DeliveryPage = () => {
     }
   }
 
-  if (!data) return <Container className="p-6"><Text>Загрузка…</Text></Container>
+  if (!data || !s) return <Container className="p-6"><Text>Загрузка…</Text></Container>
+
+  const usesDropOff = !FROM_DOOR.has(s.cdek_tariff_pvz_mode) || !FROM_DOOR.has(s.cdek_tariff_door_mode)
+  const usesPickup = FROM_DOOR.has(s.cdek_tariff_pvz_mode) || FROM_DOOR.has(s.cdek_tariff_door_mode)
+
+  const tariffSelect = (list: Tariff[], code: number, onPick: (t: Tariff) => void) => (
+    <Select value={String(code)} onValueChange={(v) => { const t = list.find((x) => String(x.code) === v); if (t) onPick(t) }}>
+      <Select.Trigger><Select.Value placeholder="Тариф" /></Select.Trigger>
+      <Select.Content>
+        {!list.some((t) => t.code === code) && <Select.Item value={String(code)}>Тариф {code} (нет в списке для примера)</Select.Item>}
+        {list.map((t) => (
+          <Select.Item key={t.code} value={String(t.code)}>{t.name} · {t.sum} ₽ · {days(t)}</Select.Item>
+        ))}
+      </Select.Content>
+    </Select>
+  )
 
   return (
     <div className="flex flex-col gap-y-3">
-      <Container className="divide-y p-0">
-        <div className="px-6 py-4">
+      <Container className="flex items-center justify-between px-6 py-4">
+        <div>
           <Heading level="h1">Доставка и оплата</Heading>
           <Text size="small" className="text-ui-fg-subtle">Настройки, которые можно менять без программиста</Text>
         </div>
-        <div className="grid gap-6 px-6 py-5 md:grid-cols-2">
+        <Button onClick={save} isLoading={saving}>Сохранить</Button>
+      </Container>
+
+      <Container className="divide-y p-0">
+        <div className="px-6 py-4"><Heading level="h2">Бесплатная доставка</Heading></div>
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-2">
           <div className="flex flex-col gap-y-2">
             <Label htmlFor="free">Бесплатная доставка от, ₽</Label>
-            <Input id="free" inputMode="numeric" value={free} onChange={(e) => setFree(e.target.value.replace(/[^\d\s]/g, ""))} />
-            <Text size="small" className="text-ui-fg-subtle">
-              СДЭК и Почта России бесплатно, если товаров в корзине на эту сумму или больше. 0 — выключить.
-            </Text>
+            <Input id="free" inputMode="numeric" value={String(s.free_shipping_from)} onChange={(e) => set("free_shipping_from", Number(e.target.value.replace(/\D/g, "") || 0))} />
+            <Text size="small" className="text-ui-fg-subtle">СДЭК и Почта России бесплатно, если товаров в корзине на эту сумму или больше. 0 — выключить.</Text>
           </div>
-          <div className="flex flex-col gap-y-2">
-            <Label>Куда сдаём посылки СДЭК</Label>
-            {data.cdek.points.length ? (
-              <Select value={point} onValueChange={setPoint}>
-                <Select.Trigger><Select.Value placeholder="Пункт приёма" /></Select.Trigger>
-                <Select.Content>
-                  {data.cdek.points.map((p) => (
-                    <Select.Item key={p.code} value={p.code}>{p.address} · {p.code}</Select.Item>
-                  ))}
-                </Select.Content>
-              </Select>
-            ) : (
-              <Input value={point} onChange={(e) => setPoint(e.target.value)} placeholder="OMS6" />
-            )}
-            <Text size="small" className="text-ui-fg-subtle">Пункт СДЭК в Омске, куда вы относите посылки. Указывается в каждом заказе СДЭК.</Text>
-          </div>
-        </div>
-        <div className="flex justify-end px-6 py-4">
-          <Button onClick={save} isLoading={saving}>Сохранить</Button>
         </div>
       </Container>
 
@@ -103,15 +151,105 @@ const DeliveryPage = () => {
           <Heading level="h2">СДЭК</Heading>
           <Badge color={MODE[data.cdek.mode].color}>{MODE[data.cdek.mode].label}</Badge>
         </div>
+        <div className="grid gap-6 px-6 py-5 md:grid-cols-2">
+          <div className="flex flex-col gap-y-2">
+            <Label>Тариф до пункта выдачи</Label>
+            {tariffSelect(pvzTariffs, s.cdek_tariff_pvz, (t) => setS({ ...s, cdek_tariff_pvz: t.code, cdek_tariff_pvz_mode: t.mode }))}
+            <Text size="small" className="text-ui-fg-subtle">{MODE_HINT[s.cdek_tariff_pvz_mode]}</Text>
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Тариф курьером до двери</Label>
+            {tariffSelect(doorTariffs, s.cdek_tariff_door, (t) => setS({ ...s, cdek_tariff_door: t.code, cdek_tariff_door_mode: t.mode }))}
+            <Text size="small" className="text-ui-fg-subtle">{MODE_HINT[s.cdek_tariff_door_mode]}</Text>
+          </div>
+          <Text size="xsmall" className="text-ui-fg-subtle md:col-span-2">
+            Цены и сроки в списках — пример: {data.cdek.example}. Покупатель видит расчёт для своего города и своей корзины.
+            {data.cdek.mode === "test" && " Сейчас тестовый кабинет СДЭК: набор тарифов и пунктов может отличаться от вашего договора."}
+          </Text>
+
+          {usesDropOff && (
+            <div className="flex flex-col gap-y-2">
+              <Label>Куда сдаём посылки</Label>
+              {!manualPoint && data.cdek.points.length ? (
+                <Select value={s.cdek_shipment_point} onValueChange={(v) => set("cdek_shipment_point", v)}>
+                  <Select.Trigger><Select.Value placeholder="Пункт приёма" /></Select.Trigger>
+                  <Select.Content>
+                    {data.cdek.points.map((p) => <Select.Item key={p.code} value={p.code}>{p.address} · {p.code}</Select.Item>)}
+                  </Select.Content>
+                </Select>
+              ) : (
+                <Input value={s.cdek_shipment_point} onChange={(e) => set("cdek_shipment_point", e.target.value.toUpperCase())} placeholder="Код пункта, например OMS12" />
+              )}
+              <button type="button" className="text-ui-fg-interactive txt-small w-fit" onClick={() => setManualPoint(!manualPoint)}>
+                {manualPoint ? "Выбрать из списка" : "Нужного пункта нет в списке — ввести код"}
+              </button>
+              <Text size="small" className="text-ui-fg-subtle">
+                Код пункта есть на cdek.ru → «Офисы» → карточка пункта (например, OMS12).
+                {data.cdek.mode === "test" && " В тестовом кабинете СДЭК в списке только часть пунктов Омска — с боевыми ключами появятся все."}
+              </Text>
+            </div>
+          )}
+          {usesPickup && (
+            <div className="flex flex-col gap-y-2">
+              <Label>Адрес магазина для курьера СДЭК (Омск)</Label>
+              <Input value={s.sender_address} onChange={(e) => set("sender_address", e.target.value)} />
+              <Text size="small" className="text-ui-fg-subtle">Выбран тариф «от двери»: курьер СДЭК приедет за посылкой сюда.</Text>
+            </div>
+          )}
+        </div>
         <div className="flex flex-col gap-y-2 px-6 py-4">
-          {data.cdek.error && <Text className="text-ui-fg-error">СДЭК не отвечает: {data.cdek.error}</Text>}
+          {data.cdek.error && <Text size="small" className="text-ui-fg-error">СДЭК не отвечает: {data.cdek.error}</Text>}
           <Text size="small">
             {data.cdek.mode === "test"
               ? "Цены настоящие, но заказы создаются в тестовом кабинете СДЭК, а не в вашем. Для работы нужны ключи из кабинета СДЭК (Интеграция) — их вписывают в настройки сервера."
               : "Заказы создаются в вашем кабинете СДЭК, когда вы создаёте отправку в заказе."}
           </Text>
           <Text size="small" className="text-ui-fg-subtle">Как отправить: заказ → «Создать отправку». Номер накладной, статус и ярлык появятся в блоке «СДЭК» справа в заказе.</Text>
-          <Text size="small" className="text-ui-fg-subtle">Адрес для уведомлений о статусах: <code>{data.cdek.webhook_url}</code></Text>
+        </div>
+      </Container>
+
+      <Container className="divide-y p-0">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div>
+            <Heading level="h2">Вес и габариты по умолчанию</Heading>
+            <Text size="small" className="text-ui-fg-subtle">Используются, если у товара не заполнены вес и размеры (товар → «Атрибуты»). По ним считаются цена доставки и заказ в СДЭК.</Text>
+          </div>
+          <Button size="small" variant="secondary" onClick={() => set("parcel", data.defaults.parcel)}>Вернуть как было</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 px-6 py-5 md:grid-cols-6">
+          <NumberField label="Длина коробки, см" value={s.parcel.box_length} onChange={(n) => setParcel("box_length", n)} />
+          <NumberField label="Ширина коробки, см" value={s.parcel.box_width} onChange={(n) => setParcel("box_width", n)} />
+          <NumberField label="Высота на 1 вещь, см" value={s.parcel.height_per_item} onChange={(n) => setParcel("height_per_item", n)} />
+          <NumberField label="Высота мин., см" value={s.parcel.min_height} onChange={(n) => setParcel("min_height", n)} />
+          <NumberField label="Высота макс., см" value={s.parcel.max_height} onChange={(n) => setParcel("max_height", n)} />
+          <NumberField label="Вес, если не подошло, г" value={s.parcel.fallback_weight} onChange={(n) => setParcel("fallback_weight", n)} />
+        </div>
+        <div className="flex flex-col gap-y-2 px-6 py-5">
+          <Label>Вес по названию товара (с упаковкой)</Label>
+          <Text size="small" className="text-ui-fg-subtle">
+            Слова через запятую — начало слова в названии: «куртк» подходит к «Куртка» и «Куртки». Правила проверяются сверху вниз, срабатывает первое.
+          </Text>
+          <div className="flex flex-col gap-y-2 pt-1">
+            {s.parcel.weights.map((r, i) => (
+              <div key={i} className="grid grid-cols-[1fr_120px_32px] items-center gap-2">
+                <Input size="small" value={r.keywords} placeholder="худи, свитшот"
+                  onChange={(e) => setParcel("weights", s.parcel.weights.map((x, j) => (j === i ? { ...x, keywords: e.target.value } : x)))} />
+                <div className="flex items-center gap-1">
+                  <Input size="small" inputMode="numeric" value={String(r.weight)}
+                    onChange={(e) => setParcel("weights", s.parcel.weights.map((x, j) => (j === i ? { ...x, weight: Number(e.target.value.replace(/\D/g, "") || 0) } : x)))} />
+                  <Text size="small" className="text-ui-fg-subtle">г</Text>
+                </div>
+                <IconButton size="small" variant="transparent" aria-label="Удалить правило"
+                  onClick={() => setParcel("weights", s.parcel.weights.filter((_, j) => j !== i))}><Trash /></IconButton>
+              </div>
+            ))}
+          </div>
+          <Button size="small" variant="secondary" className="w-fit" onClick={() => setParcel("weights", [...s.parcel.weights, { keywords: "", weight: 500 }])}>
+            <Plus /> Добавить правило
+          </Button>
+        </div>
+        <div className="flex justify-end px-6 py-4">
+          <Button onClick={save} isLoading={saving}>Сохранить</Button>
         </div>
       </Container>
 

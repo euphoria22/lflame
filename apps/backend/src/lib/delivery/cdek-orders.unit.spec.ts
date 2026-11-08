@@ -1,4 +1,4 @@
-import { buildCdekOrder, CdekOrderInput } from "./cdek-orders"
+import { buildCdekOrder, CdekOrderInput, DEFAULT_ORDER_OPTIONS } from "./cdek-orders"
 
 const base: CdekOrderInput = {
   displayId: 15,
@@ -13,7 +13,7 @@ const base: CdekOrderInput = {
 
 describe("заказ СДЭК", () => {
   it("пункт выдачи, наложенный платёж", () => {
-    const b = buildCdekOrder(base, false) as ReturnType<typeof buildCdekOrder> & { delivery_point?: string }
+    const b = buildCdekOrder(base, false) as ReturnType<typeof buildCdekOrder> & { delivery_point?: string; shipment_point?: string }
     expect(b.number).toBe("LF-15")
     expect(b.tariff_code).toBe(136)
     expect(b.delivery_point).toBe("NSK23")
@@ -29,5 +29,11 @@ describe("заказ СДЭК", () => {
     expect(b.delivery_recipient_cost.value).toBe(0)
     expect(b.packages[0].items[0].payment.value).toBe(0)
     expect(b.number).toMatch(/^LF-15-/)
+  })
+  it("тариф «от двери»: адрес магазина вместо пункта приёма", () => {
+    const b = buildCdekOrder(base, false, { ...DEFAULT_ORDER_OPTIONS, tariffPvz: 138, pvzMode: 2 }) as ReturnType<typeof buildCdekOrder> & { from_location?: unknown; shipment_point?: string }
+    expect(b.tariff_code).toBe(138)
+    expect(b.shipment_point).toBeUndefined()
+    expect(b.from_location).toEqual({ code: 268, address: "ул. Партизанская, 5а/8" })
   })
 })

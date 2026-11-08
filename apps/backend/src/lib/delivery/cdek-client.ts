@@ -54,8 +54,24 @@ export async function cdekRequest<T>(path: string, init: { method?: string; body
   return data
 }
 
-/** Тарифы «Посылка»: 136 — склад-склад (до пункта выдачи), 137 — склад-дверь (курьер). */
+/** Тарифы по умолчанию — «Посылка»: 136 склад-склад (до пункта выдачи), 137 склад-дверь (курьер). Меняются в админке. */
 export const CDEK_TARIFFS = { pvz: 136, door: 137 } as const
+
+/** Режим тарифа СДЭК: 1 дверь-дверь, 2 дверь-склад, 3 склад-дверь, 4 склад-склад, 6 склад-постамат, 7 дверь-постамат. */
+export type CdekTariff = { code: number; name: string; mode: number; sum: number; days_min: number; days_max: number }
+
+/** Тарифы «от двери»: курьер СДЭК забирает посылку из магазина. */
+export const fromDoor = (mode: number) => mode === 1 || mode === 2 || mode === 7
+
+/** Доступные тарифы на примере маршрута (для выбора в админке). */
+export async function cdekTariffList(toCityCode: number, parcel: { weight: number; length: number; width: number; height: number }): Promise<CdekTariff[]> {
+  const cfg = cdekConfig()
+  const r = await cdekRequest<{ tariff_codes?: { tariff_code: number; tariff_name: string; delivery_mode: number; delivery_sum: number; period_min: number; period_max: number }[] }>(
+    "/calculator/tarifflist",
+    { method: "POST", body: { from_location: { code: cfg.fromCityCode }, to_location: { code: toCityCode }, packages: [parcel] } }
+  )
+  return (r.tariff_codes ?? []).map((t) => ({ code: t.tariff_code, name: t.tariff_name, mode: t.delivery_mode, sum: t.delivery_sum, days_min: t.period_min, days_max: t.period_max }))
+}
 
 export type CdekQuote = { amount: number; days_min: number; days_max: number }
 

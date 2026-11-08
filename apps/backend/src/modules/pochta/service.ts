@@ -6,7 +6,8 @@ import type {
   FulfillmentOption,
 } from "@medusajs/framework/types"
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
-import { applyFreeShipping, freeShippingFrom, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
+import { getShopSettings } from "../../lib/settings/shop-settings"
+import { applyFreeShipping, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
 import { pochtaQuote } from "../../lib/delivery/pochta-client"
 
 /**
@@ -40,9 +41,10 @@ class PochtaFulfillmentProviderService extends AbstractFulfillmentProviderServic
     context: CalculateShippingOptionPriceDTO["context"]
   ): Promise<CalculatedShippingOptionPrice> {
     const index = String(data?.postal_code ?? context.shipping_address?.postal_code ?? "")
-    const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[])
+    const settings = await getShopSettings()
+    const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[], settings.parcel)
     const quote = await pochtaQuote(index, parcel.weight)
-    return { calculated_amount: applyFreeShipping(quote.amount, itemsTotal((context.items ?? []) as unknown as PricedItem[]), await freeShippingFrom()), is_calculated_price_tax_inclusive: true }
+    return { calculated_amount: applyFreeShipping(quote.amount, itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_from), is_calculated_price_tax_inclusive: true }
   }
 
   async createFulfillment(): Promise<CreateFulfillmentResult> {
