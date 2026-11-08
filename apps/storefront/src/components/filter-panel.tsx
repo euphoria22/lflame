@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 import { formatPrice, plural } from "@/lib/format"
-import { sizeKind } from "@/lib/size-groups"
+import { sizeKind, sizeLabel } from "@/lib/size-groups"
 import { filtersToQuery, ListingFilters, ListingResult, SORTS, SortKey, withQuery } from "@/lib/listing"
 import { ChevronIcon, CloseIcon, FilterIcon } from "./icons"
 
@@ -20,6 +20,8 @@ type Props = {
   showCategories: boolean
   /** sidebar — колонка слева (десктоп); toolbar — строка над сеткой и панель на телефоне */
   mode: "sidebar" | "toolbar"
+  /** Названия брендов и категорий области */
+  names: Record<string, string>
   /** Переключатель «Все / Мужское / Женское» в верху фильтра */
   genderLinks?: { label: string; href: string; active?: boolean }[]
 }
@@ -36,7 +38,7 @@ const SWATCH: Record<string, string> = {
  * Фильтры и сортировка (ТЗ, п. 6.2). Десктоп — колонка слева, телефон — стеклянная панель снизу.
  * Изменение фильтра меняет адрес: параметры не индексируются, canonical — на страницу без них (п. 7.3).
  */
-export function FilterPanel({ basePath, filters, facets, total, showBrands, showCategories, mode, genderLinks }: Props) {
+export function FilterPanel({ basePath, filters, facets, names, total, showBrands, showCategories, mode, genderLinks }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [open, setOpen] = useState(false)
@@ -69,6 +71,11 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
             </Link>
           ))}
         </nav>
+      )}
+
+      {active > 0 && (
+        <ActiveFilters filters={filters} facets={facets} names={names} onRemove={(next) => go(next)}
+          onReset={() => go({ categories: [], brands: [], sizes: [], colors: [], priceMin: null, priceMax: null })} />
       )}
 
       {showCategories && facets.categories.length > 1 && (
@@ -114,11 +121,6 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
 
       {brandsShown && <BrandFilter fill={fill} facets={facets.brands} selected={filters.brands} onToggle={(v) => toggle("brands", v)} />}
 
-      {active > 0 && (
-        <button type="button" onClick={() => go({ categories: [], brands: [], sizes: [], colors: [], priceMin: null, priceMax: null })} className="eyebrow self-start underline underline-offset-4">
-          Сбросить фильтры
-        </button>
-      )}
     </div>
   )
 
@@ -302,6 +304,51 @@ function PriceFilter({ min, max, valueMin, valueMax, onApply }: {
           onPointerUp={commit} onKeyUp={commit} onTouchEnd={commit} className={thumb} />
       </div>
     </Group>
+  )
+}
+
+/**
+ * Выбранные фильтры с крестиками и «Сбросить всё» (вариант Б, обратная связь 08.11.2026).
+ */
+function ActiveFilters({ filters, facets, names, onRemove, onReset }: {
+  filters: ListingFilters
+  facets: ListingResult["facets"]
+  names: Record<string, string>
+  onRemove: (next: Partial<ListingFilters>) => void
+  onReset: () => void
+}) {
+  const label = (list: { value: string; label: string }[], v: string) => list.find((x) => x.value === v)?.label ?? v
+  const items: { key: string; text: string; remove: Partial<ListingFilters> }[] = [
+    ...filters.categories.map((v) => ({ key: `c:${v}`, text: names[`c:${v}`] ?? label(facets.categories, v), remove: { categories: filters.categories.filter((x) => x !== v) } })),
+    ...(filters.priceMin || filters.priceMax
+      ? [{
+        key: "price",
+        text: `${filters.priceMin ? `от ${formatPrice(filters.priceMin)}` : ""}${filters.priceMin && filters.priceMax ? " " : ""}${filters.priceMax ? `до ${formatPrice(filters.priceMax)}` : ""}`,
+        remove: { priceMin: null, priceMax: null },
+      }]
+      : []),
+    ...filters.sizes.map((v) => ({ key: `s:${v}`, text: sizeLabel(v), remove: { sizes: filters.sizes.filter((x) => x !== v) } })),
+    ...filters.colors.map((v) => ({ key: `k:${v}`, text: label(facets.colors, v), remove: { colors: filters.colors.filter((x) => x !== v) } })),
+    ...filters.brands.map((v) => ({ key: `b:${v}`, text: names[`b:${v}`] ?? label(facets.brands, v), remove: { brands: filters.brands.filter((x) => x !== v) } })),
+  ]
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between text-[13px] font-medium">
+        Выбрано
+        <button type="button" onClick={onReset} className="text-[12px] font-normal text-muted underline underline-offset-4 hover:text-foreground">Сбросить всё</button>
+      </div>
+      <ul className="flex flex-wrap gap-1.5">
+        {items.map((i) => (
+          <li key={i.key}>
+            <button type="button" onClick={() => onRemove(i.remove)} aria-label={`Убрать фильтр «${i.text}»`}
+              className="flex items-center gap-1.5 rounded-full bg-surface py-1 pl-3 pr-2 text-[12px] transition-colors hover:bg-surface-2">
+              {i.text}
+              <CloseIcon className="size-3.5" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

@@ -164,6 +164,8 @@ export type ListingResult = {
     colors: Facet[]
     price: { min: number; max: number }
   }
+  /** Названия брендов и категорий области — для подписей выбранных фильтров */
+  names: Record<string, string>
 }
 
 function matches(i: CatalogItem, f: ListingFilters, skip?: "category" | "brand" | "size" | "color" | "price"): boolean {
@@ -222,7 +224,13 @@ export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingRes
   ).sort((a, b) => b.count - a.count)
 
   const prices = scoped.map((i) => i.price)
+  const names: Record<string, string> = {}
+  for (const i of scoped) {
+    if (i.brand) names[`b:${i.brand.handle}`] = i.brand.name
+    if (i.category) names[`c:${i.category.handle}`] = i.category.name
+  }
   return {
+    names,
     items: filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     total: filtered.length,
     page,
