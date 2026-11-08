@@ -14,7 +14,7 @@ export type CatalogItem = {
   hover_image: string | null
   price: number
   compare_at: number | null
-  sizes: { size: string; in_stock: boolean }[]
+  sizes: { size: string; in_stock: boolean; variant_id?: string }[]
   in_stock: boolean
   created_at: string
   /** Путь на старом сайте (для 301) */

@@ -2,7 +2,8 @@ import { cacheTag } from "next/cache"
 import Link from "next/link"
 
 import { routes } from "@/lib/routes"
-import { BagIcon, HeartIcon, SearchIcon, UserIcon } from "./icons"
+import { CartButton } from "./cart-button"
+import { HeartIcon, SearchIcon, UserIcon } from "./icons"
 import { Logo } from "./logo"
 import { MobileMenu } from "./mobile-menu"
 import { getNav } from "./nav-data"
@@ -81,7 +82,7 @@ export async function Header() {
           <Link href={routes.search()} aria-label="Поиск" className="rounded-full p-2 hover:bg-black/5"><SearchIcon className="size-[22px]" /></Link>
           <Link href={routes.favorites()} aria-label="Избранное" className="hidden rounded-full p-2 hover:bg-black/5 md:block"><HeartIcon className="size-[22px]" /></Link>
           <Link href={routes.account()} aria-label="Личный кабинет" className="hidden rounded-full p-2 hover:bg-black/5 md:block"><UserIcon className="size-[22px]" /></Link>
-          <Link href={routes.cart()} aria-label="Корзина" className="rounded-full p-2 hover:bg-black/5"><BagIcon className="size-[22px]" /></Link>
+          <CartButton />
         </div>
       </div>
     </header>

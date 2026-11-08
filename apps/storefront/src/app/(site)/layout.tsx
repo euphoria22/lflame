@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 
+import { CartDrawer } from "@/components/cart-drawer"
+import { CartProvider } from "@/components/cart-context"
 import { Footer } from "@/components/footer"
 import { Header } from "@/components/header"
 import { JsonLd } from "@/components/json-ld"
@@ -35,9 +37,12 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru" className={`${inter.variable} antialiased`}>
       <body className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex-1 pt-[84px]">{children}</main>
-        <Footer />
+        <CartProvider>
+          <Header />
+          <main className="flex-1 pt-[84px]">{children}</main>
+          <Footer />
+          <CartDrawer />
+        </CartProvider>
         <JsonLd data={[
           {
             "@context": "https://schema.org",

@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react"
 
 import { formatPrice } from "@/lib/format"
 import type { CatalogVariant } from "@/lib/types"
+import { useCart } from "./cart-context"
 
 /**
- * Выбор размера и кнопка «В корзину» (ТЗ, п. 6.3). Корзина подключается на этапе 4,
- * пока кнопка запоминает выбор и сообщает об этом.
+ * Выбор размера и кнопка «В корзину» (ТЗ, п. 6.3).
  * На телефоне снизу закреплена стеклянная панель с ценой и кнопкой.
  */
 export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price: number }) {
@@ -17,6 +17,7 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
   })
   const [message, setMessage] = useState<string | null>(null)
   const [barVisible, setBarVisible] = useState(false)
+  const cart = useCart()
   const box = useRef<HTMLDivElement>(null)
 
   const anyAvailable = variants.some((v) => v.available > 0)
@@ -43,17 +44,20 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
     return () => io.disconnect()
   }, [])
 
-  const add = () => {
-    if (!chosen) {
+  const add = async () => {
+    const target = chosen ?? (onlyOneSize ? variants[0] : undefined)
+    if (!target) {
       setMessage("Выберите размер")
       box.current?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
     }
-    setMessage(`Размер ${chosen.size} выбран. Корзина появится на следующем этапе разработки.`)
+    setMessage(null)
+    const ok = await cart.add(target.id)
+    if (!ok) setMessage(cart.error ?? "Не получилось добавить в корзину")
   }
 
   const button = (
-    <button type="button" onClick={add} disabled={!anyAvailable}
+    <button type="button" onClick={add} disabled={!anyAvailable || cart.busy}
       className="h-12 w-full rounded-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted">
       {!anyAvailable ? "Нет в наличии" : chosen || onlyOneSize ? "В корзину" : "Выберите размер"}
     </button>

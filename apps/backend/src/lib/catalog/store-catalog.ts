@@ -27,7 +27,7 @@ export type CatalogItem = {
   price: number
   /** Зачёркнутая цена для этой же позиции, ₽ */
   compare_at: number | null
-  sizes: { size: string; in_stock: boolean }[]
+  sizes: { size: string; in_stock: boolean; variant_id: string }[]
   in_stock: boolean
   created_at: string
   /** Путь на старом сайте (для 301, ТЗ, п. 7.14) */
@@ -150,7 +150,7 @@ function toItem(row: Row, variants: CatalogVariant[]): CatalogItem {
     hover_image: images[1] ?? null,
     price: cheapest?.price ?? 0,
     compare_at: cheapest?.compare_at && cheapest.compare_at > cheapest.price ? cheapest.compare_at : null,
-    sizes: variants.map((v) => ({ size: v.size, in_stock: v.available > 0 })),
+    sizes: variants.map((v) => ({ size: v.size, in_stock: v.available > 0, variant_id: v.id })),
     in_stock: inStock.length > 0,
     created_at: new Date(row.created_at).toISOString(),
     old_path: oldPath(meta.old_site_url),
