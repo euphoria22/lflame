@@ -103,6 +103,17 @@ module.exports = defineConfig({
     ...fileModules,
     { resolve: "./src/modules/brand" },
     {
+      // Доставка (ТЗ, п. 5): самовывоз (manual), СДЭК, Почта России
+      resolve: "@medusajs/medusa/fulfillment",
+      options: {
+        providers: [
+          { resolve: "@medusajs/medusa/fulfillment-manual", id: "manual" },
+          { resolve: "./src/modules/cdek", id: "cdek" },
+          { resolve: "./src/modules/pochta", id: "pochta" },
+        ],
+      },
+    },
+    {
       resolve: "./src/modules/moysklad",
       options: {
         token: process.env.MOYSKLAD_TOKEN,
