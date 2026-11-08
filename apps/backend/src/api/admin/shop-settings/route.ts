@@ -1,5 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { cdekConfig, cdekRequest } from "../../../lib/delivery/cdek-client"
+import { cdekConfig, cdekRequest, CdekTariff, cdekTariffList } from "../../../lib/delivery/cdek-client"
+import { DEFAULT_PARCEL, estimateParcel } from "../../../lib/delivery/parcel"
 import { getShopSettings, saveShopSettings, ShopSettings, validateSettings } from "../../../lib/settings/shop-settings"
 
 type Point = { code: string; location: { address: string } }
@@ -18,13 +19,23 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   } catch (e) {
     cdekError = (e as Error).message
   }
+  // Тарифы на примере: Омск → Москва, джинсы (вес и коробка — по текущим настройкам)
+  let tariffs: CdekTariff[] = []
+  try {
+    tariffs = await cdekTariffList(44, estimateParcel([{ product_title: "Джинсы", quantity: 1 }], settings.parcel))
+  } catch (e) {
+    cdekError ??= (e as Error).message
+  }
   res.json({
     settings,
+    defaults: { parcel: DEFAULT_PARCEL },
     cdek: {
       mode: cdek.baseUrl.includes(".edu.") ? "test" : "production",
       own_keys: Boolean(process.env.CDEK_CLIENT_ID),
       error: cdekError,
       points,
+      tariffs,
+      example: "Омск → Москва, джинсы",
       webhook_url: `${backend}/hooks/cdek/…`,
     },
     tbank: {

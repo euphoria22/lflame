@@ -1,7 +1,7 @@
 import { MedusaError } from "@medusajs/framework/utils"
-import { CDEK_TARIFFS, cdekConfig, cdekRequest } from "./cdek-client"
+import { CDEK_TARIFFS, cdekConfig, cdekRequest, fromDoor } from "./cdek-client"
 import { getShopSettings } from "../settings/shop-settings"
-import { estimateParcel, itemWeight, ParcelItem } from "./parcel"
+import { DEFAULT_PARCEL, estimateParcel, itemWeight, ParcelConfig, ParcelItem } from "./parcel"
 
 /**
  * Регистрация заказа в СДЭК (ТЗ, п. 5.3). Вызывается, когда в админке Medusa создают отправку.
@@ -34,16 +34,34 @@ type CdekOrderInfo = {
 export const cdekTrackingUrl = (num: string) => `https://www.cdek.ru/ru/tracking/?order_id=${num}`
 
 /** Тело запроса POST /v2/orders. Вынесено отдельно для тестов. */
-export function buildCdekOrder(input: CdekOrderInput, isTest: boolean, shipmentPoint = "OMS6") {
-  const parcel = estimateParcel(input.items)
+export type CdekOrderOptions = {
+  shipmentPoint: string
+  tariffPvz: number
+  tariffDoor: number
+  pvzMode: number
+  doorMode: number
+  senderAddress: string
+  fromCityCode: number
+  parcel: ParcelConfig
+}
+
+export const DEFAULT_ORDER_OPTIONS: CdekOrderOptions = {
+  shipmentPoint: "OMS6", tariffPvz: CDEK_TARIFFS.pvz, tariffDoor: CDEK_TARIFFS.door, pvzMode: 4, doorMode: 3,
+  senderAddress: "ул. Партизанская, 5а/8", fromCityCode: 268, parcel: DEFAULT_PARCEL,
+}
+
+export function buildCdekOrder(input: CdekOrderInput, isTest: boolean, opts: CdekOrderOptions = DEFAULT_ORDER_OPTIONS) {
+  const parcel = estimateParcel(input.items, opts.parcel)
+  // Тариф «от двери» — курьер СДЭК забирает из магазина; иначе магазин сдаёт посылку в пункт приёма
+  const door = fromDoor(input.kind === "pvz" ? opts.pvzMode : opts.doorMode)
   // В общем тестовом аккаунте номера заказов пересекаются с чужими — добавляем хвост
   const number = `LF-${input.displayId}${isTest ? `-${Date.now().toString(36)}` : ""}`
   return {
     type: 1,
     number,
-    tariff_code: input.kind === "pvz" ? CDEK_TARIFFS.pvz : CDEK_TARIFFS.door,
+    tariff_code: input.kind === "pvz" ? opts.tariffPvz : opts.tariffDoor,
     comment: input.comment || undefined,
-    shipment_point: shipmentPoint,
+    ...(door ? { from_location: { code: opts.fromCityCode, address: opts.senderAddress } } : { shipment_point: opts.shipmentPoint }),
     ...(input.kind === "pvz"
       ? { delivery_point: input.pvzCode }
       : { to_location: { code: input.cityCode, address: input.address } }),
@@ -64,7 +82,7 @@ export function buildCdekOrder(input: CdekOrderInput, isTest: boolean, shipmentP
         ware_key: (i.sku || i.id).slice(0, 50),
         payment: { value: input.cod ? Number(i.unit_price) : 0 },
         cost: Number(i.unit_price),
-        weight: itemWeight(i),
+        weight: itemWeight(i, opts.parcel),
         amount: i.quantity,
       })),
     }],
@@ -72,7 +90,13 @@ export function buildCdekOrder(input: CdekOrderInput, isTest: boolean, shipmentP
 }
 
 export async function createCdekOrder(input: CdekOrderInput): Promise<CdekOrderResult> {
-  const body = buildCdekOrder(input, cdekConfig().baseUrl.includes(".edu."), (await getShopSettings()).cdek_shipment_point)
+  const s = await getShopSettings()
+  const cfg = cdekConfig()
+  const body = buildCdekOrder(input, cfg.baseUrl.includes(".edu."), {
+    shipmentPoint: s.cdek_shipment_point, tariffPvz: s.cdek_tariff_pvz, tariffDoor: s.cdek_tariff_door,
+    pvzMode: s.cdek_tariff_pvz_mode, doorMode: s.cdek_tariff_door_mode, senderAddress: s.sender_address,
+    fromCityCode: cfg.fromCityCode, parcel: s.parcel,
+  })
   const created = await cdekRequest<CdekOrderInfo>("/orders", { method: "POST", body })
   const uuid = created.entity?.uuid
   if (!uuid) throw new MedusaError(MedusaError.Types.UNEXPECTED_STATE, `СДЭК не принял заказ: ${errorsOf(created)}`)
