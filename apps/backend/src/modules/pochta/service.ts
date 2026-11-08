@@ -7,7 +7,7 @@ import type {
 } from "@medusajs/framework/types"
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
 import { getShopSettings } from "../../lib/settings/shop-settings"
-import { applyFreeShipping, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
+import { applyFreeShipping, applyMarkup, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
 import { pochtaQuote } from "../../lib/delivery/pochta-client"
 
 /**
@@ -44,7 +44,7 @@ class PochtaFulfillmentProviderService extends AbstractFulfillmentProviderServic
     const settings = await getShopSettings()
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[], settings.parcel)
     const quote = await pochtaQuote(index, parcel.weight)
-    return { calculated_amount: applyFreeShipping(quote.amount, itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_from), is_calculated_price_tax_inclusive: true }
+    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.pochta), itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_from), is_calculated_price_tax_inclusive: true }
   }
 
   async createFulfillment(): Promise<CreateFulfillmentResult> {

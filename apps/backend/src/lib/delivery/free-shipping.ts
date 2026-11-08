@@ -18,3 +18,14 @@ export function itemsTotal(items: PricedItem[]): number {
 export function applyFreeShipping(amount: number, total: number, from: number): number {
   return from && total >= from ? 0 : amount
 }
+
+/** Наценка на доставку: рубли к цене перевозчика или процент от неё. */
+export type Markup = { type: "rub" | "pct"; value: number }
+
+export const NO_MARKUP: Markup = { type: "rub", value: 0 }
+
+/** Цена перевозчика + наценка, округление вверх до рубля. */
+export function applyMarkup(amount: number, m: Markup = NO_MARKUP): number {
+  const add = m.type === "pct" ? (amount * m.value) / 100 : m.value
+  return Math.max(0, Math.ceil(amount + (Number.isFinite(add) ? add : 0)))
+}

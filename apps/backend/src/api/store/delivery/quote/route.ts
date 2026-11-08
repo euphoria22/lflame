@@ -4,7 +4,7 @@ import { cdekQuote } from "../../../../lib/delivery/cdek-client"
 import { estimateParcel, ParcelItem } from "../../../../lib/delivery/parcel"
 import { pochtaQuote } from "../../../../lib/delivery/pochta-client"
 import { getShopSettings } from "../../../../lib/settings/shop-settings"
-import { applyFreeShipping, itemsTotal } from "../../../../lib/delivery/free-shipping"
+import { applyFreeShipping, applyMarkup, itemsTotal } from "../../../../lib/delivery/free-shipping"
 
 type Body = { cart_id?: string; kind?: "cdek-pvz" | "cdek-door" | "pochta"; city_code?: number; postal_code?: string }
 
@@ -37,6 +37,8 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
       : await cdekQuote(kind === "cdek-pvz" ? settings.cdek_tariff_pvz : settings.cdek_tariff_door, Number(city_code), parcel)
     const total = itemsTotal(cart.items)
     const from = settings.free_shipping_from
+    // Цена для покупателя: перевозчик + наценка из админки
+    quote.amount = applyMarkup(quote.amount, settings.markup[kind === "pochta" ? "pochta" : "cdek"])
     const amount = applyFreeShipping(quote.amount, total, from)
     res.json({ quote: { ...quote, amount, full_amount: quote.amount, free: amount === 0 && quote.amount > 0 }, free_from: from })
   } catch (e) {
