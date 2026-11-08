@@ -103,6 +103,25 @@ module.exports = defineConfig({
     ...fileModules,
     { resolve: "./src/modules/brand" },
     {
+      // Оплата (ТЗ, п. 5.4): при получении (системный провайдер) и онлайн через Т-Кассу
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "./src/modules/tbank",
+            id: "tbank",
+            options: {
+              terminalKey: process.env.TBANK_TERMINAL_KEY,
+              password: process.env.TBANK_PASSWORD,
+              apiUrl: process.env.TBANK_API_URL,
+              taxation: process.env.TBANK_TAXATION,
+              notificationUrl: `${(process.env.MEDUSA_BACKEND_URL || "http://localhost:9000").replace(/\/+$/, "")}/hooks/payment/tbank_tbank`,
+            },
+          },
+        ],
+      },
+    },
+    {
       // Доставка (ТЗ, п. 5): самовывоз (manual), СДЭК, Почта России
       resolve: "@medusajs/medusa/fulfillment",
       options: {

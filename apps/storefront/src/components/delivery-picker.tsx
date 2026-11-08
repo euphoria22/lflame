@@ -75,7 +75,7 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props
                 <span className="mt-1 block text-[12px] text-muted">{o.hint}</span>
               </span>
               <span className="text-right text-[14px]">
-                {o.kind === "pickup" ? "0 ₽" : on && quote ? <>{formatPrice(quote.amount)}<span className="block text-[12px] text-muted">{daysLabel(quote)}</span></> : on && loading ? "…" : ""}
+                {o.kind === "pickup" ? "0 ₽" : on && quote ? <>{quote.free ? <><s className="mr-1.5 text-muted">{formatPrice(quote.full_amount ?? 0)}</s>Бесплатно</> : formatPrice(quote.amount)}<span className="block text-[12px] text-muted">{daysLabel(quote)}</span></> : on && loading ? "…" : ""}
               </span>
             </label>
 
