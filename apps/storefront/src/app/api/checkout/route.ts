@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { CheckoutInput, normalizePhone, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, PICKUP, validateDelivery } from "@/lib/delivery"
 import { SITE_URL } from "@/lib/site"
-import { cartRequest, retrieveCart, setCartId, storeFetch } from "@/lib/store-api"
+import { cartRequest, getAuthToken, retrieveCart, setCartId, storeFetch } from "@/lib/store-api"
 
 /**
  * Оформление заказа (ТЗ, п. 6.4): контакты → способ получения → оплата → заказ.
@@ -47,6 +47,21 @@ export async function POST(req: NextRequest) {
         : { city_code: d.city_code, city: clean(d.city, 100), pvz_code: d.pvz_code ?? null, pvz_address: d.pvz_address ? clean(d.pvz_address) : null }
 
   try {
+    // Вошедший покупатель — заказ попадёт в его кабинет
+    const token = await getAuthToken()
+    if (token) {
+      await storeFetch(`/store/carts/${cart.id}/customer`, { method: "POST", token }).catch(() => null)
+      // Пустые имя и телефон в профиле заполняем из заказа
+      const me = await storeFetch<{ customer: { first_name: string | null; phone: string | null } }>("/store/account/me", { token }).catch(() => null)
+      if (me && (!me.customer.first_name || !me.customer.phone)) {
+        await storeFetch("/store/account/me", {
+          method: "POST",
+          token,
+          body: { first_name: me.customer.first_name || address.first_name, last_name: address.last_name, phone: me.customer.phone || phone },
+        }).catch(() => null)
+      }
+    }
+
     await cartRequest(`/store/carts/${cart.id}`, "POST", {
       email: input.email!.trim().toLowerCase(),
       shipping_address: address,

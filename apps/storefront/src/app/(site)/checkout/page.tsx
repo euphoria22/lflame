@@ -3,7 +3,7 @@ import { connection } from "next/server"
 
 import { CheckoutForm } from "@/components/checkout-form"
 import { NOINDEX } from "@/lib/seo"
-import { storeFetch } from "@/lib/store-api"
+import { currentCustomer, storeFetch } from "@/lib/store-api"
 
 export const metadata: Metadata = { title: "Оформление заказа — LAFLAMME", ...NOINDEX }
 
@@ -13,11 +13,17 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
   // Страница рендерится только по запросу: настройки из админки должны быть свежими
   await connection()
   const { payment } = await searchParams
-  const options = await storeFetch<Options>("/store/checkout/options").catch(() => ({ online_payment: false, free_shipping_from: 0 }))
+  const [options, customer] = await Promise.all([
+    storeFetch<Options>("/store/checkout/options").catch(() => ({ online_payment: false, free_shipping_from: 0 })),
+    currentCustomer(),
+  ])
   const notice = payment === "failed" ? "Оплата не прошла. Попробуйте ещё раз или выберите оплату при получении."
     : payment === "pending" ? "Мы ещё не получили подтверждение оплаты. Если деньги списались — заказ появится в течение нескольких минут, мы позвоним. Если нет — попробуйте ещё раз."
       : null
-  return <CheckoutForm onlinePayment={options.online_payment} notice={notice} />
+  const defaults = customer
+    ? { email: customer.email, first_name: customer.first_name ?? "", last_name: customer.last_name ?? "", phone: customer.phone ?? "" }
+    : undefined
+  return <CheckoutForm onlinePayment={options.online_payment} notice={notice} defaults={defaults} />
 }
 
 export const instant = false

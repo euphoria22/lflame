@@ -92,7 +92,11 @@ module.exports = defineConfig({
       adminCors: process.env.ADMIN_CORS!,
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET,
+      // Покупатель остаётся в аккаунте 30 дней (вход по коду)
+      jwtExpiresIn: "30d",
       cookieSecret: process.env.COOKIE_SECRET,
+      // Админы входят по паролю, покупатели — по коду на почту (ТЗ, п. 6.5, 8.2)
+      authMethodsPerActor: { user: ["emailpass"], customer: ["otp"] },
     },
   },
   admin: {
@@ -102,6 +106,17 @@ module.exports = defineConfig({
     ...redisModules,
     ...fileModules,
     { resolve: "./src/modules/brand" },
+    {
+      // Вход: emailpass — для админки, otp — код на почту для покупателей
+      resolve: "@medusajs/medusa/auth",
+      options: {
+        providers: [
+          { resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" },
+          { resolve: "./src/modules/otp-auth", id: "otp" },
+        ],
+      },
+    },
+    { resolve: "./src/modules/account" },
     {
       // Оплата (ТЗ, п. 5.4): при получении (системный провайдер) и онлайн через Т-Кассу
       resolve: "@medusajs/medusa/payment",

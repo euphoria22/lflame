@@ -17,10 +17,13 @@ export class StoreApiError extends Error {
   }
 }
 
-export async function storeFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function storeFetch<T>(path: string, init: { method?: string; body?: unknown; token?: string | null } = {}): Promise<T> {
   const res = await fetch(`${BACKEND}${path}`, {
     method: init.method ?? "GET",
-    headers: { "x-publishable-api-key": KEY, "content-type": "application/json", accept: "application/json" },
+    headers: {
+      "x-publishable-api-key": KEY, "content-type": "application/json", accept: "application/json",
+      ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
+    },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     cache: "no-store",
   })
@@ -136,4 +139,35 @@ export function humanError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
   if (/inventory|stock|insufficient/i.test(msg)) return "Этого размера больше нет в наличии"
   return "Не получилось обновить корзину. Попробуйте ещё раз."
+}
+
+/* ---------- Вход в личный кабинет ---------- */
+
+export const AUTH_COOKIE = "lf_auth"
+
+export async function getAuthToken(): Promise<string | null> {
+  return (await cookies()).get(AUTH_COOKIE)?.value ?? null
+}
+
+export async function setAuthToken(token: string | null) {
+  const jar = await cookies()
+  if (!token) {
+    jar.delete(AUTH_COOKIE)
+    return
+  }
+  // Токен Medusa живёт 30 дней (jwtExpiresIn в medusa-config)
+  jar.set(AUTH_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 30 })
+}
+
+export type Customer = { id: string; email: string; first_name: string | null; last_name: string | null; phone: string | null }
+
+/** Вошедший покупатель или null (нет входа или токен истёк). */
+export async function currentCustomer(): Promise<Customer | null> {
+  const token = await getAuthToken()
+  if (!token) return null
+  try {
+    return (await storeFetch<{ customer: Customer }>("/store/account/me", { token })).customer
+  } catch {
+    return null
+  }
 }
