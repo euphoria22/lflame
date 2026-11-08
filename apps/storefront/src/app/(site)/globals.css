@@ -1,23 +1,145 @@
 @import "tailwindcss";
 
-/* Дизайн-токены LAFLAMME. Полная дизайн-система — этап 3. */
+/*
+ * Дизайн-система LAFLAMME.
+ * Минимализм: белый фон, чёрный текст, тонкие линии-сетки, крупные фото.
+ * «Жидкое стекло» (.glass) — для шапки, панелей и плавающих элементов.
+ */
 :root {
   --background: #ffffff;
-  --foreground: #0a0a0a;
-  --muted: #6b6b6b;
-  --line: #e5e5e5;
+  --foreground: #0b0b0b;
+  --muted: #6e6e6e;
+  --subtle: #9a9a9a;
+  --line: #e7e7e7;
+  --surface: #f3f3f2;
+  --surface-2: #ebebea;
+  --sale: #c4161c;
+  --radius: 999px;
+  --header-h: 64px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
   --color-line: var(--line);
-  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-sale: var(--sale);
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 16px);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Мелкие подписи капслоком: бренд, разделы, кнопки */
+.eyebrow {
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Liquid Glass: полупрозрачное стекло с размытием и светлой кромкой */
+.glass {
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Плотное стекло для больших панелей с текстом (меню, фильтры): читаемость важнее прозрачности */
+.glass-strong {
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 24px 60px rgba(0, 0, 0, 0.12);
+}
+
+.glass-dark {
+  background: rgba(20, 20, 20, 0.55);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.2);
+  color: #fff;
+}
+
+/* Фото товаров на белом фоне сливаются с серой подложкой */
+.blend {
+  mix-blend-mode: multiply;
+}
+
+/* Горизонтальная лента без полосы прокрутки */
+.rail {
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+}
+
+/* Сетка товаров с линиями-разделителями во всю ширину */
+.grid-lines {
+  border-top: 1px solid var(--line);
+}
+.grid-lines > * {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+/* Текстовые блоки (описания, SEO-тексты) */
+.prose-lf {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.prose-lf p + p {
+  margin-top: 0.8em;
+}
+.prose-lf h2,
+.prose-lf h3 {
+  color: var(--foreground);
+  font-weight: 500;
+  margin: 1.2em 0 0.4em;
+}
+
+details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
 }

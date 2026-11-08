@@ -30,6 +30,8 @@ export type CatalogItem = {
   sizes: { size: string; in_stock: boolean }[]
   in_stock: boolean
   created_at: string
+  /** Путь на старом сайте (для 301, ТЗ, п. 7.14) */
+  old_path: string | null
 }
 
 export type CatalogVariant = {
@@ -151,6 +153,16 @@ function toItem(row: Row, variants: CatalogVariant[]): CatalogItem {
     sizes: variants.map((v) => ({ size: v.size, in_stock: v.available > 0 })),
     in_stock: inStock.length > 0,
     created_at: new Date(row.created_at).toISOString(),
+    old_path: oldPath(meta.old_site_url),
+  }
+}
+
+function oldPath(url: unknown): string | null {
+  if (typeof url !== "string" || !url) return null
+  try {
+    return new URL(url).pathname.replace(/\/+$/, "") || null
+  } catch {
+    return null
   }
 }
 

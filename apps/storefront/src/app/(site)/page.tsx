@@ -1,51 +1,147 @@
-import { cacheLife, cacheTag } from "next/cache"
-import { connection } from "next/server"
-import { Suspense } from "react"
+import type { Metadata } from "next"
+import Image from "next/image"
+import Link from "next/link"
 
-import { medusa } from "@/lib/medusa"
-import { SITE_NAME } from "@/lib/site"
+import { ArrowIcon } from "@/components/icons"
+import { ProductRail } from "@/components/product-rail"
+import { getCatalog, getTaxonomy } from "@/lib/catalog"
+import { discountPercent, plural } from "@/lib/format"
+import { scopeItems } from "@/lib/listing"
+import { GENDERS, routes } from "@/lib/routes"
+import { pageMeta } from "@/lib/seo"
+import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site"
+import type { CatalogItem } from "@/lib/types"
 
-/**
- * Регион магазина из Medusa. Кэшируется, сбрасывается тегом "regions".
- * Ошибка не перехватывается внутри кэша: иначе в кэш попал бы ответ
- * «недоступна» и держался бы часами, даже когда Medusa уже работает.
- */
-async function getCachedRegion() {
-  "use cache"
-  cacheTag("regions")
-  cacheLife("hours")
-  const { regions } = await medusa.store.region.list()
-  return regions[0] ?? null
-}
+export const metadata: Metadata = pageMeta({
+  title: `${SITE_NAME} — мультибрендовый магазин оригинальной одежды и обуви`,
+  description: SITE_DESCRIPTION,
+  path: "/",
+})
 
-/**
- * Статус подключения проверяется при каждом открытии страницы (connection()),
- * а не один раз при сборке. Успешный ответ Medusa при этом берётся из кэша.
- */
-async function MedusaStatus() {
-  await connection()
-  let region = null
-  try {
-    region = await getCachedRegion()
-  } catch {
-    region = null
+/** Временный выбор фото для блока раздела: строго свой раздел, предпочтительно верхняя одежда. */
+function heroPick(items: CatalogItem[], gender: "men" | "women"): CatalogItem | undefined {
+  const own = items.filter((i) => i.in_stock && i.gender === gender && i.thumbnail)
+  const preferred = ["kurtki", "hudi-i-svitshoty", "svitery-i-kardigany", "futbolki-i-longslivy"]
+  for (const cat of preferred) {
+    const hit = popular(own.filter((i) => i.category?.handle === cat))[0]
+    if (hit) return hit
   }
-  return region
-    ? `Medusa подключена: регион «${region.name}», валюта ${region.currency_code.toUpperCase()}`
-    : "Medusa недоступна"
+  return popular(own)[0]
 }
 
-/** Временная главная: проверка связки витрина ↔ Medusa. Настоящая главная — этап 3. */
-export default function HomePage() {
+const popular = (items: CatalogItem[]) =>
+  [...items].sort((a, b) => b.sizes.filter((s) => s.in_stock).length - a.sizes.filter((s) => s.in_stock).length)
+
+/**
+ * Главная (ТЗ, п. 6.1). Структура: разделы, новинки, бренды, категории, распродажа, популярное.
+ * Баннеры и блоки будут управляться из CMS (ТЗ, п. 9); пока изображения берутся из каталога.
+ */
+export default async function HomePage() {
+  const [items, taxonomy] = await Promise.all([getCatalog(), getTaxonomy()])
+  const all = scopeItems(items, {})
+  const fresh = scopeItems(items, { onlyNew: true }).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const sale = scopeItems(items, { onlySale: true })
+  const maxOff = Math.max(0, ...sale.map((i) => discountPercent(i.price, i.compare_at) ?? 0))
+
+  const brandCounts = new Map<string, { name: string; count: number }>()
+  for (const i of all) {
+    if (!i.brand) continue
+    const b = brandCounts.get(i.brand.handle) ?? { name: i.brand.name, count: 0 }
+    b.count++
+    brandCounts.set(i.brand.handle, b)
+  }
+  const topBrands = [...brandCounts.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 14)
+
+  const rank = new Map(taxonomy.categories.map((c) => [c.handle, c.rank]))
+  const men = scopeItems(items, { gender: "men" })
+  const cats = new Map<string, { name: string; count: number; image: string | null }>()
+  for (const i of popular(men)) {
+    if (!i.category) continue
+    const c = cats.get(i.category.handle) ?? { name: i.category.name, count: 0, image: i.thumbnail }
+    c.count++
+    cats.set(i.category.handle, c)
+  }
+  const categoryTiles = [...cats.entries()].sort((a, b) => (rank.get(a[0]) ?? 0) - (rank.get(b[0]) ?? 0) || b[1].count - a[1].count).slice(0, 12)
+
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
-      <h1 className="text-4xl font-semibold tracking-[0.3em]">{SITE_NAME}</h1>
-      <p className="text-muted">Сайт в разработке</p>
-      <p className="text-sm text-muted">
-        <Suspense fallback="Проверка подключения…">
-          <MedusaStatus />
-        </Suspense>
-      </p>
-    </main>
+    <>
+      {/* Одна H1 на странице (ТЗ, п. 7.5); визуально главную открывают блоки разделов */}
+      <h1 className="sr-only">{SITE_NAME} — мультибрендовый магазин оригинальной одежды, обуви и аксессуаров</h1>
+
+      {/* Разделы */}
+      <section className="grid gap-2 px-2 md:grid-cols-2 md:gap-3 md:px-4">
+        {GENDERS.map((g) => {
+          const pick = heroPick(items, g.slug)
+          return (
+            <Link key={g.slug} href={routes.gender(g.slug)} className="group relative block aspect-[4/5] overflow-hidden rounded-[28px] bg-surface md:aspect-[5/6]">
+              {pick?.thumbnail && (
+                <Image src={pick.thumbnail} alt={`${g.name} — ${pick.title}`} fill priority sizes="(min-width: 768px) 50vw, 100vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+              )}
+              <span className="glass absolute inset-x-4 bottom-4 flex items-center justify-between rounded-full px-6 py-4 text-[17px] md:inset-x-6 md:bottom-6">
+                {g.name}
+                <ArrowIcon className="size-5 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
+          )
+        })}
+      </section>
+
+      <ProductRail title="Новые поступления" items={fresh} href={routes.newIn()} />
+
+      {/* Бренды крупным шрифтом */}
+      <section className="mt-20 border-y border-line px-4 py-12 md:px-8 md:py-16">
+        <p className="eyebrow mb-6 text-muted">Бренды</p>
+        <ul className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-[28px] leading-tight tracking-tight md:text-[44px]">
+          {topBrands.map(([handle, b]) => (
+            <li key={handle}>
+              <Link href={routes.brand(handle)} className="transition-opacity hover:opacity-40">{b.name}</Link>
+              <sup className="ml-1 text-[11px] text-subtle md:text-[13px]">{b.count}</sup>
+            </li>
+          ))}
+        </ul>
+        <Link href={routes.brands()} className="eyebrow mt-8 inline-flex items-center gap-2 underline underline-offset-4">
+          Все бренды <ArrowIcon className="size-4" />
+        </Link>
+      </section>
+
+      {/* Категории */}
+      <section className="mt-20 px-4 md:px-8">
+        <div className="mb-5 flex items-baseline justify-between">
+          <h2 className="text-[20px] tracking-tight md:text-[24px]">Категории</h2>
+          <Link href={routes.gender("men")} className="eyebrow underline underline-offset-4">Весь каталог</Link>
+        </div>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 md:gap-3">
+          {categoryTiles.map(([handle, c]) => (
+            <li key={handle}>
+              <Link href={routes.category("men", handle)} className="group block">
+                <span className="relative block aspect-square overflow-hidden rounded-[22px] bg-surface">
+                  {c.image && <Image src={c.image} alt={c.name} fill sizes="(min-width: 1024px) 16vw, 45vw" className="blend object-contain transition-transform duration-500 group-hover:scale-105" />}
+                </span>
+                <span className="mt-2 flex items-baseline justify-between gap-2 px-1 text-[13px]">
+                  {c.name}
+                  <span className="text-subtle">{c.count}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Распродажа */}
+      {sale.length > 0 && (
+        <section className="mt-20 px-2 md:px-4">
+          <Link href={routes.sale()} className="group relative flex min-h-[320px] flex-col justify-between overflow-hidden rounded-[28px] bg-foreground p-8 text-background md:min-h-[420px] md:p-14">
+            <p className="eyebrow text-background/60">{sale.length} {plural(sale.length, ["товар", "товара", "товаров"])} со скидкой</p>
+            <p className="text-[64px] font-medium leading-none tracking-tighter md:text-[160px]">Sale{maxOff ? <span className="text-background/40"> −{maxOff}%</span> : null}</p>
+            <span className="glass-dark inline-flex w-fit items-center gap-3 rounded-full px-6 py-3 text-[15px]">
+              Смотреть <ArrowIcon className="size-5 transition-transform group-hover:translate-x-1" />
+            </span>
+          </Link>
+        </section>
+      )}
+
+      <ProductRail title="Популярное" items={popular(all).slice(8)} href={routes.gender("men")} />
+    </>
   )
 }
