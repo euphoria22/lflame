@@ -1,0 +1,52 @@
+import { postgresAdapter } from "@payloadcms/db-postgres"
+import { lexicalEditor } from "@payloadcms/richtext-lexical"
+import { ru } from "@payloadcms/translations/languages/ru"
+import path from "path"
+import { buildConfig } from "payload"
+import sharp from "sharp"
+import { fileURLToPath } from "url"
+
+import { Media } from "./collections/media"
+import { Users } from "./collections/users"
+
+const filename = fileURLToPath(import.meta.url)
+const dirname = path.dirname(filename)
+
+/**
+ * Payload CMS: контент сайта (ТЗ, п. 1.3, 9).
+ * Баннеры, блоки главной, страницы, журнал. Товары и заказы — в Medusa.
+ * Админка: /cms. На production доступна только с admin-поддомена (ТЗ, п. 8.2).
+ */
+export default buildConfig({
+  serverURL: process.env.NEXT_PUBLIC_SITE_URL,
+  routes: {
+    admin: "/cms",
+  },
+  admin: {
+    user: Users.slug,
+    meta: {
+      titleSuffix: " | LAFLAMME CMS",
+    },
+    importMap: {
+      baseDir: path.resolve(dirname),
+      importMapFile: path.resolve(dirname, "app/(payload)/cms/importMap.js"),
+    },
+  },
+  i18n: {
+    supportedLanguages: { ru },
+    fallbackLanguage: "ru",
+  },
+  collections: [Users, Media],
+  editor: lexicalEditor(),
+  secret: process.env.PAYLOAD_SECRET || "",
+  typescript: {
+    outputFile: path.resolve(dirname, "payload-types.ts"),
+  },
+  db: postgresAdapter({
+    pool: {
+      connectionString: process.env.PAYLOAD_DATABASE_URL || "",
+    },
+  }),
+  sharp,
+  telemetry: false,
+})
