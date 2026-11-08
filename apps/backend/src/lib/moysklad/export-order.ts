@@ -94,7 +94,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       `Заказ с сайта № ${order.display_id}`,
       `Получатель: ${[a?.first_name, a?.last_name].filter(Boolean).join(" ")}, ${a?.phone ?? ""}, ${order.email ?? ""}`,
       shipping ? `Получение: ${shipping.name}${Number(shipping.amount) ? `, ${shipping.amount} ₽` : ""}` : null,
-      a?.address_1 && a.address_1 !== "Самовывоз из магазина" ? `Адрес: ${a.city ?? ""}, ${a.address_1}` : null,
+      a?.address_1 && !a.address_1.startsWith("Самовывоз") ? `Адрес: ${a.city ?? ""}, ${a.address_1}` : null,
       order.metadata?.comment ? `Комментарий покупателя: ${order.metadata.comment}` : null,
     ].filter(Boolean).join("\n")
 

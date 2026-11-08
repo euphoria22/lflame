@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { CheckoutInput, validateCheckout } from "@/lib/checkout"
+import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
+import { DeliveryPicker } from "./delivery-picker"
 
 /**
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
@@ -21,6 +23,8 @@ export function CheckoutForm() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [delivery, setDelivery] = useState<DeliveryChoice>({ kind: "pickup" })
+  const [quote, setQuote] = useState<Quote | null>({ amount: 0, days_min: 0, days_max: 0 })
 
   const set = (k: keyof CheckoutInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value
@@ -31,12 +35,14 @@ export function CheckoutForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const found = validateCheckout(v)
+    const dErr = validateDelivery(delivery) ?? (delivery.kind !== "pickup" && !quote ? "Дождитесь расчёта доставки" : null)
+    if (dErr) found.delivery = dErr
     setErrors(found)
     if (Object.keys(found).length) return
     setSending(true)
     setError(null)
     try {
-      const res = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v) })
+      const res = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...v, delivery }) })
       const data = (await res.json()) as { order?: { number: number }; error?: string; errors?: Record<string, string> }
       if (!res.ok || !data.order) {
         if (data.errors) setErrors(data.errors)
@@ -81,15 +87,8 @@ export function CheckoutForm() {
 
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">2. Получение</h2>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-foreground p-4">
-            <input type="radio" name="delivery" defaultChecked className="mt-1 accent-black" />
-            <span className="flex-1 text-[14px]">
-              Самовывоз из магазина
-              <span className="mt-1 block text-[12px] text-muted">Бесплатно. Адрес и часы работы пришлём в письме.</span>
-            </span>
-            <span className="text-[14px]">0 ₽</span>
-          </label>
-          <p className="mt-2 text-[12px] text-muted">Доставка СДЭК, Почтой России и Яндекс Доставкой появится в ближайшее время.</p>
+          <DeliveryPicker value={delivery} onChange={(d) => { setDelivery(d); setErrors((x) => ({ ...x, delivery: "" })) }}
+            quote={quote} onQuote={setQuote} error={errors.delivery} />
         </section>
 
         <section className="mt-10">
@@ -132,8 +131,8 @@ export function CheckoutForm() {
         </ul>
         <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
           <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice(cart?.item_total ?? 0)}</span></div>
-          <div className="flex justify-between"><span className="text-muted">Получение</span><span>0 ₽</span></div>
-          <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice(cart?.item_total ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{quote ? formatPrice(quote.amount) : "—"}</span></div>
+          <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice((cart?.item_total ?? 0) + (quote?.amount ?? 0))}</span></div>
         </div>
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
