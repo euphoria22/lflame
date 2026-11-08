@@ -11,16 +11,18 @@ import { Price } from "./price"
  * Карточка товара в сетке (ТЗ, п. 6.2): фото 3:4 на серой подложке, второе фото при наведении,
  * бренд, название, цена, метки; размеры в наличии — при наведении (на десктопе).
  */
-export function ProductCard({ item, priority = false, sizes = "(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw" }: {
+export function ProductCard({ item, priority = false, compact = false, sizes = "(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw" }: {
   item: CatalogItem
   priority?: boolean
+  /** Компактная карточка для рекомендаций: без плашек и размеров при наведении */
+  compact?: boolean
   sizes?: string
 }) {
   const inStock = item.sizes.filter((s) => s.in_stock)
   const alt = `${item.title} — фото`
 
   const lastSize = inStock.length === 1 && item.sizes.length > 1
-  const showSizes = inStock.length > 0 && !(inStock.length === 1 && inStock[0].size === "One Size")
+  const showSizes = !compact && inStock.length > 0 && !(inStock.length === 1 && inStock[0].size === "One Size")
 
   return (
     <article className="group relative flex flex-col bg-background">
@@ -35,7 +37,7 @@ export function ProductCard({ item, priority = false, sizes = "(min-width: 1280p
               className="blend hidden object-contain opacity-0 transition-opacity duration-300 md:block md:group-hover:opacity-100" />
           )}
         </Link>
-        <div className="pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-1.5">
+        <div className={`pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-1.5 ${compact ? "hidden" : ""}`}>
           {isNew(item) && <span className="eyebrow glass rounded-full px-2 py-1">New</span>}
           {lastSize && <span className="eyebrow glass rounded-full px-2 py-1">Последний размер</span>}
         </div>
@@ -53,7 +55,7 @@ export function ProductCard({ item, priority = false, sizes = "(min-width: 1280p
           </ul>
         )}
       </div>
-      <div className="relative flex flex-1 flex-col gap-1 px-3 pb-5 pt-3 md:px-4">
+      <div className={`relative flex flex-1 flex-col gap-1 px-3 pt-3 ${compact ? "pb-4" : "pb-5 md:px-4"}`}>
         {item.brand && <p className="eyebrow">{item.brand.name}</p>}
         <h3 className="line-clamp-2 text-[13px] leading-snug text-muted">
           <Link href={routes.product(item.handle)} className="after:absolute after:inset-0 after:content-['']">

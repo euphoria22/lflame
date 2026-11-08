@@ -15,6 +15,8 @@ type Props = {
   total: number
   /** На странице бренда фильтр по бренду не нужен */
   showBrands: boolean
+  /** В категории фильтр по категории не нужен */
+  showCategories: boolean
   /** sidebar — колонка слева (десктоп); toolbar — строка над сеткой и панель на телефоне */
   mode: "sidebar" | "toolbar"
 }
@@ -31,7 +33,7 @@ const SWATCH: Record<string, string> = {
  * Фильтры и сортировка (ТЗ, п. 6.2). Десктоп — колонка слева, телефон — стеклянная панель снизу.
  * Изменение фильтра меняет адрес: параметры не индексируются, canonical — на страницу без них (п. 7.3).
  */
-export function FilterPanel({ basePath, filters, facets, total, showBrands, mode }: Props) {
+export function FilterPanel({ basePath, filters, facets, total, showBrands, showCategories, mode }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [open, setOpen] = useState(false)
@@ -40,11 +42,11 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
     const url = withQuery(basePath, filtersToQuery({ ...filters, ...next, page: 1 }))
     start(() => router.push(url, { scroll: false }))
   }
-  const toggle = (key: "brands" | "sizes" | "colors", value: string) => {
+  const toggle = (key: "categories" | "brands" | "sizes" | "colors", value: string) => {
     const cur = filters[key]
     go({ [key]: cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value] })
   }
-  const active = filters.brands.length + filters.sizes.length + filters.colors.length + (filters.priceMin || filters.priceMax ? 1 : 0)
+  const active = filters.categories.length + filters.brands.length + filters.sizes.length + filters.colors.length + (filters.priceMin || filters.priceMax ? 1 : 0)
 
   useEffect(() => {
     document.documentElement.style.overflow = open ? "hidden" : ""
@@ -53,6 +55,18 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
 
   const body = (
     <div className={`flex flex-col gap-8 ${pending ? "opacity-60" : ""}`}>
+      {showCategories && facets.categories.length > 1 && (
+        <Group title="Категория">
+          <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+            {facets.categories.map((c) => (
+              <li key={c.value}>
+                <Check checked={filters.categories.includes(c.value)} onChange={() => toggle("categories", c.value)} label={c.label} count={c.count} />
+              </li>
+            ))}
+          </ul>
+        </Group>
+      )}
+
       <PriceFilter key={`${filters.priceMin}-${filters.priceMax}`} min={facets.price.min} max={facets.price.max}
         valueMin={filters.priceMin} valueMax={filters.priceMax}
         onApply={(priceMin, priceMax) => go({ priceMin, priceMax })} />
@@ -85,7 +99,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
       {showBrands && facets.brands.length > 1 && <BrandFilter facets={facets.brands} selected={filters.brands} onToggle={(v) => toggle("brands", v)} />}
 
       {active > 0 && (
-        <button type="button" onClick={() => go({ brands: [], sizes: [], colors: [], priceMin: null, priceMax: null })} className="eyebrow self-start underline underline-offset-4">
+        <button type="button" onClick={() => go({ categories: [], brands: [], sizes: [], colors: [], priceMin: null, priceMax: null })} className="eyebrow self-start underline underline-offset-4">
           Сбросить фильтры
         </button>
       )}
@@ -94,7 +108,8 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, mode
 
   if (mode === "sidebar") {
     return (
-      <aside aria-label="Фильтры" className="hidden lg:block">
+      // h-full: закреплённому блоку нужен родитель во всю высоту каталога, иначе ему некуда ехать
+      <aside aria-label="Фильтры" className="hidden h-full lg:block">
         {/* Закреплён и едет вместе со страницей; прокрутка — внутри каждого фильтра */}
         <div className="sticky top-[96px] pb-8 pl-8 pr-4">{body}</div>
       </aside>

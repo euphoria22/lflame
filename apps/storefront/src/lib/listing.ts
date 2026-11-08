@@ -26,6 +26,8 @@ export const SORTS: { key: SortKey; label: string }[] = [
 ]
 
 export type ListingFilters = {
+  /** Категории — там, где область не задаёт категорию (новинки, бренд, распродажа, раздел) */
+  categories: string[]
   brands: string[]
   sizes: string[]
   colors: string[]
@@ -53,6 +55,7 @@ const num = (v: string | string[] | undefined) => {
 export function parseFilters(sp: SearchParams): ListingFilters {
   const sort = (Array.isArray(sp.sort) ? sp.sort[0] : sp.sort) as SortKey
   return {
+    categories: list(sp.cat),
     brands: list(sp.brand),
     sizes: list(sp.size),
     colors: list(sp.color),
@@ -65,7 +68,7 @@ export function parseFilters(sp: SearchParams): ListingFilters {
 
 /** Есть ли в адресе параметры, кроме страницы: такие страницы не индексируются (п. 7.3). */
 export function hasFilterParams(f: ListingFilters): boolean {
-  return Boolean(f.brands.length || f.sizes.length || f.colors.length || f.priceMin || f.priceMax || f.sort !== "popular")
+  return Boolean(f.categories.length || f.brands.length || f.sizes.length || f.colors.length || f.priceMin || f.priceMax || f.sort !== "popular")
 }
 
 /**
@@ -75,6 +78,7 @@ export function hasFilterParams(f: ListingFilters): boolean {
 export function filtersToQuery(f: Partial<ListingFilters>): string {
   const params: [string, string][] = []
   if (f.brands?.length) params.push(["brand", [...f.brands].sort().join(",")])
+  if (f.categories?.length) params.push(["cat", [...f.categories].sort().join(",")])
   if (f.colors?.length) params.push(["color", [...f.colors].sort().join(",")])
   if (f.page && f.page > 1) params.push(["page", String(f.page)])
   if (f.priceMax) params.push(["price_max", String(f.priceMax)])
@@ -154,6 +158,7 @@ export type ListingResult = {
   page: number
   pages: number
   facets: {
+    categories: Facet[]
     brands: Facet[]
     sizes: Facet[]
     colors: Facet[]
@@ -161,7 +166,8 @@ export type ListingResult = {
   }
 }
 
-function matches(i: CatalogItem, f: ListingFilters, skip?: "brand" | "size" | "color" | "price"): boolean {
+function matches(i: CatalogItem, f: ListingFilters, skip?: "category" | "brand" | "size" | "color" | "price"): boolean {
+  if (skip !== "category" && f.categories.length && !f.categories.includes(i.category?.handle ?? "")) return false
   if (skip !== "brand" && f.brands.length && !f.brands.includes(i.brand?.handle ?? "")) return false
   if (skip !== "color" && f.colors.length && !f.colors.includes(i.color ?? "")) return false
   if (skip !== "size" && f.sizes.length && !i.sizes.some((s) => s.in_stock && sizeKeys(s.size).some((k) => f.sizes.includes(k)))) return false
@@ -190,6 +196,12 @@ export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingRes
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const page = Math.min(Math.max(1, f.page), pages)
 
+  const categories = count(
+    scoped.filter((i) => matches(i, f, "category")),
+    (i) => (i.category ? [i.category] : []),
+    (c) => [c.handle, c.name]
+  ).sort((a, b) => b.count - a.count)
+
   const brands = count(
     scoped.filter((i) => matches(i, f, "brand")),
     (i) => (i.brand ? [i.brand] : []),
@@ -216,6 +228,7 @@ export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingRes
     page,
     pages,
     facets: {
+      categories,
       brands,
       sizes: sizeFacets,
       colors,

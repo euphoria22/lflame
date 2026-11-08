@@ -69,10 +69,10 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
     <>
       <div className="grid border-t border-line lg:grid-cols-[300px_1fr]">
         <div className="lg:border-r lg:border-line lg:pt-4">
-          <FilterPanel mode="sidebar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} />
+          <FilterPanel mode="sidebar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} />
         </div>
         <div>
-          <FilterPanel mode="toolbar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} />
+          <FilterPanel mode="toolbar" basePath={basePath} filters={filters} facets={result.facets} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} />
           {result.items.length ? (
             <ul className={GRID}>
               {result.items.map((item, i) => (

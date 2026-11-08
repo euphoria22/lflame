@@ -20,7 +20,7 @@ export function RecentlyViewed({ current }: { current: CatalogItem }) {
     }
     const others = list.filter((i) => i.handle !== current.handle)
     // eslint-disable-next-line react-hooks/set-state-in-effect -- данные доступны только в браузере
-    setItems(others.slice(0, 4))
+    setItems(others.slice(0, 6))
     try {
       localStorage.setItem(KEY, JSON.stringify([current, ...others].slice(0, 12)))
     } catch {
@@ -32,9 +32,11 @@ export function RecentlyViewed({ current }: { current: CatalogItem }) {
   return (
     <section className="mt-20">
       <h2 className="mb-5 px-4 text-[20px] tracking-tight md:px-8 md:text-[24px]">Вы смотрели</h2>
-      <ul className="rail grid-lines grid auto-cols-[46%] grid-flow-col overflow-x-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-4">
+      <ul className="rail grid-lines grid auto-cols-[42%] grid-flow-col overflow-x-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-4 xl:grid-cols-6">
         {items.map((item) => (
-          <li key={item.id} className="md:[&:nth-child(4n)]:border-r-0"><ProductCard item={item} sizes="(min-width: 768px) 25vw, 46vw" /></li>
+          <li key={item.id} className="md:[&:nth-child(4n)]:border-r-0 xl:[&:nth-child(4n)]:border-r xl:[&:nth-child(6n)]:border-r-0">
+            <ProductCard item={item} compact sizes="(min-width: 1280px) 16vw, (min-width: 768px) 25vw, 42vw" />
+          </li>
         ))}
       </ul>
     </section>

@@ -20,6 +20,9 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
   const box = useRef<HTMLDivElement>(null)
 
   const anyAvailable = variants.some((v) => v.available > 0)
+  const availableSizes = variants.filter((v) => v.available > 0)
+  // Пометка «последний» имеет смысл, только если часть размеров есть в большем количестве
+  const allSingles = availableSizes.length > 1 && availableSizes.every((v) => v.available === 1)
   const onlyOneSize = variants.length === 1 && variants[0].size === "One Size"
   const chosen = variants.find((v) => v.id === selected)
 
@@ -72,11 +75,12 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
                   onClick={() => { setSelected(v.id); setMessage(null) }}
                   className={`relative flex h-12 flex-col items-center justify-center rounded-xl border text-[13px] transition-colors ${on ? "border-foreground bg-foreground text-background" : out ? "cursor-not-allowed border-line text-subtle line-through" : "border-line hover:border-foreground"}`}>
                   {v.size}
-                  {v.available === 1 && <span className={`eyebrow text-[9px] ${on ? "text-background/70" : "text-muted"}`}>последний</span>}
+                  {v.available === 1 && !allSingles && <span className={`eyebrow text-[9px] ${on ? "text-background/70" : "text-muted"}`}>последний</span>}
                 </button>
               )
             })}
           </div>
+          {allSingles && <p className="mt-2 text-[12px] text-muted">Каждый размер — в единственном экземпляре</p>}
         </fieldset>
       )}
       <div className="mt-5">{button}</div>
