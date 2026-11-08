@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 import { formatPrice, plural } from "@/lib/format"
 import { sizeKind } from "@/lib/size-groups"
@@ -57,7 +57,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
     <div className={`flex flex-col gap-8 ${pending ? "opacity-60" : ""}`}>
       {showCategories && facets.categories.length > 1 && (
         <Group title="Категория">
-          <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+          <ul className="max-h-44 space-y-2 overflow-y-auto pr-1">
             {facets.categories.map((c) => (
               <li key={c.value}>
                 <Check checked={filters.categories.includes(c.value)} onChange={() => toggle("categories", c.value)} label={c.label} count={c.count} />
@@ -79,7 +79,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
 
       {facets.colors.length > 0 && (
         <Group title="Цвет">
-          <ul className="max-h-48 space-y-2 overflow-y-auto pr-1">
+          <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
             {facets.colors.map((c) => {
               const on = filters.colors.includes(c.value)
               return (
@@ -110,8 +110,7 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
     return (
       // h-full: закреплённому блоку нужен родитель во всю высоту каталога, иначе ему некуда ехать
       <aside aria-label="Фильтры" className="hidden h-full lg:block">
-        {/* Закреплён и едет вместе со страницей; прокрутка — внутри каждого фильтра */}
-        <div className="sticky top-[96px] pb-8 pl-8 pr-4">{body}</div>
+        <SmartSticky>{body}</SmartSticky>
       </aside>
     )
   }
@@ -155,6 +154,31 @@ export function FilterPanel({ basePath, filters, facets, total, showBrands, show
 }
 
 /**
+ * «Умное» закрепление: если фильтр помещается в экран — закреплён сверху под шапкой;
+ * если выше экрана — сначала прокручивается со страницей и закрепляется нижним краем,
+ * чтобы нижние группы (бренды) всегда были доступны.
+ */
+const HEADER_OFFSET = 96
+
+function SmartSticky({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [top, setTop] = useState(HEADER_OFFSET)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => setTop(Math.min(HEADER_OFFSET, window.innerHeight - el.offsetHeight - 16))
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener("resize", update)
+    return () => { ro.disconnect(); window.removeEventListener("resize", update) }
+  }, [])
+
+  return <div ref={ref} className="sticky pb-8 pl-8 pr-4" style={{ top }}>{children}</div>
+}
+
+/**
  * Размеры (обратная связь 08.11.2026): слева одежда XS–3XL, затем One Size и прочие;
  * справа джинсы по талии; ниже обувь в два столбца. Общая прокрутка внутри блока.
  */
@@ -168,7 +192,7 @@ function SizeFilter({ facets, selected, onToggle }: { facets: ListingResult["fac
   )
   const cols = left.length && right.length
   return (
-    <div className="max-h-64 overflow-y-auto pr-1">
+    <div className="max-h-52 overflow-y-auto pr-1">
       {(left.length > 0 || right.length > 0) && (
         <div className={cols ? "grid grid-cols-2 gap-x-4" : ""}>
           {left.length > 0 && <ul className={`space-y-2 ${!cols ? "grid grid-cols-2 gap-x-4 space-y-0 gap-y-2" : ""}`}>{left.map(item)}</ul>}
@@ -206,7 +230,7 @@ function BrandFilter({ facets, selected, onToggle }: { facets: ListingResult["fa
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск бренда"
           className="mb-3 w-full border-b border-line bg-transparent py-2 text-[13px] outline-none focus:border-foreground" />
       )}
-      <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+      <ul className="max-h-44 space-y-2 overflow-y-auto pr-1">
         {shown.map((b) => {
           const on = selected.includes(b.value)
           return (

@@ -81,7 +81,8 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
         title: `${g!.name === "Мужское" ? "Мужская" : "Женская"} одежда, обувь и аксессуары — купить в ${SITE_NAME}`,
         description: describe(`${g!.name === "Мужское" ? "Мужская" : "Женская"} одежда`, scoped),
         crumbs: [{ name: g!.name, href: routes.gender(g!.slug) }],
-        chips: categoryChips(scoped, (c) => routes.category(g!.slug, c)),
+        // Категории выбираются в фильтре; сверху — популярные бренды раздела (обратная связь 08.11.2026)
+        chips: brandChips(scoped, (b) => routes.brandGender(b, g!.slug)),
       }
     }
     case "category": {
