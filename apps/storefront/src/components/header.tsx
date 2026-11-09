@@ -3,7 +3,8 @@ import Link from "next/link"
 
 import { routes } from "@/lib/routes"
 import { CartButton } from "./cart-button"
-import { HeartIcon, SearchIcon, UserIcon } from "./icons"
+import { FavLink } from "./fav-button"
+import { SearchIcon, UserIcon } from "./icons"
 import { Logo } from "./logo"
 import { MobileMenu } from "./mobile-menu"
 import { getNav } from "./nav-data"
@@ -81,7 +82,7 @@ export async function Header() {
 
         <div className="flex items-center gap-1">
           <Link href={routes.search()} aria-label="Поиск" className="rounded-full p-2 hover:bg-black/5"><SearchIcon className="size-[22px]" /></Link>
-          <Link href={routes.favorites()} aria-label="Избранное" className="hidden rounded-full p-2 hover:bg-black/5 md:block"><HeartIcon className="size-[22px]" /></Link>
+          <Link href={routes.favorites()} aria-label="Избранное" className="hidden rounded-full p-2 hover:bg-black/5 md:block"><FavLink /></Link>
           <Link href={routes.account()} aria-label="Личный кабинет" className="hidden rounded-full p-2 hover:bg-black/5 md:block"><UserIcon className="size-[22px]" /></Link>
           <CartButton />
         </div>

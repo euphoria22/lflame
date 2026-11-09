@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 
 import { CartDrawer } from "@/components/cart-drawer"
 import { CartProvider } from "@/components/cart-context"
+import { FavoritesProvider } from "@/components/favorites-context"
 import { Footer } from "@/components/footer"
 import { Header } from "@/components/header"
 import { JsonLd } from "@/components/json-ld"
@@ -38,10 +39,12 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru" className={`${inter.variable} antialiased`}>
       <body className="flex min-h-screen flex-col">
         <CartProvider>
+          <FavoritesProvider>
           <Header />
           <main className="flex-1 pt-[84px]">{children}</main>
           <Footer />
           <CartDrawer />
+          </FavoritesProvider>
         </CartProvider>
         <JsonLd data={[
           {

@@ -1,4 +1,4 @@
-import { safePosts } from "./blog"
+import { listInfoPages, safePosts } from "./blog"
 import { getCatalog } from "./catalog"
 import { LANDING_MIN_ITEMS } from "./listing"
 import { listingPaths } from "./listing-pages"
@@ -18,7 +18,8 @@ export async function sitemapFiles(): Promise<Record<string, SitemapEntry[]>> {
     .map((p) => ({ loc: `${SITE_URL}${p.path}` }))
 
   const files: Record<string, SitemapEntry[]> = {
-    pages: [{ loc: `${SITE_URL}/` }, { loc: `${SITE_URL}${routes.brands()}` }, { loc: `${SITE_URL}/loyalty` }, { loc: `${SITE_URL}/loyalty/rules` }],
+    pages: [{ loc: `${SITE_URL}/` }, { loc: `${SITE_URL}${routes.brands()}` }, { loc: `${SITE_URL}/loyalty` }, { loc: `${SITE_URL}/loyalty/rules` },
+      ...(await listInfoPages().catch(() => [])).map((slug) => ({ loc: `${SITE_URL}${routes.page(slug)}` }))],
     landings,
     blog: [{ loc: `${SITE_URL}${routes.blog()}` }, ...(await safePosts()).map((p) => ({ loc: `${SITE_URL}${routes.post(p.slug)}`, lastmod: p.publishedAt ?? undefined }))],
   }

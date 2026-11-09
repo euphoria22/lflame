@@ -5,6 +5,7 @@ import { titleWithoutBrand } from "@/lib/format"
 import { isNew } from "@/lib/listing"
 import { routes } from "@/lib/routes"
 import type { CatalogItem } from "@/lib/types"
+import { FavButton } from "./fav-button"
 import { Price } from "./price"
 import { QuickSizes } from "./quick-sizes"
 
@@ -43,6 +44,7 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
           {isNew(item) && <span className="eyebrow glass rounded-full px-2 py-1">New</span>}
           {lastSize && !item.preorder && <span className="eyebrow glass rounded-full px-2 py-1">Последний размер</span>}
         </div>
+        <FavButton handle={item.handle} title={item.title} className="glass absolute right-3 top-3 z-10 size-9 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100 [&[aria-pressed=true]]:opacity-100" />
         {/* Размеры при наведении: отдельная кнопка на каждый размер (на этапе 4 — сразу в корзину) */}
         {/* Размеры при наведении: нажатие сразу добавляет размер в корзину */}
         {showSizes && <QuickSizes sizes={inStock} />}

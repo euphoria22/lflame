@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation"
 
 import { Breadcrumbs } from "@/components/breadcrumbs"
 import { BuyBox } from "@/components/buy-box"
+import { FavButton } from "@/components/fav-button"
 import { JsonLd } from "@/components/json-ld"
 import { Price } from "@/components/price"
 import { ProductGallery } from "@/components/product-gallery"
@@ -92,7 +93,10 @@ export default async function ProductPage({ params }: Props) {
             {product.brand && (
               <Link href={routes.brand(product.brand.handle)} className="eyebrow hover:opacity-60">{product.brand.name}</Link>
             )}
-            <h1 className="mt-2 text-[22px] font-normal leading-snug tracking-tight md:text-[26px]">{product.title}</h1>
+            <div className="mt-2 flex items-start justify-between gap-4">
+              <h1 className="text-[22px] font-normal leading-snug tracking-tight md:text-[26px]">{product.title}</h1>
+              <FavButton handle={product.handle} title={product.title} className="size-10 shrink-0 border border-line hover:border-foreground" />
+            </div>
             <div className="mt-4">
               <Price price={product.price} compareAt={product.compare_at} size="lg" />
             </div>
