@@ -34,8 +34,9 @@ export function CartLines({ cart, onNavigate, compact = false }: { cart: Cart; o
   return (
     <ul className="divide-y divide-line">
       {cart.lines.map((l) => {
-        const options = (l.handle && sizes[l.handle]) || []
-        const canChange = options.filter((s) => s.in_stock).length > 1 || (options.length > 1 && !options.find((s) => s.variant_id === l.variant_id)?.in_stock)
+        // Только размеры в наличии (и текущий, даже если закончился)
+        const options = ((l.handle && sizes[l.handle]) || []).filter((s) => s.variant_id && (s.in_stock || s.variant_id === l.variant_id))
+        const canChange = options.length > 1
         return (
           <li key={l.id} className={`flex gap-4 ${compact ? "py-3" : "py-4"}`}>
             <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate}
@@ -49,11 +50,9 @@ export function CartLines({ cart, onNavigate, compact = false }: { cart: Cart; o
                   <label className="inline-flex items-center gap-1">
                     Размер:
                     <select value={l.variant_id} disabled={busy} onChange={(e) => changeSize(l.id, e.target.value)} aria-label={`Размер: ${l.title}`}
-                      className="cursor-pointer rounded-full border border-line bg-background py-0.5 pl-2 pr-6 text-[12px] text-foreground outline-none hover:border-foreground focus:border-foreground">
-                      {options.filter((s) => s.variant_id).map((s) => (
-                        <option key={s.variant_id} value={s.variant_id} disabled={!s.in_stock && s.variant_id !== l.variant_id}>
-                          {s.size}{!s.in_stock ? " — нет" : ""}
-                        </option>
+                      className="w-24 cursor-pointer truncate rounded-full border border-line bg-background py-0.5 pl-2.5 pr-6 text-[12px] text-foreground outline-none hover:border-foreground focus:border-foreground">
+                      {options.map((s) => (
+                        <option key={s.variant_id} value={s.variant_id}>{s.size}</option>
                       ))}
                     </select>
                   </label>

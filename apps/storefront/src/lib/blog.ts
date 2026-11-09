@@ -200,3 +200,33 @@ export async function safeHomeHero(): Promise<HomeHero | null> {
     return null
   }
 }
+
+/* ---------- Меню: плитки с фото ---------- */
+
+export type MenuTileSetting = { category: string; label: string | null; image: string | null }
+export type MenuSettings = { men: MenuTileSetting[]; women: MenuTileSetting[] }
+
+type RawTile = { category?: string | null; label?: string | null; image?: RawMedia | null }
+
+/** Плитки выпадающего меню из CMS. Пустой раздел — плитки по умолчанию. */
+export async function getMenuSettings(): Promise<MenuSettings> {
+  "use cache"
+  cacheTag("menu")
+  cacheLife({ stale: 60, revalidate: 600, expire: 86400 })
+  const g = await cms<{ men?: RawTile[] | null; women?: RawTile[] | null }>("/globals/menu?depth=1")
+  const list = (x: RawTile[] | null | undefined) =>
+    (x ?? []).filter((t) => t.category).slice(0, 3).map((t) => ({
+      category: String(t.category),
+      label: t.label?.trim() || null,
+      image: media(t.image, "card")?.url ?? null,
+    }))
+  return { men: list(g.men), women: list(g.women) }
+}
+
+export async function safeMenuSettings(): Promise<MenuSettings> {
+  try {
+    return await getMenuSettings()
+  } catch {
+    return { men: [], women: [] }
+  }
+}

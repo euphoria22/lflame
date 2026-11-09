@@ -20,12 +20,12 @@ import { getNav, type NavTile } from "./nav-data"
  */
 const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 opacity-0 transition-[opacity,visibility] delay-150 duration-200 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:delay-0 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-hover:delay-0"
 
-/** Плитка с фото в меню (как у Brandshop): фото и подпись капслоком. */
-function MenuTile({ tile, wide = false }: { tile: NavTile; wide?: boolean }) {
+/** Плитка с фото в меню (как у Brandshop): фото 3:4 и подпись капслоком. */
+function MenuTile({ tile }: { tile: NavTile }) {
   return (
-    <Link href={tile.href} className="group/tile block">
-      <span className={`relative block overflow-hidden rounded-2xl bg-surface ${wide ? "aspect-[16/9]" : "h-[340px]"}`}>
-        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="300px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
+    <Link href={tile.href} className="group/tile block w-full max-w-[260px] flex-1">
+      <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface">
+        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="260px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
       </span>
       <span className="eyebrow mt-2 block text-center">{tile.label}</span>
     </Link>
@@ -34,7 +34,7 @@ function MenuTile({ tile, wide = false }: { tile: NavTile; wide?: boolean }) {
 
 export async function Header() {
   "use cache"
-  cacheTag("catalog")
+  cacheTag("catalog", "menu")
   const nav = await getNav()
   const link = "px-3 py-2 text-[13px] hover:opacity-60 transition-opacity"
 
@@ -51,7 +51,7 @@ export async function Header() {
             <li className="group flex h-14 items-center">
               <Link href={routes.brands()} className={link}>Бренды</Link>
               <div className={PANEL}>
-                <div className="grid grid-cols-[1fr_300px] gap-10 rounded-[28px] border border-line bg-background p-8 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
+                <div className="grid grid-cols-[1fr_auto] gap-10 rounded-[28px] border border-line bg-background p-8 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
                   <div>
                     <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
                     <ul className="columns-4 gap-8 text-[14px] leading-8">
@@ -60,7 +60,7 @@ export async function Header() {
                       ))}
                     </ul>
                   </div>
-                  <div className="flex flex-col gap-4">{nav.brandTiles.map((t) => <MenuTile key={t.href} tile={t} wide />)}</div>
+                  <div className="flex w-[440px] justify-end gap-4">{nav.brandTiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                 </div>
               </div>
             </li>
@@ -85,13 +85,12 @@ export async function Header() {
                         ))}
                       </ul>
                     </div>
-                    <div className="grid grid-cols-2 content-start gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
+                    <div className="flex items-start justify-end gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                   </div>
                 </div>
               </li>
             ))}
             {nav.saleCount > 0 && <li className="flex h-14 items-center"><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></li>}
-            <li className="flex h-14 items-center"><Link href={routes.blog()} className={link}>Блог</Link></li>
           </ul>
         </nav>
 

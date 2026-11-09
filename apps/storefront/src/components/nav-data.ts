@@ -1,3 +1,4 @@
+import { safeMenuSettings } from "@/lib/blog"
 import { getCatalog, getTaxonomy } from "@/lib/catalog"
 import { scopeItems } from "@/lib/listing"
 import { GENDERS, GenderSlug, routes } from "@/lib/routes"
@@ -7,6 +8,12 @@ export type NavCategory = { handle: string; name: string; count: number }
 export type NavBrand = { handle: string; name: string; count: number }
 export type NavTile = { label: string; href: string; image: string | null }
 export type NavGender = { slug: GenderSlug; name: string; categories: NavCategory[]; brands: NavBrand[]; tiles: NavTile[] }
+
+/** Плитки по умолчанию, пока в CMS ничего не выбрано (осень — зима). */
+const DEFAULT_TILES = [
+  { category: "kurtki", label: null, image: null },
+  { category: "hudi-i-svitshoty", label: null, image: null },
+]
 
 /** Фото для плитки меню: товар в наличии, предпочтительно верхняя одежда и трикотаж. */
 function photo(list: CatalogItem[], used: Set<string>): string | null {
@@ -20,7 +27,7 @@ function photo(list: CatalogItem[], used: Set<string>): string | null {
 
 /** Данные меню: категории и топ-бренды для каждого раздела, только где есть товары. */
 export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand[]; brandTiles: NavTile[]; saleCount: number }> {
-  const [items, taxonomy] = await Promise.all([getCatalog(), getTaxonomy()])
+  const [items, taxonomy, menu] = await Promise.all([getCatalog(), getTaxonomy(), safeMenuSettings()])
   const rank = new Map(taxonomy.categories.map((c) => [c.handle, c.rank]))
   const used = new Set<string>()
 
@@ -45,10 +52,15 @@ export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand
       name: g.name,
       categories: [...cats.values()].sort((a, b) => (rank.get(a.handle) ?? 0) - (rank.get(b.handle) ?? 0) || a.name.localeCompare(b.name)),
       brands: [...brands.values()].sort((a, b) => b.count - a.count).slice(0, 14).sort((a, b) => a.name.localeCompare(b.name)),
-      tiles: [
-        { label: "Новинки", href: routes.newIn(g.slug), image: photo(scopeItems(items, { gender: g.slug, onlyNew: true }), used) },
-        { label: "Sale", href: routes.sale(g.slug), image: photo(scopeItems(items, { gender: g.slug, onlySale: true }), used) },
-      ],
+      // Плитки — сезонные категории из CMS («Меню сайта»); фото не задано — берём товар из категории
+      tiles: (menu[g.slug].length ? menu[g.slug] : DEFAULT_TILES)
+        .map((t) => ({ ...t, cat: cats.get(t.category) }))
+        .filter((t) => t.cat)
+        .map((t) => ({
+          label: t.label ?? t.cat!.name,
+          href: routes.category(g.slug, t.category),
+          image: t.image ?? photo(scoped.filter((i) => i.category?.handle === t.category), used),
+        })),
     }
   })
 
