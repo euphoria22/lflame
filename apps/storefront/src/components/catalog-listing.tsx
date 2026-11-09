@@ -44,11 +44,13 @@ export async function CatalogListing(props: CatalogListingProps) {
         <h1 className="mt-6 text-[28px] font-normal leading-tight tracking-tight md:text-[40px]">{h1}</h1>
         {intro && <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-muted">{intro}</p>}
         {!!chips?.length && (
-          <ul className="rail -mx-4 mt-5 flex gap-x-5 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:gap-y-1 md:px-0">
+          // На телефоне — «таблетки» в ленте с прокруткой вбок (край ленты плавно гаснет — видно, что можно листать);
+          // на компьютере — строка ссылок с переносом
+          <ul className="chips-rail -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:gap-x-5 md:gap-y-1 md:px-0">
             {chips.map((c) => (
               <li key={c.href} className="shrink-0">
                 <Link href={c.href} aria-current={c.active ? "page" : undefined}
-                  className={`block py-1 text-[14px] underline-offset-4 transition-colors ${c.active ? "underline" : "text-muted hover:text-foreground"}`}>
+                  className={`block rounded-full border px-4 py-2 text-[13px] transition-colors md:rounded-none md:border-0 md:px-0 md:py-1 md:text-[14px] md:underline-offset-4 ${c.active ? "border-foreground bg-foreground text-background md:bg-transparent md:text-foreground md:underline" : "border-line text-foreground hover:border-foreground md:text-muted md:hover:text-foreground"}`}>
                   {c.label}
                 </Link>
               </li>

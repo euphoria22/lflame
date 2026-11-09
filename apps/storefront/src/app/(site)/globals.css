@@ -100,6 +100,19 @@ body {
   scroll-snap-align: start;
 }
 
+/* Лента «таблеток» (бренды над каталогом): без полосы прокрутки, правый край плавно гаснет */
+.chips-rail {
+  scrollbar-width: none;
+}
+.chips-rail::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .chips-rail {
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+}
+
 /* Сетка товаров с линиями-разделителями во всю ширину */
 .grid-lines {
   border-top: 1px solid var(--line);
@@ -333,8 +346,10 @@ html {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
+/* backwards, не both: после анимации у обёртки не должно остаться transform —
+   иначе всплывающие панели внутри страницы (фильтры) привязываются к странице, а не к экрану */
 .page-in {
-  animation: page-in 450ms var(--ease-out) both;
+  animation: page-in 450ms var(--ease-out) backwards;
 }
 
 /* Затемнение под панелями */

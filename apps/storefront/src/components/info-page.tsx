@@ -15,12 +15,13 @@ export const HELP_TABS = [
 
 function HelpTabs({ active }: { active: string }) {
   return (
-    <nav aria-label="Покупателям" className="-mx-4 mt-6 overflow-x-auto px-4 md:mx-0 md:px-0">
-      <ul className="flex min-w-max rounded-full border border-line p-1 md:grid md:min-w-0 md:grid-cols-6">
+    // На телефоне — сетка 2×3, все разделы видны сразу (без прокрутки вбок); на компьютере — одна строка
+    <nav aria-label="Покупателям" className="mt-6">
+      <ul className="grid grid-cols-2 gap-1 rounded-[24px] border border-line p-1 md:grid-cols-6 md:rounded-full">
         {HELP_TABS.map((t) => (
           <li key={t.href}>
             <Link href={t.href} aria-current={t.href === active ? "page" : undefined}
-              className={`eyebrow block whitespace-nowrap rounded-full px-5 py-3 text-center transition-colors ${t.href === active ? "bg-foreground text-background" : "hover:bg-surface"}`}>
+              className={`eyebrow block whitespace-nowrap rounded-full px-3 py-3 text-center transition-colors ${t.href === active ? "bg-foreground text-background" : "hover:bg-surface"}`}>
               {t.label}
             </Link>
           </li>
