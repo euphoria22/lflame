@@ -31,23 +31,19 @@ ssh root@IP_СЕРВЕРА
 curl -fsSL https://raw.githubusercontent.com/euphoria22/lflame/main/infra/scripts/server-setup.sh -o setup.sh
 SSH_PORT=2222 bash setup.sh
 ```
-Репозиторий приватный — если скачать так не выйдет, скопируйте файл вручную. После этого вход только так:
+После этого вход только так:
 `ssh -p 2222 deploy@IP_СЕРВЕРА` (root и пароли отключены).
 
-Код на сервер: создайте на GitHub ключ развёртывания (Settings → Deploy keys, «только чтение»):
+Код на сервер:
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/github -N ""   # открытую часть ~/.ssh/github.pub — в Deploy keys
-printf 'Host github.com\n  IdentityFile ~/.ssh/github\n' >> ~/.ssh/config
-git clone git@github.com:euphoria22/lflame.git ~/lflame
+git clone https://github.com/euphoria22/lflame.git ~/lflame
 ```
 
 ## 3. Настройки
 
 ```bash
 cd ~/lflame
-cp infra/prod.env.template infra/.env
-cp infra/backend.env.template infra/.env.backend
-nano infra/.env            # домены, ваш IP, пароли (openssl rand -hex 32)
+SITE_DOMAIN=laflamme.ru ADMIN_ALLOW_IPS="ваш.ip" bash infra/scripts/init-env.sh   # пароли и секреты создаются сами
 nano infra/.env.backend    # ключи интеграций
 ```
 
