@@ -154,7 +154,7 @@ export async function syncCatalog(
     }
     if (m.minPrice <= 0) {
       stats.skipped_no_price++
-    } else if (m.totalStock <= 0 && !m.preorder) {
+    } else if (m.totalStock <= 0) {
       stats.skipped_no_stock++
     } else {
       toCreate.push(m)
@@ -394,8 +394,7 @@ function productMetadata(m: MappedProduct, categoryId: string | null, brandId: s
   }
 }
 
-/** allowBackorder — товар на предзаказе: продаётся без остатка. */
-function variantInput(m: MappedProduct["variants"][number], rank: number, allowBackorder = false) {
+function variantInput(m: MappedProduct["variants"][number], rank: number) {
   return {
     title: m.size,
     // Порядок размеров на витрине: XS, S, M, L, XL…
@@ -404,7 +403,7 @@ function variantInput(m: MappedProduct["variants"][number], rank: number, allowB
     barcode: m.barcode ?? undefined,
     options: { [SIZE_OPTION]: m.size },
     manage_inventory: true,
-    allow_backorder: allowBackorder,
+    allow_backorder: false,
     prices: [{ currency_code: "rub", amount: m.price }],
     metadata: {
       moysklad_id: m.moyskladId,
@@ -481,8 +480,8 @@ async function createProduct(
           images: images.map((url) => ({ url })),
           thumbnail: images[0],
           options: [{ title: SIZE_OPTION, values: m.sizes }],
-          variants: m.variants.map((v, i) => variantInput(v, i, m.preorder)),
-          // «Предзаказ» из МС — только при создании; дальше флажок ведётся в админке сайта
+          variants: m.variants.map((v, i) => variantInput(v, i)),
+          // Пометка «Предзаказ» из доп. поля МС — при создании; дальше флажок ведётся в админке сайта
           metadata: { ...productMetadata(m, categoryId, brandId), ...(m.preorder ? { preorder: true } : {}) },
         },
       ],
@@ -532,7 +531,7 @@ async function updateProduct(
     if (!exV) {
       creates.push(v)
     } else if (exV.metadata?.sync_hash !== variantHash(v, rankOf.get(v.moyskladId)!)) {
-      updates.push({ ...variantInput(v, rankOf.get(v.moyskladId)!, Boolean(ex.metadata?.preorder)), id: exV.id } as ReturnType<typeof variantInput> & { id: string })
+      updates.push({ ...variantInput(v, rankOf.get(v.moyskladId)!), id: exV.id } as ReturnType<typeof variantInput> & { id: string })
     }
   }
 
@@ -556,7 +555,7 @@ async function updateProduct(
     }
     await createProductVariantsWorkflow(ctx.container).run({
       input: {
-        product_variants: creates.map((v) => ({ ...variantInput(v, rankOf.get(v.moyskladId)!, Boolean(ex.metadata?.preorder)), product_id: ex.id })),
+        product_variants: creates.map((v) => ({ ...variantInput(v, rankOf.get(v.moyskladId)!), product_id: ex.id })),
       },
     })
     changed = true

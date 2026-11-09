@@ -29,7 +29,7 @@ export type CatalogItem = {
   compare_at: number | null
   sizes: { size: string; in_stock: boolean; variant_id: string }[]
   in_stock: boolean
-  /** Предзаказ: продаётся без остатка (флажок в админке) */
+  /** Предзаказ: товар в пути, остаток внесён в МС (пометка на витрине, флажок в админке) */
   preorder: boolean
   /** Скидка программы лояльности не действует */
   no_loyalty: boolean
@@ -120,8 +120,6 @@ function rub(prices: { amount: number; currency_code: string }[] | undefined): n
 }
 
 function toVariants(row: Row, stock: Map<string, number>): CatalogVariant[] {
-  // Предзаказ: все размеры доступны, даже без остатка
-  const preorder = Boolean(row.metadata?.preorder)
   const variants = (row.variants ?? []).map((v) => ({
     id: v.id,
     size: v.title,
@@ -129,7 +127,7 @@ function toVariants(row: Row, stock: Map<string, number>): CatalogVariant[] {
     rank: v.variant_rank ?? 0,
     price: rub(v.prices),
     compare_at: (v.metadata?.compare_at_price as number | null | undefined) ?? null,
-    available: preorder ? 10 : Math.min(10, stock.get(v.id) ?? 0),
+    available: Math.min(10, stock.get(v.id) ?? 0),
   }))
   const order = sortSizes(variants.map((v) => v.size))
   return variants

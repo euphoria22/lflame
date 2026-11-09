@@ -35,7 +35,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
           <Switch id="lf-preorder" checked={preorder} disabled={busy} onCheckedChange={(v) => save({ preorder: v })} />
           <div>
             <Label htmlFor="lf-preorder">Предзаказ</Label>
-            <Text size="small" className="text-ui-fg-subtle">Все размеры можно заказать без остатка. На сайте — пометка «Предзаказ» и кнопка «Оформить предзаказ».</Text>
+            <Text size="small" className="text-ui-fg-subtle">Товар в пути: продаётся по остатку из МоегоСклада, как обычно. На сайте — пометка «Предзаказ» и кнопка «Оформить предзаказ».</Text>
           </div>
         </div>
         <div className="flex items-start gap-3">
