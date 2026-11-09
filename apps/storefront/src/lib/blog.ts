@@ -130,3 +130,24 @@ export async function listInfoPages(): Promise<string[]> {
   const { docs } = await cms<{ docs: { slug: string }[] }>(`/pages?limit=100&depth=0&select[slug]=true`)
   return docs.map((d) => d.slug)
 }
+
+/* ---------- Плашка с акциями над шапкой ---------- */
+
+export type Announcement = { theme: "dark" | "sale" | "light"; items: { text: string; link: string | null; linkLabel: string | null }[] }
+
+export async function getAnnouncement(): Promise<Announcement | null> {
+  "use cache"
+  cacheTag("announcement")
+  cacheLife({ stale: 60, revalidate: 600, expire: 86400 })
+  const g = await cms<{ enabled?: boolean; theme?: Announcement["theme"]; items?: { text: string; link?: string | null; linkLabel?: string | null }[] }>("/globals/announcement?depth=0")
+  const items = (g.items ?? []).filter((i) => i.text?.trim()).map((i) => ({ text: i.text.trim(), link: i.link?.trim() || null, linkLabel: i.linkLabel?.trim() || null }))
+  return g.enabled && items.length ? { theme: g.theme ?? "dark", items } : null
+}
+
+export async function safeAnnouncement(): Promise<Announcement | null> {
+  try {
+    return await getAnnouncement()
+  } catch {
+    return null
+  }
+}

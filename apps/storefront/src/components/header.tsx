@@ -20,7 +20,7 @@ export async function Header() {
   const link = "px-3 py-2 text-[13px] hover:opacity-60 transition-opacity"
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 md:px-4">
+    <header className="fixed inset-x-0 top-[var(--bar-offset,var(--bar,0px))] z-50 px-3 pt-3 transition-[top] duration-300 md:px-4">
       <div className="glass relative mx-auto flex h-14 max-w-[1680px] items-center justify-between rounded-full px-3 md:px-5">
         <div className="flex items-center md:hidden">
           <MobileMenu nav={nav} />

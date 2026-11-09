@@ -29,6 +29,7 @@ type Settings = {
 type Markup = { type: "rub" | "pct"; value: number }
 type Tariff = { code: number; name: string; mode: number; sum: number; days_min: number; days_max: number }
 type Data = {
+  courier_price: number | null
   settings: Settings
   defaults: { parcel: Parcel }
   cdek: { mode: "test" | "production"; own_keys: boolean; error: string | null; points: { code: string; address: string }[]; tariffs: Tariff[]; example: string; webhook_url: string }
@@ -80,12 +81,14 @@ const DeliveryPage = () => {
   const [data, setData] = useState<Data | null>(null)
   const [s, setS] = useState<Settings | null>(null)
   const [manualPoint, setManualPoint] = useState(false)
+  const [courier, setCourier] = useState("")
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     const d = await api<Data>("/admin/shop-settings")
     setData(d)
     setS(d.settings)
+    setCourier(d.courier_price === null ? "" : String(d.courier_price))
     setManualPoint(!d.cdek.points.some((p) => p.code === d.settings.cdek_shipment_point))
   }, [])
 
@@ -103,7 +106,7 @@ const DeliveryPage = () => {
     if (!s) return
     setSaving(true)
     try {
-      await api("/admin/shop-settings", { method: "POST", body: JSON.stringify(s) })
+      await api("/admin/shop-settings", { method: "POST", body: JSON.stringify({ ...s, ...(courier !== "" ? { courier_price: Number(courier) } : {}) }) })
       toast.success("Сохранено — на сайте уже действует")
       await load()
     } catch (e) {
@@ -147,6 +150,17 @@ const DeliveryPage = () => {
             <Label htmlFor="free">Бесплатная доставка от, ₽</Label>
             <Input id="free" inputMode="numeric" value={String(s.free_shipping_from)} onChange={(e) => set("free_shipping_from", Number(e.target.value.replace(/\D/g, "") || 0))} />
             <Text size="small" className="text-ui-fg-subtle">Если товаров в корзине на эту сумму или больше. 0 — выключить.</Text>
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label htmlFor="courier">Курьер по Омску, ₽</Label>
+            {data.courier_price === null ? (
+              <Text size="small" className="text-ui-fg-subtle">Способ «Курьер по Омску» ещё не создан — выполните setup-delivery (см. инструкцию).</Text>
+            ) : (
+              <>
+                <Input id="courier" inputMode="numeric" value={courier} onChange={(e) => setCourier(e.target.value.replace(/\D/g, ""))} />
+                <Text size="small" className="text-ui-fg-subtle">Фиксированная цена доставки курьером по городу. 0 — бесплатно.</Text>
+              </>
+            )}
           </div>
           <div className="flex flex-col gap-y-2">
             <Label>Для каких способов</Label>
