@@ -4,6 +4,7 @@ import Link from "next/link"
 import { GENDERS, routes } from "@/lib/routes"
 import { SITE_NAME, SOCIAL } from "@/lib/site"
 import { TelegramIcon, VkIcon } from "./icons"
+import { NewsletterForm } from "./newsletter-form"
 import { getNav } from "./nav-data"
 import { LogoWordmark } from "./logo"
 
@@ -16,6 +17,9 @@ export async function Footer() {
   const col = "text-[13px] leading-7 text-muted"
   return (
     <footer className="mt-24 border-t border-line">
+      <div className="mx-auto max-w-[1680px] px-4 pt-12 md:px-8">
+        <NewsletterForm />
+      </div>
       <div className="mx-auto grid max-w-[1680px] grid-cols-2 gap-10 px-4 py-14 md:grid-cols-5 md:px-8">
         <div className="col-span-2 md:col-span-1">
           <LogoWordmark className="h-5 w-auto" aria-label={SITE_NAME} />

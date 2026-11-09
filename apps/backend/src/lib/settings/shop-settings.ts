@@ -30,6 +30,8 @@ export type ShopSettings = {
   markup: { cdek: Markup; pochta: Markup }
   /** Вес и коробка по умолчанию — если у товара не заполнены */
   parcel: ParcelConfig
+  /** Подписка на новости: включена ли форма и скидка по одноразовому промокоду (0 — без промокода) */
+  newsletter: { enabled: boolean; discount_pct: number }
 }
 
 export function defaultSettings(): ShopSettings {
@@ -48,6 +50,7 @@ export function defaultSettings(): ShopSettings {
     free_shipping_methods: ["cdek-pvz", "pochta"],
     // Только предоплата: наложенным платежом не работаем
     payments: { manual: true, cod_methods: [] },
+    newsletter: { enabled: true, discount_pct: 10 },
   }
 }
 
@@ -65,7 +68,7 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) } }
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) } }
     cache = { value, at: Date.now() }
     return value
   } catch {
@@ -119,6 +122,12 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
   if (input.free_shipping_methods !== undefined) {
     if (!Array.isArray(input.free_shipping_methods)) return { error: "Способы бесплатной доставки: неверный формат" }
     out.free_shipping_methods = [...new Set(input.free_shipping_methods.map(String).filter((k) => KINDS.includes(k)))]
+  }
+  if (input.newsletter !== undefined) {
+    const n = input.newsletter ?? {}
+    const pct = Math.round(Number(n.discount_pct ?? 0))
+    if (!Number.isFinite(pct) || pct < 0 || pct > 50) return { error: "Скидка за подписку: от 0 до 50%" }
+    out.newsletter = { enabled: Boolean(n.enabled), discount_pct: pct }
   }
   if (input.payments !== undefined) {
     const p = input.payments ?? {}

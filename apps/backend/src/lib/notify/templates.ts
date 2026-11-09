@@ -164,3 +164,21 @@ export function restockMail(to: string, p: { title: string; size: string; url: s
     }),
   }
 }
+
+/** Письмо после подписки на новости: промокод (если есть) и ссылка «отписаться». */
+export function newsletterWelcomeMail(to: string, p: { code: string | null; pct: number; unsubscribeUrl: string }): Mail {
+  const promo = p.code
+    ? `<p style="margin:0 0 8px">Ваш промокод на скидку ${p.pct}% на первый заказ:</p><div style="font-size:28px;letter-spacing:4px;color:#0b0b0b;padding:8px 0 16px">${esc(p.code)}</div><p style="margin:0 0 8px">Введите его в корзине в поле «Есть промокод?». Код одноразовый и действует только для вас. Со скидкой Laflamme Club не суммируется — сайт применит ту, что выгоднее.</p>`
+    : ""
+  return {
+    to,
+    subject: p.code ? `Ваш промокод −${p.pct}% от Laflamme` : "Вы подписались на новости Laflamme",
+    text: `Спасибо за подписку на новости Laflamme.${p.code ? `\n\nВаш промокод на скидку ${p.pct}% на первый заказ: ${p.code}\nВведите его в корзине в поле «Есть промокод?». Код одноразовый.` : ""}\n\nОтписаться: ${p.unsubscribeUrl}`,
+    html: layout({
+      preheader: p.code ? `Промокод −${p.pct}% на первый заказ` : "Спасибо за подписку",
+      title: "Спасибо за подписку",
+      body: `${promo}<p style="margin:16px 0 0">Будем писать о новых поступлениях, распродажах и закрытых акциях — не чаще раза в неделю.</p><p style="margin:16px 0 0;font-size:12px;color:#6e6e6e">Не хотите получать письма — <a href="${esc(p.unsubscribeUrl)}" style="color:#6e6e6e">отпишитесь</a>.</p>`,
+      button: { label: "Перейти в магазин", url: `${site()}/new` },
+    }),
+  }
+}
