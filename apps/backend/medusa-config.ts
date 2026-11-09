@@ -86,6 +86,12 @@ const fileModules = S3_BUCKET
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    // Шифрование соединения с базой — только если она у внешнего провайдера (DATABASE_SSL=true).
+    // Без этого Medusa в production включает SSL для любого адреса, кроме localhost,
+    // и не может подключиться к Postgres в соседнем контейнере.
+    databaseDriverOptions: {
+      connection: { ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false },
+    },
     redisUrl: REDIS_URL,
     http: {
       storeCors: process.env.STORE_CORS!,
