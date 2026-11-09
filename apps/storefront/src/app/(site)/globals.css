@@ -383,3 +383,30 @@ html {
     transition-duration: 1ms !important;
   }
 }
+
+/* Выпадающее меню шапки (mega-menu.tsx): только прозрачность, без сдвигов */
+.mega {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 220ms var(--ease-out), visibility 0s linear 220ms;
+}
+.mega[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 260ms var(--ease-out), visibility 0s;
+}
+/* Переключение между пунктами — мгновенно, без мигания */
+.mega[data-instant="true"] {
+  transition: none;
+}
+/* Без JavaScript меню открывается наведением и фокусом */
+@media (scripting: none) {
+  li.group:hover > .mega,
+  li.group:focus-within > .mega {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+}

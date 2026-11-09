@@ -1,4 +1,5 @@
 import { cacheTag } from "next/cache"
+import Image from "next/image"
 import Link from "next/link"
 
 import { routes } from "@/lib/routes"
@@ -6,26 +7,21 @@ import { CartButton } from "./cart-button"
 import { FavLink } from "./fav-button"
 import { SearchIcon, UserIcon } from "./icons"
 import { Logo } from "./logo"
+import { MegaItem, MegaLink, MegaMenu } from "./mega-menu"
 import { MobileMenu } from "./mobile-menu"
 import { getNav, type NavTile } from "./nav-data"
-import { FadeImage } from "./fade-image"
 
 /**
  * Шапка: плавающая «стеклянная» капсула. Меню — серверный HTML со ссылками,
  * доступно без JavaScript (ТЗ, п. 7.12); выпадающие панели открываются по наведению и фокусу.
  */
-/**
- * Выпадающая панель: начинается сразу под шапкой (pt-2 — невидимый «мостик»),
- * поэтому при переводе курсора вниз меню не пропадает. Скрывается с небольшой задержкой.
- */
-const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 opacity-0 -translate-y-1 transition-[opacity,visibility,translate] delay-150 duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:delay-0 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-hover:delay-0"
-
 /** Плитка с фото в меню (как у Brandshop): фото 3:4 и подпись капслоком. */
 function MenuTile({ tile }: { tile: NavTile }) {
   return (
     <Link href={tile.href} className="group/tile block min-w-0 max-w-[240px] flex-1">
       <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface">
-        {tile.image && <FadeImage src={tile.image} alt={tile.label} fill sizes="240px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
+        {/* Фото меню грузятся заранее — при открытии панели ничего не «проявляется» */}
+        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="240px" loading="eager" className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.03]" />}
       </span>
       <span className="eyebrow mt-2 block text-center">{tile.label}</span>
     </Link>
@@ -36,7 +32,7 @@ export async function Header() {
   "use cache"
   cacheTag("catalog", "menu")
   const nav = await getNav()
-  const link = "px-3 py-2 text-[13px] hover:opacity-60 transition-opacity"
+  const link = "px-3 py-2 text-[13px] hover:opacity-60 group-data-[open=true]:opacity-60 transition-opacity"
 
   return (
     <header className="fixed inset-x-0 top-[var(--bar-offset,var(--bar,0px))] z-50 px-3 pt-3 transition-[top] duration-300 md:px-4">
@@ -48,11 +44,9 @@ export async function Header() {
         </div>
 
         <nav aria-label="Основное меню" className="hidden md:block">
-          <ul className="flex items-center">
-            <li className="flex h-14 items-center"><Link href={routes.newIn()} className={link}>Новинки</Link></li>
-            <li className="group flex h-14 items-center">
-              <Link href={routes.brands()} className={link}>Бренды</Link>
-              <div className={PANEL}>
+          <MegaMenu>
+            <MegaLink><Link href={routes.newIn()} className={link}>Новинки</Link></MegaLink>
+            <MegaItem id="brands" trigger={<Link href={routes.brands()} className={link}>Бренды</Link>}>
                 <div className="glass-strong grid grid-cols-[1fr_auto] gap-10 rounded-[28px] p-8">
                   <div>
                     <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
@@ -64,12 +58,9 @@ export async function Header() {
                   </div>
                   <div className="flex w-[clamp(300px,28vw,480px)] justify-end gap-4">{nav.brandTiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                 </div>
-              </div>
-            </li>
+            </MegaItem>
             {nav.genders.map((g) => (
-              <li key={g.slug} className="group flex h-14 items-center">
-                <Link href={routes.gender(g.slug)} className={link}>{g.name}</Link>
-                <div className={PANEL}>
+              <MegaItem key={g.slug} id={g.slug} trigger={<Link href={routes.gender(g.slug)} className={link}>{g.name}</Link>}>
                   <div className="glass-strong grid grid-cols-[auto_auto_minmax(0,752px)] justify-between gap-12 rounded-[28px] p-8">
                     <div>
                       <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
@@ -89,11 +80,10 @@ export async function Header() {
                     </div>
                     <div className="flex items-start justify-end gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                   </div>
-                </div>
-              </li>
+              </MegaItem>
             ))}
-            {nav.saleCount > 0 && <li className="flex h-14 items-center"><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></li>}
-          </ul>
+            {nav.saleCount > 0 && <MegaLink><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></MegaLink>}
+          </MegaMenu>
         </nav>
 
         <Logo className="absolute left-1/2 -translate-x-1/2" />
