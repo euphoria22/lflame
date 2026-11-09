@@ -31,6 +31,7 @@ type OrderRow = {
     variant_title?: string
     quantity: number
     unit_price: number
+    adjustments?: { amount: unknown }[] | null
     variant?: { metadata?: Record<string, unknown> | null; product?: { external_id?: string | null; metadata?: Record<string, unknown> | null } | null } | null
   }[]
 }
@@ -54,7 +55,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       "shipping_address.first_name", "shipping_address.last_name", "shipping_address.phone",
       "shipping_address.address_1", "shipping_address.city",
       "shipping_methods.name", "shipping_methods.amount",
-      "items.id", "items.title", "items.product_title", "items.variant_title", "items.quantity", "items.unit_price",
+      "items.id", "items.title", "items.product_title", "items.variant_title", "items.quantity", "items.unit_price", "items.adjustments.amount",
       "items.variant.metadata", "items.variant.product.external_id", "items.variant.product.metadata",
     ],
     filters: { id: orderId },
@@ -85,7 +86,11 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       if (!msId) throw new MedusaError(MedusaError.Types.INVALID_DATA, `У позиции «${i.title}» нет связи с МоимСкладом`)
       // Товар без модификаций в МС: moysklad_id варианта = id товара
       const type = msId === i.variant?.product?.external_id ? "product" : "variant"
-      return { quantity: i.quantity, price: Math.round(Number(i.unit_price) * 100), discount: 0, reserve: i.quantity, assortment: meta(type, msId) }
+      // Промокод — скидка позиции в процентах (в МС скидка задаётся процентом)
+      const full = Number(i.unit_price) * i.quantity
+      const off = (i.adjustments ?? []).reduce((s, a) => s + Number(a.amount ?? 0), 0)
+      const discount = full > 0 && off > 0 ? Math.min(100, Math.round((off / full) * 100 * 100) / 100) : 0
+      return { quantity: i.quantity, price: Math.round(Number(i.unit_price) * 100), discount, reserve: i.quantity, assortment: meta(type, msId) }
     })
 
     const a = order.shipping_address
@@ -97,6 +102,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       `Оплата: ${order.metadata?.payment_method === "tbank" ? "онлайн (Т-Касса), оплачен" : order.metadata?.payment_method === "cod" ? "при получении" : "предоплата по ссылке — ждёт оплаты"}`,
       a?.address_1 && !a.address_1.startsWith("Самовывоз") ? `Адрес: ${a.city ?? ""}, ${a.address_1}` : null,
       order.metadata?.comment ? `Комментарий покупателя: ${order.metadata.comment}` : null,
+      order.metadata?.promo_code && (order.items ?? []).some((i) => i.adjustments?.length) ? `Промокод: ${order.metadata.promo_code}` : null,
       ...(order.items ?? []).filter((i) => i.variant?.product?.metadata?.preorder).map((i) => `ПРЕДЗАКАЗ: ${i.product_title ?? i.title} (${i.variant_title ?? ""})`),
     ].filter(Boolean).join("\n")
 

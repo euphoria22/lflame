@@ -49,6 +49,7 @@ export type MailOrder = {
   shipping_total: number
   discount_total?: number
   payment_method?: string | null
+  promo_code?: string | null
   customer_name: string
   shipping_name: string
   address: string
@@ -72,7 +73,7 @@ function itemsTable(o: MailOrder): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;border-top:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7;padding:10px 0">${rows}</table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 ${line("Товары", rub(o.item_total))}
-${o.discount_total ? line("Скидка", `−${rub(o.discount_total)}`) : ""}
+${o.discount_total ? line(o.promo_code ? `Промокод ${esc(o.promo_code)}` : "Скидка", `−${rub(o.discount_total)}`) : ""}
 ${line("Доставка", o.shipping_total ? rub(o.shipping_total) : "бесплатно")}
 ${line("Итого", rub(o.total), true)}</table>
 <p style="font-size:13px;color:#6e6e6e;margin:16px 0 0">${esc(o.shipping_name)}${o.address ? `<br>${esc(o.address)}` : ""}</p>`
@@ -139,6 +140,7 @@ export function shopOrderMessage(o: MailOrder, adminUrl: string): string {
     `🛍 <b>Новый заказ № ${o.display_id}</b> — ${rub(o.total)}`,
     `${t(o.customer_name)} · ${t(o.email)}`,
     `${t(o.shipping_name)}${o.address ? `: ${t(o.address)}` : ""}`,
+    ...(o.promo_code && o.discount_total ? [`Промокод: ${t(o.promo_code)} (−${rub(o.discount_total)})`] : []),
     `Оплата: ${o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
     "",
     ...o.items.map((i) => `• ${i.preorder ? `⏳ ПРЕДЗАКАЗ${arrival(i.preorder_date) ? ` (~${arrival(i.preorder_date)})` : ""} · ` : ""}${t(i.title)} — ${t(i.variant)} × ${i.quantity}`),

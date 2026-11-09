@@ -10,6 +10,7 @@ type Row = {
   email: string | null
   total: unknown
   item_total: unknown
+  item_subtotal?: unknown
   shipping_total: unknown
   discount_total: unknown
   metadata: Record<string, unknown> | null
@@ -24,7 +25,7 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
   const { data } = await query.graph({
     entity: "order",
     fields: [
-      "id", "display_id", "email", "total", "item_total", "shipping_total", "discount_total", "metadata",
+      "id", "display_id", "email", "total", "item_total", "item_subtotal", "shipping_total", "discount_total", "metadata",
       "shipping_address.first_name", "shipping_address.last_name", "shipping_address.phone", "shipping_address.address_1",
       "shipping_address.city", "shipping_address.postal_code", "shipping_methods.name",
       "items.product_title", "items.title", "items.variant_title", "items.quantity", "items.unit_price", "items.variant.product.metadata",
@@ -41,10 +42,12 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
     display_id: o.display_id,
     email: o.email,
     total: Number(o.total),
-    item_total: Number(o.item_total),
+    // «Товары» — до промокода, скидка промокода — отдельной строкой
+    item_total: Number(o.item_subtotal ?? o.item_total),
     shipping_total: Number(o.shipping_total),
     discount_total: Number(o.discount_total ?? 0),
     payment_method: (o.metadata?.payment_method as string) ?? null,
+    promo_code: (o.metadata?.promo_code as string) ?? null,
     customer_name: [[a.first_name, a.last_name].filter(Boolean).join(" "), a.phone].filter(Boolean).join(", "),
     shipping_name: o.shipping_methods?.[0]?.name ?? "",
     // Самовывоз: адрес магазина уже есть в названии способа

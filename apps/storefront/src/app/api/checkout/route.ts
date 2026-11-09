@@ -100,10 +100,14 @@ export async function POST(req: NextRequest) {
     if (payment === "tbank") {
       // Чек 54-ФЗ: позиции заказа и доставка (используется, если касса подключена в Т-Кассе)
       const fresh = await retrieveCart()
+      // Цена позиции — с учётом промокода (сумма строки / количество), копейки сводим к итогу корзины
       const receipt = [
-        ...(fresh?.items ?? []).map((i) => ({ name: [i.product_title, i.variant_title].filter(Boolean).join(", "), price: Number(i.unit_price), quantity: i.quantity })),
+        ...(fresh?.items ?? []).map((i) => ({ name: [i.product_title, i.variant_title].filter(Boolean).join(", "), price: Math.round((Number(i.total) / i.quantity) * 100) / 100, quantity: i.quantity })),
         ...(fresh && Number(fresh.shipping_total) > 0 ? [{ name: "Доставка", price: Number(fresh.shipping_total), quantity: 1, kind: "service" }] : []),
       ]
+      const diff = Math.round((Number(fresh?.total ?? 0) - receipt.reduce((s, l) => s + l.price * l.quantity, 0)) * 100) / 100
+      const fix = receipt.find((l) => l.quantity === 1)
+      if (diff && fix) fix.price = Math.round((fix.price + diff) * 100) / 100
       const { payment_collection: pc } = await storeFetch<{ payment_collection: { payment_sessions?: { provider_id: string; data?: { PaymentURL?: string } }[] } }>(
         `/store/payment-collections/${payment_collection.id}/payment-sessions`,
         {

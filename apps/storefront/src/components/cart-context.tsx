@@ -16,6 +16,8 @@ type CartState = {
   changeSize: (lineId: string, variantId: string) => Promise<void>
   refresh: () => Promise<void>
   clear: () => void
+  /** Применить (строка) или убрать (null) промокод; возвращает текст ошибки или null */
+  promo: (code: string | null) => Promise<string | null>
 }
 
 const Ctx = createContext<CartState | null>(null)
@@ -74,7 +76,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clear = useCallback(() => setCart(null), [])
 
-  return <Ctx.Provider value={{ cart, open, busy, error, setOpen, add, update, remove, changeSize, refresh, clear }}>{children}</Ctx.Provider>
+  const promo = useCallback(async (code: string | null) => {
+    setBusy(true)
+    try {
+      const res = await fetch("/api/cart/promo", { method: code ? "POST" : "DELETE", headers: { "content-type": "application/json" }, body: code ? JSON.stringify({ code }) : undefined })
+      const data = (await res.json()) as { cart?: Cart | null; promoError?: string | null; error?: string }
+      if (data.cart !== undefined) setCart(data.cart ?? null)
+      return data.promoError ?? data.error ?? null
+    } catch {
+      return "Нет связи. Попробуйте ещё раз."
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+
+  return <Ctx.Provider value={{ cart, open, busy, error, setOpen, add, update, remove, changeSize, refresh, clear, promo }}>{children}</Ctx.Provider>
 }
 
 export function useCart(): CartState {

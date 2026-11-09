@@ -13,8 +13,9 @@ export type CartLoyalty = { level: string; pct: number; saved: number } | null
  * Скидка уровня в корзине (ТЗ, п. 6.7): считается только на сервере, по правилу «большая из двух»,
  * без брендов-исключений. Цена строки ставится заново при каждом изменении корзины;
  * без входа (или без уровня) — возвращается обычная цена.
+ * С промокодом не суммируется: какую скидку применить, решает cart-pricing.ts.
  */
-export async function applyCartLoyalty(c: MedusaContainer, cartId: string, customerId: string | null): Promise<CartLoyalty> {
+export async function applyCartLoyalty(c: MedusaContainer, cartId: string, customerId: string | null, opts: { off?: boolean; dryRun?: boolean } = {}): Promise<CartLoyalty> {
   const query = c.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "cart",
@@ -26,7 +27,8 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
 
   // Скидка — только владельцу корзины
   let discount: Awaited<ReturnType<typeof discountFor>> = null
-  if (customerId && cart.customer_id === customerId) {
+  // off — скидку уровня не ставить (действует промокод); dryRun — только посчитать, ничего не менять
+  if (customerId && cart.customer_id === customerId && !opts.off) {
     const customer = await c.resolve(Modules.CUSTOMER).retrieveCustomer(customerId)
     discount = await discountFor(c, { email: customer.email, phone: customer.phone })
   }
@@ -54,6 +56,7 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
     const meta = { ...(item.metadata ?? {}) }
     const want = pct && target < price ? { level: discount!.tier.name, pct, base: price } : null
     saved += (price - target) * item.quantity
+    if (opts.dryRun) continue
     const current = Number(item.unit_price)
     const sameMeta = JSON.stringify(meta.loyalty ?? null) === JSON.stringify(want)
     // Ничего не меняем, если цена и отметка уже верные (и обычная цена не была переопределена)

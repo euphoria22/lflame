@@ -34,13 +34,17 @@ export async function storeFetch<T>(path: string, init: { method?: string; body?
   return data as T
 }
 
-const CART_FIELDS = "id,total,item_total,shipping_total,*items,items.variant_id,items.product_handle,items.variant_title"
+const CART_FIELDS = "id,total,item_total,item_subtotal,discount_total,shipping_total,metadata,promotions.code,*items,items.variant_id,items.product_handle,items.variant_title"
 
 type MedusaCart = {
   id: string
   total: number
   item_total: number
+  item_subtotal?: number
+  discount_total?: number
   shipping_total: number
+  metadata?: { promo_code?: string | null } | null
+  promotions?: { code: string | null }[]
   completed_at?: string | null
   items?: {
     id: string
@@ -77,10 +81,21 @@ export function toCart(c: MedusaCart): Cart {
     lines,
     count: lines.reduce((s, l) => s + l.quantity, 0),
     item_total: Number(c.item_total),
+    goods_total: Number(c.item_subtotal ?? c.item_total),
     shipping_total: Number(c.shipping_total),
     total: Number(c.total),
     loyalty: loyaltyOf(c),
+    promo: promoOf(c),
   }
+}
+
+function promoOf(c: MedusaCart): Cart["promo"] {
+  const code = c.metadata?.promo_code
+  if (!code) return null
+  const applied = (c.promotions ?? []).some((p) => p.code?.toUpperCase() === code.toUpperCase())
+  return applied
+    ? { code, applied, saved: Math.round(Number(c.discount_total ?? 0)), note: null }
+    : { code, applied, saved: 0, note: "Скидка LAFLAMME выгоднее — применили её. Промокод и скидка не суммируются." }
 }
 
 function loyaltyOf(c: MedusaCart): Cart["loyalty"] {
@@ -191,4 +206,12 @@ export async function syncLoyalty(cartId: string): Promise<void> {
   const token = await getAuthToken()
   if (token) await storeFetch(`/store/carts/${cartId}/customer`, { method: "POST", token }).catch(() => null)
   await storeFetch("/store/loyalty/cart", { method: "POST", body: { cart_id: cartId }, token }).catch(() => null)
+}
+
+/** Применить (code — строка) или убрать (null) промокод. Возвращает текст ошибки, если код не подошёл. */
+export async function applyPromo(cartId: string, code: string | null): Promise<string | null> {
+  const token = await getAuthToken()
+  if (token) await storeFetch(`/store/carts/${cartId}/customer`, { method: "POST", token }).catch(() => null)
+  const r = await storeFetch<{ error?: string }>("/store/loyalty/cart", { method: "POST", body: { cart_id: cartId, promo_code: code }, token })
+  return r.error ?? null
 }

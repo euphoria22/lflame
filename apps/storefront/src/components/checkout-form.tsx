@@ -12,7 +12,8 @@ import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
 import { CartProgress } from "./cart-progress"
 import { DeliveryPicker } from "./delivery-picker"
-import { LoyaltyLine } from "./loyalty-line"
+import { fullGoods, LoyaltyLine } from "./loyalty-line"
+import { PromoField } from "./promo-field"
 
 /**
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
@@ -106,7 +107,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">2. Получение</h2>
           <DeliveryPicker value={delivery} onChange={(d) => { setDelivery(d); setErrors((x) => ({ ...x, delivery: "" })) }}
-            quote={quote} onQuote={setQuote} error={errors.delivery} refreshKey={`${cart?.item_total ?? 0}:${cart?.count ?? 0}`} />
+            quote={quote} onQuote={setQuote} error={errors.delivery} refreshKey={`${cart?.goods_total ?? 0}:${cart?.count ?? 0}`} />
         </section>
 
         <section className="mt-10">
@@ -146,13 +147,14 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         <p className="text-[17px]">Ваш заказ</p>
         {/* Размер и количество можно поменять и здесь */}
         {cart && <div className="mt-2"><CartLines cart={cart} compact /></div>}
+        <PromoField className="mt-3" />
         <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
-          <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice((cart?.item_total ?? 0) + (cart?.loyalty?.saved ?? 0))}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice(fullGoods(cart))}</span></div>
           <LoyaltyLine cart={cart} />
           <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{!quote ? "—" : quote.amount === 0 ? "Бесплатно" : formatPrice(quote.amount)}</span></div>
           <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice((cart?.item_total ?? 0) + (quote?.amount ?? 0))}</span></div>
         </div>
-        {cart && <CartProgress total={cart.item_total} className="mt-4 border-t border-line pt-4" />}
+        {cart && <CartProgress total={cart.goods_total} className="mt-4 border-t border-line pt-4" />}
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
           {sending ? "Оформляем…" : payment === "tbank" ? "Перейти к оплате" : "Подтвердить заказ"}
