@@ -196,7 +196,7 @@
 | Личный кабинет | `/account`, `/account/orders`, `/account/addresses`, `/account/favorites` |
 | Избранное | `/favorites` (работает без регистрации) |
 | Информационные | `/delivery`, `/payment`, `/returns`, `/contacts`, `/about`, `/stores`, `/offer`, `/privacy` |
-| [Этап 2] Журнал, лукбуки | `/journal`, `/journal/{slug}`, `/lookbook/{slug}` |
+| Блог (готово), лукбуки [Этап 2] | `/blog`, `/blog/{slug}`, `/lookbook/{slug}` |
 
 ### 6.2. Каталог [MVP]
 - Фильтры: бренд, категория, размер, цвет, цена, пол, сезон, «есть скидка». Значения с количеством товаров; пустые значения скрываются.
@@ -356,7 +356,7 @@
 - **Товар:** `Product` (name, brand, sku, mpn, color, material, image[], description) + `AggregateOffer` / `Offer` по размерам (price, priceCurrency `RUB`, availability, url, itemCondition `NewCondition`, seller).
 - **Листинги:** `ItemList` с товарами текущей страницы.
 - **Контакты / магазины:** `ClothingStore` (адрес, часы работы, телефон, геокоординаты).
-- **Журнал:** `Article` [Этап 2].
+- **Блог:** `BlogPosting` на странице статьи.
 - Разметка проверяется валидатором Яндекса и Schema.org на каждом релизе (автотест на наличие и корректность JSON).
 
 ### 7.8. Sitemap и robots.txt [MVP]

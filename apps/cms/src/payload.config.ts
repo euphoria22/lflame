@@ -6,7 +6,9 @@ import { buildConfig } from "payload"
 import sharp from "sharp"
 import { fileURLToPath } from "url"
 
+import { BlogCategories } from "./collections/blog-categories"
 import { Media } from "./collections/media"
+import { Posts } from "./collections/posts"
 import { Users } from "./collections/users"
 
 const filename = fileURLToPath(import.meta.url)
@@ -38,7 +40,7 @@ export default buildConfig({
     supportedLanguages: { ru },
     fallbackLanguage: "ru",
   },
-  collections: [Users, Media],
+  collections: [Posts, BlogCategories, Media, Users],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || "",
   typescript: {

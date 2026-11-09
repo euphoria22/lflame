@@ -60,6 +60,7 @@ export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBr
             </ul>
             <Link onClick={close} href={routes.brands()} className="eyebrow mt-4 underline underline-offset-4">Все бренды</Link>
             <div className="mt-auto flex gap-4 pt-8 text-[14px]">
+              <Link onClick={close} href={routes.blog()}>Блог</Link>
               <Link onClick={close} href={routes.account()}>Личный кабинет</Link>
               <Link onClick={close} href={routes.favorites()}>Избранное</Link>
             </div>

@@ -1,3 +1,4 @@
+import { safePosts } from "./blog"
 import { getCatalog } from "./catalog"
 import { LANDING_MIN_ITEMS } from "./listing"
 import { listingPaths } from "./listing-pages"
@@ -19,6 +20,7 @@ export async function sitemapFiles(): Promise<Record<string, SitemapEntry[]>> {
   const files: Record<string, SitemapEntry[]> = {
     pages: [{ loc: `${SITE_URL}/` }, { loc: `${SITE_URL}${routes.brands()}` }, { loc: `${SITE_URL}/loyalty` }, { loc: `${SITE_URL}/loyalty/rules` }],
     landings,
+    blog: [{ loc: `${SITE_URL}${routes.blog()}` }, ...(await safePosts()).map((p) => ({ loc: `${SITE_URL}${routes.post(p.slug)}`, lastmod: p.publishedAt ?? undefined }))],
   }
   for (let i = 0; i < products.length; i += SITEMAP_CHUNK) {
     files[`products-${i / SITEMAP_CHUNK + 1}`] = products.slice(i, i + SITEMAP_CHUNK)

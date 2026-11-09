@@ -73,6 +73,7 @@ export async function Header() {
               </li>
             ))}
             {nav.saleCount > 0 && <li><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></li>}
+            <li><Link href={routes.blog()} className={link}>Блог</Link></li>
           </ul>
         </nav>
 
