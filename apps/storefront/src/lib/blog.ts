@@ -230,3 +230,55 @@ export async function safeMenuSettings(): Promise<MenuSettings> {
     return { men: [], women: [] }
   }
 }
+
+/* ---------- Таблицы размеров ---------- */
+
+export type SizeChart = {
+  title: string
+  gender: "men" | "women" | "all"
+  categories: string[]
+  brands: string[]
+  sections: { title: string | null; rows: string[][] }[]
+  image: Media | null
+  note: string | null
+  order: number
+}
+
+type RawChart = {
+  title: string; gender?: string | null; categories?: string[] | null; brands?: string | null
+  sections?: { title?: string | null; table?: string | null }[] | null; image?: RawMedia | null; note?: string | null; order?: number | null
+}
+
+/** Ячейки — через Tab (вставка из Excel) или «;», строки — с новой строки. */
+const parseTable = (t: string) =>
+  t.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l.trim()).map((l) => l.split(l.includes("\t") ? "\t" : ";").map((c) => c.trim()))
+
+export async function getSizeCharts(): Promise<SizeChart[]> {
+  "use cache"
+  cacheTag("size-charts")
+  cacheLife({ stale: 60, revalidate: 600, expire: 86400 })
+  const d = await cms<{ docs: RawChart[] }>("/size-charts?limit=100&depth=1&sort=order")
+  return d.docs.map((c) => ({
+    title: c.title,
+    gender: c.gender === "women" ? "women" : c.gender === "all" ? "all" : "men",
+    categories: c.categories ?? [],
+    brands: (c.brands ?? "").split(",").map((b) => b.trim().toLowerCase()).filter(Boolean),
+    sections: (c.sections ?? []).filter((s) => s.table?.trim()).map((s) => ({ title: s.title?.trim() || null, rows: parseTable(s.table!) })),
+    image: media(c.image, "large"),
+    note: c.note?.trim() || null,
+    order: c.order ?? 0,
+  }))
+}
+
+/**
+ * Таблица для товара: раздел (мужское / женское; «унисекс» — мужская), категория;
+ * таблица конкретного бренда важнее общей. Нет подходящей — null (ссылки не будет).
+ */
+export async function sizeChartFor(p: { gender: string; category: string | null; brand: string | null }): Promise<SizeChart | null> {
+  if (!p.category) return null
+  const charts = await getSizeCharts().catch(() => [] as SizeChart[])
+  const g = p.gender === "women" ? "women" : "men"
+  const fit = charts.filter((c) => (c.gender === g || c.gender === "all") && c.categories.includes(p.category!))
+  const brand = p.brand?.toLowerCase() ?? ""
+  return fit.find((c) => brand && c.brands.includes(brand)) ?? fit.find((c) => !c.brands.length) ?? null
+}

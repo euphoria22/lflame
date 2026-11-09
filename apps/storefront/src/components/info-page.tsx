@@ -9,13 +9,14 @@ export const HELP_TABS = [
   { href: "/payment", label: "Оплата" },
   { href: "/returns", label: "Обмен и возврат" },
   { href: "/loyalty", label: "LAFLAMME Club" },
+  { href: "/faq", label: "FAQ" },
   { href: "/contacts", label: "Контакты" },
 ]
 
 function HelpTabs({ active }: { active: string }) {
   return (
     <nav aria-label="Покупателям" className="-mx-4 mt-6 overflow-x-auto px-4 md:mx-0 md:px-0">
-      <ul className="flex min-w-max rounded-full border border-line p-1 md:grid md:min-w-0 md:grid-cols-5">
+      <ul className="flex min-w-max rounded-full border border-line p-1 md:grid md:min-w-0 md:grid-cols-6">
         {HELP_TABS.map((t) => (
           <li key={t.href}>
             <Link href={t.href} aria-current={t.href === active ? "page" : undefined}

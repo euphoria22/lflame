@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getAuthToken, StoreApiError, storeFetch } from "@/lib/store-api"
+import { currentCustomer, getAuthToken, StoreApiError, storeFetch } from "@/lib/store-api"
 
 /** Обновление имени и телефона в профиле. */
 export async function POST(req: NextRequest) {
@@ -12,4 +12,10 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return NextResponse.json({ error: e instanceof StoreApiError ? e.message : "Не сохранилось" }, { status: 400 })
   }
+}
+
+/** Вошедший покупатель (только email и имя) — чтобы подставлять почту в формы. */
+export async function GET() {
+  const c = await currentCustomer()
+  return NextResponse.json({ customer: c ? { email: c.email, first_name: c.first_name } : null }, { headers: { "Cache-Control": "no-store" } })
 }

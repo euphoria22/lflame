@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import { HELP_TABS, InfoCard, InfoPage as InfoShell } from "@/components/info-page"
+import { ChevronIcon } from "@/components/icons"
+import { JsonLd } from "@/components/json-ld"
 import { RichNodes, RichText } from "@/components/rich-text"
 import { getInfoPage, type LexicalNode } from "@/lib/blog"
 import { routes } from "@/lib/routes"
@@ -87,7 +89,25 @@ export default async function InfoPage({ params }: Props) {
           ) : (
             !!lead.length && <RichNodes nodes={lead} className="info-text max-w-3xl" />
           )}
-          {!!sections.length && (
+          {p.slug === "faq" ? (
+            // Вопросы — раскрывающимся списком, + разметка FAQPage для поисковиков
+            <div className="max-w-3xl divide-y divide-line border-y border-line">
+              {sections.map((sec, i) => (
+                <details key={i} className="group/q">
+                  <summary className="flex items-center justify-between gap-6 py-5 text-[17px] tracking-tight">
+                    {sec.title}
+                    <ChevronIcon className="size-5 shrink-0 text-muted transition-transform duration-300 group-open/q:rotate-180" />
+                  </summary>
+                  <div className="pb-6 pr-10"><RichNodes nodes={sec.nodes} /></div>
+                </details>
+              ))}
+              <JsonLd data={{
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                mainEntity: sections.map((sec) => ({ "@type": "Question", name: sec.title, acceptedAnswer: { "@type": "Answer", text: sec.nodes.map(plain).join(" ").replace(/\s+/g, " ").trim() } })),
+              }} />
+            </div>
+          ) : !!sections.length && (
             <div className={masonry ? "gap-4 md:columns-2 xl:columns-3" : "grid items-start gap-4 md:grid-cols-2"}>
               {sections.map((sec, i) => (
                 <InfoCard key={i} title={sec.title} className={masonry ? "mb-4 break-inside-avoid" : ""}><RichNodes nodes={sec.nodes} /></InfoCard>

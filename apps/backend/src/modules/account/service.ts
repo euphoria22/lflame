@@ -1,6 +1,7 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto"
 import { MedusaError, MedusaService } from "@medusajs/framework/utils"
 import LoginCode from "./models/login-code"
+import RestockRequest from "./models/restock-request"
 
 const TTL_MIN = 10
 const RESEND_SEC = 60
@@ -16,7 +17,7 @@ type Row = { id: string; target: string; code_hash: string; expires_at: Date; at
  * Коды входа: 6 цифр, живут 10 минут, повторная отправка не чаще раза в минуту,
  * не больше 6 кодов в час на адрес, 5 попыток ввода на код.
  */
-class AccountModuleService extends MedusaService({ LoginCode }) {
+class AccountModuleService extends MedusaService({ LoginCode, RestockRequest }) {
   async issueCode(target: string): Promise<string> {
     const t = target.trim().toLowerCase()
     const since = new Date(Date.now() - 3600_000)

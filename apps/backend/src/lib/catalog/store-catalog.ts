@@ -175,6 +175,11 @@ function oldPath(url: unknown): string | null {
   }
 }
 
+/** Остаток вариантов в канале «Интернет-магазин» (для «Сообщить о поступлении»). */
+export async function variantStock(container: MedusaContainer, variantIds: string[]): Promise<Map<string, number>> {
+  return availability(container, variantIds, await salesChannelId(container))
+}
+
 async function salesChannelId(container: MedusaContainer): Promise<string> {
   const { data } = await resolveQuery(container).graph({ entity: "store", fields: ["default_sales_channel_id"] })
   return data[0]?.default_sales_channel_id as string

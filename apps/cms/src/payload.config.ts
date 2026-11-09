@@ -10,11 +10,13 @@ import { BlogCategories } from "./collections/blog-categories"
 import { Media } from "./collections/media"
 import { Pages } from "./collections/pages"
 import { Posts } from "./collections/posts"
+import { SizeCharts } from "./collections/size-charts"
 import { Users } from "./collections/users"
 import { Announcement } from "./globals/announcement"
 import { Home } from "./globals/home"
 import { Menu } from "./globals/menu"
 import { seedPages } from "./seed/pages"
+import { seedSizeCharts } from "./seed/size-charts"
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -45,11 +47,12 @@ export default buildConfig({
     supportedLanguages: { ru },
     fallbackLanguage: "ru",
   },
-  collections: [Pages, Posts, BlogCategories, Media, Users],
+  collections: [Pages, Posts, BlogCategories, SizeCharts, Media, Users],
   globals: [Home, Menu, Announcement],
   // Стартовые тексты страниц (доставка, оплата, оферта…) — только если их ещё нет
   onInit: async (payload) => {
     await seedPages(payload).catch((e) => payload.logger.error(`Стартовые страницы не созданы: ${(e as Error).message}`))
+    await seedSizeCharts(payload).catch((e) => payload.logger.error(`Таблицы размеров не созданы: ${(e as Error).message}`))
     // Стартовая плашка: бесплатная доставка (если плашку ещё не заполняли)
     const a = await payload.findGlobal({ slug: "announcement" }).catch(() => null)
     // Программа переименована в LAFLAMME Club: стартовую фразу меняем, только если её не правили

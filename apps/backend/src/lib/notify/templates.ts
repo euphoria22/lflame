@@ -149,3 +149,18 @@ export function shopOrderMessage(o: MailOrder, adminUrl: string): string {
     `<a href="${adminUrl}">Открыть в админке</a>`,
   ].join("\n")
 }
+
+/** «Размер снова в наличии» (подписка «Сообщить о поступлении»). */
+export function restockMail(to: string, p: { title: string; size: string; url: string }): Mail {
+  return {
+    to,
+    subject: `Снова в наличии: ${p.title}, ${p.size}`,
+    text: `${p.title}, размер ${p.size} — снова в наличии.\nКупить: ${p.url}\n\nТоваров обычно немного — лучше не откладывать.`,
+    html: layout({
+      preheader: `Размер ${p.size} снова в наличии`,
+      title: "Снова в наличии",
+      body: `<b>${esc(p.title)}</b>, размер ${esc(p.size)} — снова в наличии.<br>Товаров обычно немного — лучше не откладывать.`,
+      button: { label: "Смотреть товар", url: p.url },
+    }),
+  }
+}

@@ -12,6 +12,7 @@ import { ProductGallery } from "@/components/product-gallery"
 import { ProductRail } from "@/components/product-rail"
 import { RecentlyViewed } from "@/components/recently-viewed"
 import { ChevronIcon } from "@/components/icons"
+import { sizeChartFor } from "@/lib/blog"
 import { getCatalog, getProduct } from "@/lib/catalog"
 import { arrivalDate, formatPrice } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
@@ -59,6 +60,8 @@ export default async function ProductPage({ params }: Props) {
     if (product.category) permanentRedirect(routes.category(g, product.category.handle))
     permanentRedirect(routes.gender(g))
   }
+  // Таблица размеров под этот товар: мужская / женская, одежда / джинсы / обувь…
+  const sizeChart = await sizeChartFor({ gender: product.gender, category: product.category?.handle ?? null, brand: product.brand?.name ?? null })
 
   const items = await getCatalog()
   const pool = scopeItems(items, {}).filter((i) => i.handle !== product.handle)
@@ -112,7 +115,7 @@ export default async function ProductPage({ params }: Props) {
             {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка LAFLAMME Club на этот товар не действует</p>}
 
             <div className="mt-8">
-              <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} />
+              <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />
             </div>
 
             <ul className="mt-6 space-y-1.5 text-[13px] text-muted">
