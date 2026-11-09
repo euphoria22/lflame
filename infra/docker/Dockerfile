@@ -18,12 +18,14 @@ RUN npm run build -w @lflame/backend
 
 # Зависимости — ровно те, что в package-lock.json (без dev-пакетов)
 FROM backend-build AS backend-prune
-RUN npm prune --omit=dev --no-audit --no-fund
+RUN npm prune --omit=dev --no-audit --no-fund && mkdir -p apps/backend/node_modules
 
 FROM node:22-alpine AS backend
 ENV MEDUSA_DISABLE_TELEMETRY=true
 ENV NODE_ENV=production
 COPY --from=backend-prune --chown=node:node /repo/node_modules /repo/node_modules
+# Пакеты, которые npm положил в папку бэкенда (другие версии, чем в общей папке)
+COPY --from=backend-prune --chown=node:node /repo/apps/backend/node_modules /repo/apps/backend/node_modules
 COPY --from=backend-prune --chown=node:node /repo/apps/backend/.medusa/server /repo/apps/backend/.medusa/server
 WORKDIR /repo/apps/backend/.medusa/server
 RUN mkdir -p static && chown -R node:node /repo/apps/backend/.medusa/server
