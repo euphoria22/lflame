@@ -2,7 +2,6 @@
 # Все сервисы работают не от root (пользователь node).
 
 FROM node:22-alpine AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /repo
 COPY package.json package-lock.json turbo.json ./
 COPY apps/backend/package.json apps/backend/
