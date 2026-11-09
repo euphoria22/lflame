@@ -1,15 +1,16 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
 import { Suspense } from "react"
 
 import { ArrowIcon } from "@/components/icons"
 import { ProductRail } from "@/components/product-rail"
 import { HomeBlog } from "@/components/home-blog"
+import { HomeHeroBlock } from "@/components/home-hero"
+import { safeHomeHero } from "@/lib/blog"
 import { getCatalog } from "@/lib/catalog"
 import { discountPercent, plural } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
-import { GENDERS, routes } from "@/lib/routes"
+import { routes } from "@/lib/routes"
 import { pageMeta } from "@/lib/seo"
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site"
 import type { CatalogItem } from "@/lib/types"
@@ -35,11 +36,11 @@ const popular = (items: CatalogItem[]) =>
   [...items].sort((a, b) => b.sizes.filter((s) => s.in_stock).length - a.sizes.filter((s) => s.in_stock).length)
 
 /**
- * Главная (ТЗ, п. 6.1). Структура: разделы, новинки, бренды, блог, распродажа, популярное.
+ * Главная (ТЗ, п. 6.1). Структура: баннер-кампания (или разделы), новинки, бренды, блог, распродажа, популярное.
  * Баннеры и блоки будут управляться из CMS (ТЗ, п. 9); пока изображения берутся из каталога.
  */
 export default async function HomePage() {
-  const items = await getCatalog()
+  const [items, hero] = await Promise.all([getCatalog(), safeHomeHero()])
   const all = scopeItems(items, {})
   const fresh = scopeItems(items, { onlyNew: true }).sort((a, b) => b.created_at.localeCompare(a.created_at))
   const sale = scopeItems(items, { onlySale: true })
@@ -59,24 +60,8 @@ export default async function HomePage() {
       {/* Одна H1 на странице (ТЗ, п. 7.5); визуально главную открывают блоки разделов */}
       <h1 className="sr-only">{SITE_NAME} — мультибрендовый магазин оригинальной одежды, обуви и аксессуаров</h1>
 
-      {/* Разделы */}
-      <section className="grid gap-2 px-2 md:grid-cols-2 md:gap-3 md:px-4">
-        {GENDERS.map((g) => {
-          const pick = heroPick(items, g.slug)
-          return (
-            <Link key={g.slug} href={routes.gender(g.slug)} className="group relative block aspect-[4/5] overflow-hidden rounded-[28px] bg-surface md:aspect-[5/6]">
-              {pick?.thumbnail && (
-                <Image src={pick.thumbnail} alt={`${g.name} — ${pick.title}`} fill priority sizes="(min-width: 768px) 50vw, 100vw"
-                  className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
-              )}
-              <span className="glass absolute inset-x-4 bottom-4 flex items-center justify-between rounded-full px-6 py-4 text-[17px] md:inset-x-6 md:bottom-6">
-                {g.name}
-                <ArrowIcon className="size-5 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
-          )
-        })}
-      </section>
+      {/* Первый экран: баннер-кампания из CMS или карточки разделов */}
+      <HomeHeroBlock hero={hero} picks={{ men: heroPick(items, "men"), women: heroPick(items, "women") }} />
 
       <ProductRail title="Новые поступления" items={fresh} href={routes.newIn()} />
 
