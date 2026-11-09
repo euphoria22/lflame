@@ -48,6 +48,7 @@ export async function Footer() {
         <div>
           <p className="eyebrow mb-4">О компании</p>
           <ul className={col}>
+            <li><Link href={routes.blog()}>Блог</Link></li>
             <li><Link href={routes.page("about")}>О магазине</Link></li>
             <li><Link href={routes.page("offer")}>Публичная оферта</Link></li>
             <li><Link href={routes.page("privacy")}>Политика конфиденциальности</Link></li>

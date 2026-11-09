@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { Suspense } from "react"
 
 import { ArrowIcon } from "@/components/icons"
 import { ProductRail } from "@/components/product-rail"
-import { getCatalog, getTaxonomy } from "@/lib/catalog"
+import { HomeBlog } from "@/components/home-blog"
+import { getCatalog } from "@/lib/catalog"
 import { discountPercent, plural } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { GENDERS, routes } from "@/lib/routes"
@@ -33,11 +35,11 @@ const popular = (items: CatalogItem[]) =>
   [...items].sort((a, b) => b.sizes.filter((s) => s.in_stock).length - a.sizes.filter((s) => s.in_stock).length)
 
 /**
- * Главная (ТЗ, п. 6.1). Структура: разделы, новинки, бренды, категории, распродажа, популярное.
+ * Главная (ТЗ, п. 6.1). Структура: разделы, новинки, бренды, блог, распродажа, популярное.
  * Баннеры и блоки будут управляться из CMS (ТЗ, п. 9); пока изображения берутся из каталога.
  */
 export default async function HomePage() {
-  const [items, taxonomy] = await Promise.all([getCatalog(), getTaxonomy()])
+  const items = await getCatalog()
   const all = scopeItems(items, {})
   const fresh = scopeItems(items, { onlyNew: true }).sort((a, b) => b.created_at.localeCompare(a.created_at))
   const sale = scopeItems(items, { onlySale: true })
@@ -51,17 +53,6 @@ export default async function HomePage() {
     brandCounts.set(i.brand.handle, b)
   }
   const topBrands = [...brandCounts.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 14)
-
-  const rank = new Map(taxonomy.categories.map((c) => [c.handle, c.rank]))
-  const men = scopeItems(items, { gender: "men" })
-  const cats = new Map<string, { name: string; count: number; image: string | null }>()
-  for (const i of popular(men)) {
-    if (!i.category) continue
-    const c = cats.get(i.category.handle) ?? { name: i.category.name, count: 0, image: i.thumbnail }
-    c.count++
-    cats.set(i.category.handle, c)
-  }
-  const categoryTiles = [...cats.entries()].sort((a, b) => (rank.get(a[0]) ?? 0) - (rank.get(b[0]) ?? 0) || b[1].count - a[1].count).slice(0, 12)
 
   return (
     <>
@@ -105,28 +96,10 @@ export default async function HomePage() {
         </Link>
       </section>
 
-      {/* Категории */}
-      <section className="mt-20 px-4 md:px-8">
-        <div className="mb-5 flex items-baseline justify-between">
-          <h2 className="text-[20px] tracking-tight md:text-[24px]">Категории</h2>
-          <Link href={routes.gender("men")} className="eyebrow underline underline-offset-4">Весь каталог</Link>
-        </div>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 md:gap-3">
-          {categoryTiles.map(([handle, c]) => (
-            <li key={handle}>
-              <Link href={routes.category("men", handle)} className="group block">
-                <span className="relative block aspect-square overflow-hidden rounded-[22px] bg-surface">
-                  {c.image && <Image src={c.image} alt={c.name} fill sizes="(min-width: 1024px) 16vw, 45vw" className="blend object-contain transition-transform duration-500 group-hover:scale-105" />}
-                </span>
-                <span className="mt-2 flex items-baseline justify-between gap-2 px-1 text-[13px]">
-                  {c.name}
-                  <span className="text-subtle">{c.count}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* Блог: последние статьи из CMS (подгружаются отдельно и не задерживают главную) */}
+      <Suspense fallback={null}>
+        <HomeBlog />
+      </Suspense>
 
       {/* Распродажа */}
       {sale.length > 0 && (

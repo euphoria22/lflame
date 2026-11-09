@@ -22,5 +22,10 @@ export const Media: CollectionConfig = {
   upload: {
     // ТЗ, п. 8.3: только изображения
     mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/avif"],
+    // Уменьшенные копии для сайта (оригинал тоже хранится)
+    imageSizes: [
+      { name: "card", width: 800, withoutEnlargement: true },
+      { name: "large", width: 1600, withoutEnlargement: true },
+    ],
   },
 }

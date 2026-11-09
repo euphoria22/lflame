@@ -26,5 +26,7 @@ export const routes = {
   cart: () => "/cart",
   favorites: () => "/favorites",
   account: () => "/account",
+  blog: (category?: string) => (category ? `/blog?rubric=${category}` : "/blog"),
+  post: (slug: string) => `/blog/${slug}`,
   page: (slug: string) => `/${slug}`,
 }

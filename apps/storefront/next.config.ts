@@ -5,7 +5,8 @@ import { fileURLToPath } from "url"
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 function imageHosts() {
-  const urls = [process.env.MEDUSA_BACKEND_URL || "http://localhost:9000", process.env.IMAGES_CDN_URL].filter(Boolean) as string[]
+  // Medusa (фото товаров), CDN и CMS (обложки блога)
+  const urls = [process.env.MEDUSA_BACKEND_URL || "http://localhost:9000", process.env.IMAGES_CDN_URL, process.env.CMS_URL || "http://localhost:3001"].filter(Boolean) as string[]
   return urls.map((u) => {
     const url = new URL(u)
     return { protocol: url.protocol.replace(":", "") as "http" | "https", hostname: url.hostname, port: url.port, pathname: "/**" }
