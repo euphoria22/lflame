@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 
 import { formatPrice } from "@/lib/format"
-import type { LoyaltyStatus } from "./loyalty-card"
+import type { LoyaltyStatus } from "@/lib/account-types"
 import { resetMyDiscount } from "./your-price"
 
 // Настройки и уровень загружаются один раз на вкладку
