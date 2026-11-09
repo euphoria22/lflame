@@ -8,6 +8,7 @@ import type { CatalogItem } from "@/lib/types"
 import { FavButton } from "./fav-button"
 import { Price } from "./price"
 import { QuickSizes } from "./quick-sizes"
+import { YourPrice } from "./your-price"
 
 /**
  * Карточка товара в сетке (ТЗ, п. 6.2): фото 3:4 на серой подложке, второе фото при наведении,
@@ -56,7 +57,10 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
             {titleWithoutBrand(item.title, item.brand?.name)}
           </Link>
         </h3>
-        <div className="mt-auto pt-2"><Price price={item.price} compareAt={item.compare_at} /></div>
+        <div className="mt-auto pt-2">
+          <Price price={item.price} compareAt={item.compare_at} />
+          <YourPrice price={item.price} compareAt={item.compare_at} brand={item.brand?.name} noLoyalty={item.no_loyalty} />
+        </div>
       </div>
     </article>
   )

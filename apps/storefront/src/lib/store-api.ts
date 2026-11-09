@@ -81,7 +81,7 @@ export function toCart(c: MedusaCart): Cart {
     lines,
     count: lines.reduce((s, l) => s + l.quantity, 0),
     item_total: Number(c.item_total),
-    goods_total: Number(c.item_subtotal ?? c.item_total),
+    goods_total: Number(c.item_total),
     shipping_total: Number(c.shipping_total),
     total: Number(c.total),
     loyalty: loyaltyOf(c),

@@ -9,7 +9,7 @@ import { CDEK_TARIFFS, cdekQuote } from "../../lib/delivery/cdek-client"
 import { CdekOrderInput, createCdekOrder, deleteCdekOrder } from "../../lib/delivery/cdek-orders"
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
 import { getShopSettings } from "../../lib/settings/shop-settings"
-import { applyFreeShipping, applyMarkup, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
+import { applyFreeShipping, applyMarkup, cartGoodsTotal } from "../../lib/delivery/free-shipping"
 
 /**
  * Провайдер доставки СДЭК (ТЗ, п. 5). Цена считается по API СДЭК на каждый запрос.
@@ -62,7 +62,7 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[], settings.parcel)
     const tariff = optionData.kind === "pvz" ? settings.cdek_tariff_pvz : settings.cdek_tariff_door
     const quote = await cdekQuote(tariff, cityCode, parcel)
-    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.cdek), itemsTotal((context.items ?? []) as unknown as PricedItem[]),
+    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.cdek), await cartGoodsTotal(context as unknown as { id?: string; items?: unknown[] }),
       settings.free_shipping_methods.includes(optionData.kind === "pvz" ? "cdek-pvz" : "cdek-door") ? settings.free_shipping_from : 0), is_calculated_price_tax_inclusive: true }
   }
 

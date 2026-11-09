@@ -7,7 +7,7 @@ import type {
 } from "@medusajs/framework/types"
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
 import { getShopSettings } from "../../lib/settings/shop-settings"
-import { applyFreeShipping, applyMarkup, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
+import { applyFreeShipping, applyMarkup, cartGoodsTotal } from "../../lib/delivery/free-shipping"
 import { POCHTA_OBJECTS, pochtaQuote } from "../../lib/delivery/pochta-client"
 
 /**
@@ -45,7 +45,7 @@ class PochtaFulfillmentProviderService extends AbstractFulfillmentProviderServic
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[], settings.parcel)
     const quote = await pochtaQuote(index, parcel.weight, Number(optionData?.object) || POCHTA_OBJECTS.standard)
     const kind = "pochta"
-    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.pochta), itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_methods.includes(kind) ? settings.free_shipping_from : 0), is_calculated_price_tax_inclusive: true }
+    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.pochta), await cartGoodsTotal(context as unknown as { id?: string; items?: unknown[] }), settings.free_shipping_methods.includes(kind) ? settings.free_shipping_from : 0), is_calculated_price_tax_inclusive: true }
   }
 
   async createFulfillment(): Promise<CreateFulfillmentResult> {

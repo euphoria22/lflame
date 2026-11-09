@@ -7,6 +7,7 @@ import { BuyBox } from "@/components/buy-box"
 import { FavButton } from "@/components/fav-button"
 import { JsonLd } from "@/components/json-ld"
 import { Price } from "@/components/price"
+import { YourPrice } from "@/components/your-price"
 import { ProductGallery } from "@/components/product-gallery"
 import { ProductRail } from "@/components/product-rail"
 import { RecentlyViewed } from "@/components/recently-viewed"
@@ -99,6 +100,7 @@ export default async function ProductPage({ params }: Props) {
             </div>
             <div className="mt-4">
               <Price price={product.price} compareAt={product.compare_at} size="lg" />
+              <YourPrice price={product.price} compareAt={product.compare_at} brand={product.brand?.name} noLoyalty={product.no_loyalty} size="lg" />
             </div>
             {product.color_name && <p className="mt-2 text-[13px] text-muted">Цвет: {product.color_name}</p>}
             {product.preorder && (

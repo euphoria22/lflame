@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 
 import { formatPrice } from "@/lib/format"
 import type { LoyaltyStatus } from "./loyalty-card"
+import { resetMyDiscount } from "./your-price"
 
 // Настройки и уровень загружаются один раз на вкладку
 let optionsReq: Promise<number> | null = null
@@ -13,6 +14,7 @@ let loyaltyReq: Promise<{ logged: boolean; loyalty?: LoyaltyStatus }> | null = n
 /** После входа или выхода уровень нужно запросить заново. */
 export function resetCartProgress() {
   loyaltyReq = null
+  resetMyDiscount()
 }
 
 function loadThreshold(): Promise<number> {

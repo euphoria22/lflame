@@ -7,6 +7,7 @@ import { useState } from "react"
 
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
+import { resetCartProgress } from "./cart-progress"
 import { LoyaltyCard, LoyaltyStatus } from "./loyalty-card"
 
 export type AccountOrder = {
@@ -37,6 +38,7 @@ export function AccountView({ customer, orders, loyalty }: { customer: AccountCu
 
   const logout = async () => {
     await fetch("/api/account/logout", { method: "POST" })
+    resetCartProgress()
     router.replace("/")
     router.refresh()
   }
