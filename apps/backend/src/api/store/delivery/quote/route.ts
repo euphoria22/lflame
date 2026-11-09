@@ -6,7 +6,16 @@ import { pochtaQuote } from "../../../../lib/delivery/pochta-client"
 import { getShopSettings } from "../../../../lib/settings/shop-settings"
 import { applyFreeShipping, applyMarkup, itemsTotal } from "../../../../lib/delivery/free-shipping"
 
-type Body = { cart_id?: string; kind?: "cdek-pvz" | "cdek-door" | "pochta"; city_code?: number; postal_code?: string }
+type Body = { cart_id?: string; kind?: "cdek-pvz" | "cdek-door" | "pochta" | "omsk-courier"; city_code?: number; postal_code?: string }
+
+/** Курьер по Омску: фиксированная цена способа доставки (меняется в админке Medusa). */
+async function omskCourierPrice(req: MedusaRequest): Promise<number | null> {
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const { data } = await query.graph({ entity: "shipping_option", fields: ["id", "type.code", "prices.amount", "prices.currency_code"] })
+  const o = (data as { type?: { code?: string }; prices?: { amount: unknown; currency_code: string }[] }[]).find((x) => x.type?.code === "omsk-courier")
+  const p = o?.prices?.find((x) => x.currency_code === "rub")
+  return p ? Number(p.amount) : null
+}
 
 /**
  * Цена и срок доставки для показа на витрине. Окончательная цена при добавлении способа
@@ -16,6 +25,16 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
   const { cart_id, kind, city_code, postal_code } = req.body ?? {}
   if (!cart_id || !kind) {
     res.status(400).json({ message: "Не хватает данных" })
+    return
+  }
+  if (kind === "omsk-courier") {
+    const amount = await omskCourierPrice(req)
+    if (amount === null) {
+      res.status(422).json({ message: "Курьер по Омску сейчас недоступен" })
+      return
+    }
+    // Срок — 1–3 часа, согласуется с покупателем
+    res.json({ quote: { amount, days_min: 0, days_max: 0, full_amount: amount, free: false, note: "1–3 часа, время согласуем" } })
     return
   }
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
@@ -36,11 +55,12 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
       ? await pochtaQuote(String(postal_code ?? ""), parcel.weight)
       : await cdekQuote(kind === "cdek-pvz" ? settings.cdek_tariff_pvz : settings.cdek_tariff_door, Number(city_code), parcel)
     const total = itemsTotal(cart.items)
-    const from = settings.free_shipping_from
+    // Бесплатно от суммы — только для способов, отмеченных в админке
+    const from = settings.free_shipping_methods.includes(kind) ? settings.free_shipping_from : 0
     // Цена для покупателя: перевозчик + наценка из админки
     quote.amount = applyMarkup(quote.amount, settings.markup[kind === "pochta" ? "pochta" : "cdek"])
     const amount = applyFreeShipping(quote.amount, total, from)
-    res.json({ quote: { ...quote, amount, full_amount: quote.amount, free: amount === 0 && quote.amount > 0 }, free_from: from })
+    res.json({ quote: { ...quote, amount, full_amount: quote.amount, free: amount === 0 && quote.amount > 0 }, free_from: settings.free_shipping_from })
   } catch (e) {
     res.status(422).json({ message: (e as Error).message.replace(/^(СДЭК|Почта)( \d+)?: /, "") || "Доставка недоступна" })
   }

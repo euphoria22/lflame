@@ -25,7 +25,7 @@ export function FreeShippingNote({ total }: { total: number }) {
   return (
     <div className="mt-2">
       <p className="text-[12px] text-muted">
-        {left > 0 ? <>До бесплатной доставки осталось <span className="text-foreground">{formatPrice(left)}</span></> : "Доставка бесплатно: СДЭК и Почта России"}
+        {left > 0 ? <>До бесплатной доставки осталось <span className="text-foreground">{formatPrice(left)}</span></> : "Бесплатная доставка до пункта СДЭК и Почтой России"}
       </p>
       <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-line" aria-hidden>
         <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${pct}%` }} />

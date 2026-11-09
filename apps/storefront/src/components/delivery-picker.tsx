@@ -23,6 +23,7 @@ type Props = {
 
 const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
   { kind: "pickup", title: "Самовывоз из магазина", hint: `${PICKUP.address}, ${PICKUP.hours}` },
+  { kind: "omsk-courier", title: "Курьер по Омску", hint: "1–3 часа, время согласуем по телефону" },
   { kind: "cdek-pvz", title: "СДЭК — пункт выдачи", hint: "Доставка до пункта выдачи СДЭК" },
   { kind: "cdek-door", title: "СДЭК — курьер", hint: "Курьер привезёт заказ по адресу" },
   { kind: "pochta", title: "Почта России", hint: "Посылка до почтового отделения" },
@@ -42,7 +43,7 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props
     value.kind === "cdek-pvz" ? Boolean(value.city_code && value.pvz_code)
       : value.kind === "cdek-door" ? Boolean(value.city_code)
         : value.kind === "pochta" ? /^\d{6}$/.test(value.postal_code ?? "")
-          : false
+          : value.kind === "omsk-courier"
   useEffect(() => {
     // Сброс ошибки и индикатор загрузки на время запроса к калькулятору
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -88,8 +89,13 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props
 
             {on && o.kind !== "pickup" && (
               <div className="space-y-3 border-t border-line p-4">
-                <CityInput value={value.city ?? ""}
-                  onSelect={(c) => set({ city: c.city, city_code: c.code, pvz_code: undefined, pvz_address: undefined, ...(o.kind === "pochta" ? { postal_code: undefined, address: undefined } : {}) })} />
+                {o.kind === "omsk-courier" ? (
+                  <input className={FIELD} placeholder="Адрес в Омске: улица, дом, квартира" autoComplete="street-address"
+                    value={value.address ?? ""} onChange={(e) => set({ address: e.target.value, city: "Омск" })} />
+                ) : (
+                  <CityInput value={value.city ?? ""}
+                    onSelect={(c) => set({ city: c.city, city_code: c.code, pvz_code: undefined, pvz_address: undefined, ...(o.kind === "pochta" ? { postal_code: undefined, address: undefined } : {}) })} />
+                )}
                 {o.kind === "cdek-pvz" && value.city_code && (
                   <CdekPoints cityCode={value.city_code} selected={value.pvz_code}
                     onSelect={(p) => set({ pvz_code: p.code, pvz_address: p.address, postal_code: p.postal_code })} />

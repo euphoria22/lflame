@@ -62,7 +62,8 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[], settings.parcel)
     const tariff = optionData.kind === "pvz" ? settings.cdek_tariff_pvz : settings.cdek_tariff_door
     const quote = await cdekQuote(tariff, cityCode, parcel)
-    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.cdek), itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_from), is_calculated_price_tax_inclusive: true }
+    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.cdek), itemsTotal((context.items ?? []) as unknown as PricedItem[]),
+      settings.free_shipping_methods.includes(optionData.kind === "pvz" ? "cdek-pvz" : "cdek-door") ? settings.free_shipping_from : 0), is_calculated_price_tax_inclusive: true }
   }
 
   async createFulfillment(
@@ -86,7 +87,8 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
         variant: { weight: li?.variant?.weight ?? null },
       }
     })
-    const paidOnline = o.metadata?.payment_method === "tbank"
+    // Наложенный платёж — только если покупатель выбрал «оплата при получении»
+    const cod = o.metadata?.payment_method === "cod"
     const shipping = (o.shipping_methods ?? []).reduce((s, m) => s + Number(m.amount ?? 0), 0)
     const input: CdekOrderInput = {
       displayId: Number(o.display_id ?? 0),
@@ -100,7 +102,7 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
         email: o.email ?? o.customer?.email ?? null,
       },
       items: lines,
-      cod: !paidOnline,
+      cod,
       shippingAmount: shipping,
       comment: `Заказ LAFLAMME № ${o.display_id}`,
     }

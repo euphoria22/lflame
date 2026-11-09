@@ -81,7 +81,9 @@ export function orderMail(kind: OrderMailKind, o: MailOrder): Mail {
       title: `Спасибо! Заказ ${n} оформлен`,
       text: paidOnline
         ? "Оплата получена. Соберём заказ и пришлём трек-номер, когда передадим его в доставку."
-        : "Мы позвоним, чтобы подтвердить заказ. Оплата — при получении.",
+        : o.payment_method === "cod"
+          ? "Мы позвоним, чтобы подтвердить заказ. Оплата — при получении."
+          : "Мы свяжемся с вами, подтвердим наличие и пришлём ссылку на оплату. Заказ отправим после оплаты.",
       withItems: true,
       button: account,
     },
@@ -130,7 +132,7 @@ export function shopOrderMessage(o: MailOrder, adminUrl: string): string {
     `🛍 <b>Новый заказ № ${o.display_id}</b> — ${rub(o.total)}`,
     `${t(o.customer_name)} · ${t(o.email)}`,
     `${t(o.shipping_name)}${o.address ? `: ${t(o.address)}` : ""}`,
-    `Оплата: ${o.payment_method === "tbank" ? "онлайн (оплачен)" : "при получении"}`,
+    `Оплата: ${o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
     "",
     ...o.items.map((i) => `• ${i.preorder ? "⏳ ПРЕДЗАКАЗ · " : ""}${t(i.title)} — ${t(i.variant)} × ${i.quantity}`),
     "",

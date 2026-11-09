@@ -1,6 +1,6 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { Plus, RocketLaunch, Trash } from "@medusajs/icons"
-import { Badge, Button, Container, Heading, IconButton, Input, Label, Select, Text, toast } from "@medusajs/ui"
+import { Badge, Button, Checkbox, Container, Heading, IconButton, Input, Label, Select, Switch, Text, toast } from "@medusajs/ui"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 type WeightRule = { keywords: string; weight: number }
@@ -23,6 +23,8 @@ type Settings = {
   sender_address: string
   parcel: Parcel
   markup: { cdek: Markup; pochta: Markup }
+  free_shipping_methods: string[]
+  payments: { manual: boolean; cod_methods: string[] }
 }
 type Markup = { type: "rub" | "pct"; value: number }
 type Tariff = { code: number; name: string; mode: number; sum: number; days_min: number; days_max: number }
@@ -46,6 +48,7 @@ const MODE = {
   off: { label: "Не подключена", color: "grey" as const },
 }
 const FROM_DOOR = new Set([1, 2, 7])
+const PAID_METHODS = [["cdek-pvz", "СДЭК — пункт выдачи"], ["cdek-door", "СДЭК — курьер"], ["pochta", "Почта России"]] as const
 const PVZ_MODES = [4, 2, 6, 7]
 const DOOR_MODES = [3, 1]
 const MODE_HINT: Record<number, string> = {
@@ -143,7 +146,53 @@ const DeliveryPage = () => {
           <div className="flex flex-col gap-y-2">
             <Label htmlFor="free">Бесплатная доставка от, ₽</Label>
             <Input id="free" inputMode="numeric" value={String(s.free_shipping_from)} onChange={(e) => set("free_shipping_from", Number(e.target.value.replace(/\D/g, "") || 0))} />
-            <Text size="small" className="text-ui-fg-subtle">СДЭК и Почта России бесплатно, если товаров в корзине на эту сумму или больше. 0 — выключить.</Text>
+            <Text size="small" className="text-ui-fg-subtle">Если товаров в корзине на эту сумму или больше. 0 — выключить.</Text>
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Для каких способов</Label>
+            {PAID_METHODS.map(([code, label]) => (
+              <label key={code} className="flex items-center gap-2 txt-small">
+                <Checkbox checked={s.free_shipping_methods.includes(code)}
+                  onCheckedChange={(v) => set("free_shipping_methods", v ? [...s.free_shipping_methods, code] : s.free_shipping_methods.filter((x) => x !== code))} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </Container>
+
+      <Container className="divide-y p-0">
+        <div className="px-6 py-4">
+          <Heading level="h2">Оплата</Heading>
+          <Text size="small" className="text-ui-fg-subtle">Какие способы оплаты видит покупатель при оформлении</Text>
+        </div>
+        <div className="grid gap-6 px-6 py-5 md:grid-cols-2">
+          <div className="flex flex-col gap-y-3">
+            <div className="flex items-start gap-3">
+              <Switch className="shrink-0" checked={data.tbank.configured} disabled id="pay-online" />
+              <div>
+                <Label htmlFor="pay-online">Картой или СБП онлайн (Т-Касса)</Label>
+                <Text size="small" className="text-ui-fg-subtle">{data.tbank.configured ? "Работает" : "Включится, когда в настройках сервера будут ключи терминала"}</Text>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Switch className="shrink-0" id="pay-manual" checked={s.payments.manual} onCheckedChange={(v) => set("payments", { ...s.payments, manual: v })} />
+              <div>
+                <Label htmlFor="pay-manual">Предоплата по ссылке</Label>
+                <Text size="small" className="text-ui-fg-subtle">Заказ оформляется без оплаты, менеджер подтверждает наличие и присылает покупателю ссылку на оплату. В Telegram заказ придёт с пометкой «отправить ссылку на оплату».</Text>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Оплата при получении — для способов</Label>
+            {[["pickup", "Самовывоз (оплата в магазине)"] as const, ["omsk-courier", "Курьер по Омску"] as const, ...PAID_METHODS].map(([code, label]) => (
+              <label key={code} className="flex items-center gap-2 txt-small">
+                <Checkbox checked={s.payments.cod_methods.includes(code)}
+                  onCheckedChange={(v) => set("payments", { ...s.payments, cod_methods: v ? [...s.payments.cod_methods, code] : s.payments.cod_methods.filter((x) => x !== code) })} />
+                {label}
+              </label>
+            ))}
+            <Text size="small" className="text-ui-fg-subtle">Ничего не отмечено — только предоплата. Для СДЭК оплата при получении = наложенный платёж (должен быть в договоре со СДЭК).</Text>
           </div>
         </div>
       </Container>

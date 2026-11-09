@@ -1,10 +1,10 @@
 /** Способы получения на витрине (совпадают с type.code способов доставки в Medusa). */
-export type DeliveryKind = "pickup" | "cdek-pvz" | "cdek-door" | "pochta"
+export type DeliveryKind = "pickup" | "omsk-courier" | "cdek-pvz" | "cdek-door" | "pochta"
 
 export type CdekCity = { code: number; city: string; full_name: string }
 export type CdekPoint = { code: string; name: string; address: string; full_address: string; work_time: string; postal_code: string; lat: number; lon: number }
 export type PochtaOffice = { code: string; postal_code: string; address: string; lat: number; lon: number; work_time: string; type: string }
-export type Quote = { amount: number; days_min: number; days_max: number; full_amount?: number; free?: boolean }
+export type Quote = { amount: number; days_min: number; days_max: number; full_amount?: number; free?: boolean; note?: string }
 
 /** Данные выбранной доставки, которые форма отправляет при оформлении. */
 export type DeliveryChoice = {
@@ -24,6 +24,7 @@ export const PICKUP = {
 }
 
 export function daysLabel(q: Quote): string {
+  if (q.note) return q.note
   return q.days_min === q.days_max ? `${q.days_min} дн.` : `${q.days_min}–${q.days_max} дн.`
 }
 
@@ -31,6 +32,7 @@ export function daysLabel(q: Quote): string {
 export function validateDelivery(d: Partial<DeliveryChoice> | undefined): string | null {
   if (!d?.kind) return "Выберите способ получения"
   if (d.kind === "pickup") return null
+  if (d.kind === "omsk-courier") return d.address?.trim() ? null : "Укажите адрес в Омске"
   if ((d.kind === "cdek-pvz" || d.kind === "cdek-door") && !d.city_code) return "Выберите город"
   if (d.kind === "cdek-pvz" && !d.pvz_code) return "Выберите пункт выдачи"
   if ((d.kind === "cdek-door" || d.kind === "pochta") && !d.address?.trim()) return "Укажите адрес"
