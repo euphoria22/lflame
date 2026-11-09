@@ -9,7 +9,8 @@
     "start": "next start -p 3001",
     "lint": "eslint",
     "payload": "payload",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create-user": "node scripts/create-user.mjs"
   },
   "dependencies": {
     "next": "16.4.5",
