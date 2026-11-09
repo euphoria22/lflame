@@ -6,6 +6,7 @@ import { createPortal } from "react-dom"
 
 import type { SizeChart } from "@/lib/blog"
 import { CloseIcon } from "./icons"
+import { BodyMeasure, FootMeasure, illustrationFor } from "./size-illustrations"
 import { usePresence } from "./use-presence"
 
 /** «**жирный**» и переносы строк в пояснении под таблицей. */
@@ -69,7 +70,14 @@ export function SizeGuide({ chart }: { chart: SizeChart }) {
                 <Image src={chart.image.url} alt={chart.image.alt || chart.title} width={chart.image.width ?? 800} height={chart.image.height ?? 600}
                   sizes="700px" className="h-auto w-full max-w-[520px] rounded-2xl" />
               )}
-              {chart.note && <Note text={chart.note} />}
+              {/* Как снять мерки: текст и схема (фигура — для одежды и джинсов, стопа — для обуви), как на прежнем сайте */}
+              {(chart.note || illustrationFor(chart.categories)) && (
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                  {chart.note ? <div className="max-w-md"><Note text={chart.note} /></div> : <span />}
+                  {illustrationFor(chart.categories) === "body" && <BodyMeasure className="size-40 shrink-0 self-center text-foreground" />}
+                  {illustrationFor(chart.categories) === "foot" && <FootMeasure className="size-36 shrink-0 self-center text-foreground" />}
+                </div>
+              )}
             </div>
           </div>
         </div>,
