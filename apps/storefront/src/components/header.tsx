@@ -23,7 +23,7 @@ const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 op
 /** Плитка с фото в меню (как у Brandshop): фото 3:4 и подпись капслоком. */
 function MenuTile({ tile }: { tile: NavTile }) {
   return (
-    <Link href={tile.href} className="group/tile block w-full max-w-[260px] flex-1">
+    <Link href={tile.href} className="group/tile block w-[240px] min-w-0 shrink">
       <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface">
         {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="260px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
       </span>
@@ -40,7 +40,9 @@ export async function Header() {
 
   return (
     <header className="fixed inset-x-0 top-[var(--bar-offset,var(--bar,0px))] z-50 px-3 pt-3 transition-[top] duration-300 md:px-4">
-      <div className="glass relative mx-auto flex h-14 max-w-[1680px] items-center justify-between rounded-full px-3 md:px-5">
+      <div className="relative mx-auto flex h-14 max-w-[1680px] items-center justify-between px-3 md:px-5">
+        {/* Стекло — отдельным слоем: иначе у вложенных панелей не работает размытие фона */}
+        <div aria-hidden className="glass pointer-events-none absolute inset-0 -z-10 rounded-full" />
         <div className="flex items-center md:hidden">
           <MobileMenu nav={nav} />
         </div>
@@ -51,7 +53,7 @@ export async function Header() {
             <li className="group flex h-14 items-center">
               <Link href={routes.brands()} className={link}>Бренды</Link>
               <div className={PANEL}>
-                <div className="grid grid-cols-[1fr_auto] gap-10 rounded-[28px] border border-line bg-background p-8 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
+                <div className="glass-strong grid grid-cols-[1fr_auto] gap-10 rounded-[28px] p-8">
                   <div>
                     <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
                     <ul className="columns-4 gap-8 text-[14px] leading-8">
@@ -68,7 +70,7 @@ export async function Header() {
               <li key={g.slug} className="group flex h-14 items-center">
                 <Link href={routes.gender(g.slug)} className={link}>{g.name}</Link>
                 <div className={PANEL}>
-                  <div className="grid grid-cols-[220px_260px_1fr] gap-10 rounded-[28px] border border-line bg-background p-8 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
+                  <div className="glass-strong grid w-fit max-w-full grid-cols-[minmax(0,200px)_minmax(0,240px)_auto] gap-10 rounded-[28px] p-8">
                     <div>
                       <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
                       <ul className="text-[14px] leading-8">
@@ -85,7 +87,7 @@ export async function Header() {
                         ))}
                       </ul>
                     </div>
-                    <div className="flex items-start justify-end gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
+                    <div className="flex items-start gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                   </div>
                 </div>
               </li>
