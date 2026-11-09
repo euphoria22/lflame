@@ -151,3 +151,52 @@ export async function safeAnnouncement(): Promise<Announcement | null> {
     return null
   }
 }
+
+/* ---------- Главная: баннер-кампания ---------- */
+
+export type HomeHero = {
+  /** Видео (mp4/webm) или GIF поверх фото */
+  video: { url: string; type: string } | null
+  image: Media
+  imageMobile: Media | null
+  eyebrow: string | null
+  title: string | null
+  textColor: "light" | "dark"
+  focus: "top" | "center" | "bottom"
+  buttons: { label: string; link: string }[]
+}
+
+type RawHero = {
+  enabled?: boolean; image?: RawMedia | null; video?: (RawMedia & { mimeType?: string }) | null; imageMobile?: RawMedia | null; eyebrow?: string | null; title?: string | null
+  textColor?: "light" | "dark" | null; focus?: "top" | "center" | "bottom" | null; buttons?: { label: string; link: string }[] | null
+}
+
+/** Баннер первого экрана из CMS. null — выключен или нет фото (тогда на главной карточки разделов). */
+export async function getHomeHero(): Promise<HomeHero | null> {
+  "use cache"
+  cacheTag("home")
+  cacheLife({ stale: 60, revalidate: 600, expire: 86400 })
+  const g = await cms<{ hero?: RawHero }>("/globals/home?depth=1")
+  const h = g.hero
+  const image = media(h?.image, "large")
+  const videoUrl = absMedia(h?.video?.url)
+  if (!h?.enabled || !image) return null
+  return {
+    video: videoUrl ? { url: videoUrl, type: h?.video?.mimeType ?? "video/mp4" } : null,
+    image,
+    imageMobile: media(h.imageMobile, "card"),
+    eyebrow: h.eyebrow?.trim() || null,
+    title: h.title?.trim() || null,
+    textColor: h.textColor === "dark" ? "dark" : "light",
+    focus: h.focus === "top" || h.focus === "bottom" ? h.focus : "center",
+    buttons: (h.buttons ?? []).filter((b) => b.label && b.link).slice(0, 3),
+  }
+}
+
+export async function safeHomeHero(): Promise<HomeHero | null> {
+  try {
+    return await getHomeHero()
+  } catch {
+    return null
+  }
+}

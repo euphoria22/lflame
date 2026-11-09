@@ -1,7 +1,7 @@
 import type { CollectionConfig } from "payload"
 
 /**
- * Изображения для баннеров и страниц.
+ * Изображения и видео для баннеров и страниц (видео — MP4/WebM, лучше до 15 МБ).
  * Фото товаров хранятся в Medusa, не здесь.
  */
 export const Media: CollectionConfig = {
@@ -20,8 +20,8 @@ export const Media: CollectionConfig = {
     },
   ],
   upload: {
-    // ТЗ, п. 8.3: только изображения
-    mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/avif"],
+    // ТЗ, п. 8.3: только изображения и видео (для баннеров), без произвольных файлов
+    mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif", "video/mp4", "video/webm"],
     // Уменьшенные копии для сайта (оригинал тоже хранится)
     imageSizes: [
       { name: "card", width: 800, withoutEnlargement: true },

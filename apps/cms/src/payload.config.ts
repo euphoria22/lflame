@@ -12,6 +12,7 @@ import { Pages } from "./collections/pages"
 import { Posts } from "./collections/posts"
 import { Users } from "./collections/users"
 import { Announcement } from "./globals/announcement"
+import { Home } from "./globals/home"
 import { seedPages } from "./seed/pages"
 
 const filename = fileURLToPath(import.meta.url)
@@ -44,7 +45,7 @@ export default buildConfig({
     fallbackLanguage: "ru",
   },
   collections: [Pages, Posts, BlogCategories, Media, Users],
-  globals: [Announcement],
+  globals: [Home, Announcement],
   // Стартовые тексты страниц (доставка, оплата, оферта…) — только если их ещё нет
   onInit: async (payload) => {
     await seedPages(payload).catch((e) => payload.logger.error(`Стартовые страницы не созданы: ${(e as Error).message}`))
