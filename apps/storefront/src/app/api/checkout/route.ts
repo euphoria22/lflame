@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
             data: {
               success_url: `${SITE_URL}/checkout/paid`,
               fail_url: `${SITE_URL}/checkout?payment=failed`,
-              description: "Заказ в магазине LAFLAMME",
+              description: "Заказ в магазине Laflamme",
               email: input.email!.trim().toLowerCase(),
               phone,
               receipt,

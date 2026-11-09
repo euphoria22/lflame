@@ -2,8 +2,9 @@ import type { Metadata } from "next"
 
 import { FavoritesView } from "@/components/favorites-view"
 import { NOINDEX } from "@/lib/seo"
+import { pageTitle } from "@/lib/site"
 
-export const metadata: Metadata = { title: "Избранное — LAFLAMME", ...NOINDEX }
+export const metadata: Metadata = { title: pageTitle("Избранное"), ...NOINDEX }
 
 export default function FavoritesPage() {
   return <FavoritesView />

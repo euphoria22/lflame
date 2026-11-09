@@ -104,7 +104,7 @@ class CdekFulfillmentProviderService extends AbstractFulfillmentProviderService 
       items: lines,
       cod,
       shippingAmount: shipping,
-      comment: `Заказ LAFLAMME № ${o.display_id}`,
+      comment: `Заказ Laflamme № ${o.display_id}`,
     }
     const r = await createCdekOrder(input)
     return {

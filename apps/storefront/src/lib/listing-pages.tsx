@@ -80,7 +80,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       const scoped = scopeItems(items, scope)
       return {
         scope, basePath: routes.gender(g!.slug), h1: g!.name,
-        title: `${g!.name === "Мужское" ? "Мужская" : "Женская"} одежда, обувь и аксессуары — купить в ${SITE_NAME}`,
+        title: `${g!.name === "Мужское" ? "Мужская" : "Женская"} одежда, обувь и аксессуары — купить`,
         description: describe(`${g!.name === "Мужское" ? "Мужская" : "Женская"} одежда`, scoped),
         crumbs: [{ name: g!.name, href: routes.gender(g!.slug) }],
         // Категории выбираются в фильтре; сверху — популярные бренды раздела (обратная связь 08.11.2026)
@@ -94,7 +94,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       const h1 = `${cat!.name} ${g!.adjective}`
       return {
         scope, basePath: routes.category(g!.slug, cat!.handle), h1,
-        title: cat!.seo_title ?? `${cat!.name} ${g!.forWhom} — купить в интернет-магазине ${SITE_NAME}`,
+        title: cat!.seo_title ?? `${cat!.name} ${g!.forWhom} — купить в интернет-магазине`,
         description: cat!.seo_description ?? describe(h1, scoped),
         crumbs: [{ name: g!.name, href: routes.gender(g!.slug) }, { name: cat!.name, href: routes.category(g!.slug, cat!.handle) }],
         chips: brandChips(scoped, (b) => routes.categoryBrand(g!.slug, cat!.handle, b)),
@@ -109,7 +109,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       const parent = scopeItems(items, { gender: g!.slug, category: cat!.handle })
       return {
         scope, basePath: routes.categoryBrand(g!.slug, cat!.handle, brand!.handle), h1,
-        title: `${cat!.name} ${brand!.name} ${g!.adjective} — купить оригинал в ${SITE_NAME}`,
+        title: `${cat!.name} ${brand!.name} ${g!.adjective} — купить оригинал`,
         description: describe(`${h1} ${g!.adjective}`, scoped),
         crumbs: [
           { name: g!.name, href: routes.gender(g!.slug) },
@@ -126,7 +126,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       const scoped = scopeItems(items, scope)
       return {
         scope, basePath: routes.brand(brand!.handle), h1: brand!.name,
-        title: brand!.seo_title ?? `${brand!.name} — одежда и обувь, купить в ${SITE_NAME}`,
+        title: brand!.seo_title ?? `${brand!.name} — одежда и обувь, купить`,
         description: brand!.seo_description ?? describe(brand!.name, scoped),
         crumbs: [{ name: "Бренды", href: routes.brands() }, { name: brand!.name, href: routes.brand(brand!.handle) }],
         genderLinks: [
@@ -143,7 +143,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       const h1 = `${brand!.name} ${g!.forWhom}`
       return {
         scope, basePath: routes.brandGender(brand!.handle, g!.slug), h1,
-        title: `${brand!.name} ${g!.forWhom} — купить в ${SITE_NAME}`,
+        title: `${brand!.name} ${g!.forWhom} — купить`,
         description: describe(h1, scoped),
         crumbs: [
           { name: "Бренды", href: routes.brands() },
@@ -167,7 +167,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       const h1 = g ? `${base}: ${g.name.toLowerCase()}` : base
       return {
         scope, basePath: isSale ? routes.sale(g?.slug) : routes.newIn(g?.slug), h1,
-        title: `${h1} — ${isSale ? "скидки на оригинальную одежду" : "новые поступления"} в ${SITE_NAME}`,
+        title: `${h1} — ${isSale ? "скидки на оригинальную одежду" : "новые поступления"}`,
         description: describe(h1, scoped),
         crumbs: [
           { name: base, href: isSale ? routes.sale() : routes.newIn() },

@@ -10,7 +10,7 @@ import { pageMeta } from "@/lib/seo"
 import { SITE_NAME } from "@/lib/site"
 
 export const metadata: Metadata = pageMeta({
-  title: `Все бренды — оригинальная одежда и обувь в ${SITE_NAME}`,
+  title: "Все бренды — оригинальная одежда и обувь",
   description: `Бренды в интернет-магазине ${SITE_NAME}: C.P. Company, Stone Island, Calvin Klein, Carhartt WIP и другие. Только оригинал, доставка по России.`,
   path: routes.brands(),
 })

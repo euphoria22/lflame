@@ -5,8 +5,9 @@ import { connection } from "next/server"
 import { LoginForm } from "@/components/login-form"
 import { NOINDEX } from "@/lib/seo"
 import { currentCustomer } from "@/lib/store-api"
+import { pageTitle } from "@/lib/site"
 
-export const metadata: Metadata = { title: "Вход — LAFLAMME", ...NOINDEX }
+export const metadata: Metadata = { title: pageTitle("Вход"), ...NOINDEX }
 export const instant = false
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {

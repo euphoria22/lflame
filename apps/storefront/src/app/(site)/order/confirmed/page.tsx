@@ -3,8 +3,9 @@ import Link from "next/link"
 
 import { routes } from "@/lib/routes"
 import { NOINDEX } from "@/lib/seo"
+import { pageTitle } from "@/lib/site"
 
-export const metadata: Metadata = { title: "Заказ оформлен — LAFLAMME", ...NOINDEX }
+export const metadata: Metadata = { title: pageTitle("Заказ оформлен"), ...NOINDEX }
 export const instant = false
 
 /** «Заказ оформлен» (ТЗ, п. 6.4). Номер — из адреса. Письмо-подтверждение — этап 5. */

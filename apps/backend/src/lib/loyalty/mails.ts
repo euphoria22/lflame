@@ -4,10 +4,10 @@ import { Tier } from "./rules"
 
 /** Письмо о новом уровне (ТЗ, п. 6.7). */
 export function loyaltyLevelMail(to: string, tier: Tier): Mail {
-  const text = `Ваш уровень в LAFLAMME Club — ${tier.name}: скидка ${tier.discount}% на покупки онлайн и в магазине, со следующей покупки.`
+  const text = `Ваш уровень в Laflamme Club — ${tier.name}: скидка ${tier.discount}% на покупки онлайн и в магазине, со следующей покупки.`
   return {
     to,
-    subject: `Ваш новый уровень в LAFLAMME Club — ${tier.name}`,
+    subject: `Ваш новый уровень в Laflamme Club — ${tier.name}`,
     text: `${text}\n\nЛичный кабинет: ${site()}/account`,
     html: layout({ preheader: text, title: `Новый уровень — ${tier.name}`, body: `${text}<br><br>Скидка применяется сама, когда вы вошли в аккаунт. В магазине назовите номер телефона.`, button: { label: "Мой уровень", url: `${site()}/account` } }),
   }

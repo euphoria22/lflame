@@ -8,7 +8,7 @@ export const HELP_TABS = [
   { href: "/delivery", label: "Доставка" },
   { href: "/payment", label: "Оплата" },
   { href: "/returns", label: "Обмен и возврат" },
-  { href: "/loyalty", label: "LAFLAMME Club" },
+  { href: "/loyalty", label: "Laflamme Club" },
   { href: "/faq", label: "FAQ" },
   { href: "/contacts", label: "Контакты" },
 ]

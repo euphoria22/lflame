@@ -12,6 +12,8 @@
   --subtle: #9a9a9a;
   --line: #e7e7e7;
   --surface: #f3f3f2;
+  /* Laflamme Club: золотистый акцент (прогресс уровня) */
+  --club: #b08a4e;
   --surface-2: #ebebea;
   --sale: #c4161c;
   --radius: 999px;
@@ -19,6 +21,7 @@
 }
 
 @theme inline {
+  --color-club: var(--club);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);

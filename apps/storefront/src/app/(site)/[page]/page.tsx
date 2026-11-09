@@ -22,7 +22,7 @@ async function load(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = await load((await params).page)
   if (!p) return { title: "Страница не найдена" }
-  return pageMeta({ title: p.seo.title || `${p.title} — ${SITE_NAME}`, description: p.seo.description || p.intro || `${p.title} в магазине ${SITE_NAME}`, path: routes.page(p.slug) })
+  return pageMeta({ title: p.seo.title || p.title, description: p.seo.description || p.intro || `${p.title} в магазине ${SITE_NAME}`, path: routes.page(p.slug) })
 }
 
 type Section = { title: string; nodes: LexicalNode[] }

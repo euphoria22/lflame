@@ -1,5 +1,11 @@
 /** Общие константы сайта. */
-export const SITE_NAME = "LAFLAMME"
+export const SITE_NAME = "Laflamme"
+
+/** Конец названия каждой страницы: «Каталог | Laflamme» */
+export const TITLE_SUFFIX = ` | ${SITE_NAME}`
+
+/** «Корзина» -> «Корзина | Laflamme» */
+export const pageTitle = (title: string) => `${title}${TITLE_SUFFIX}`
 
 export const SITE_DESCRIPTION = "Оригинальная одежда, обувь и аксессуары мировых брендов. Доставка по России, оплата частями."
 

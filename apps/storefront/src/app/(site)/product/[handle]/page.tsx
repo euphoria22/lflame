@@ -18,7 +18,7 @@ import { arrivalDate, formatPrice } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { GenderSlug, genderInfo, routes } from "@/lib/routes"
 import { clip, pageMeta } from "@/lib/seo"
-import { SITE_NAME, SITE_URL } from "@/lib/site"
+import { SITE_NAME, SITE_URL, TITLE_SUFFIX } from "@/lib/site"
 import type { CatalogItem, CatalogProduct } from "@/lib/types"
 
 type Props = { params: Promise<{ handle: string }> }
@@ -39,8 +39,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!product || product.discontinued) return {}
   const color = product.color_name ? ` ${product.color_name.toLowerCase()}` : ""
   return pageMeta({
-    // ТЗ, п. 7.5: «{Бренд} {Название} {цвет} — купить за {цена} ₽ в {Магазин}»
-    title: `${product.title} — купить за ${formatPrice(product.price)} в ${SITE_NAME}`,
+    // ТЗ, п. 7.5: «{Бренд} {Название} — купить за {цена} ₽ | Laflamme» (суффикс добавляет pageMeta)
+    // Длинное название — без «купить за …», чтобы цена не обрезалась посередине
+    title: `${product.title} — купить за ${formatPrice(product.price)}`.length <= 70 - TITLE_SUFFIX.length ? `${product.title} — купить за ${formatPrice(product.price)}` : product.title,
     description: `${product.title}${color} — оригинал по цене ${formatPrice(product.price)}${product.compare_at ? ` вместо ${formatPrice(product.compare_at)}` : ""}. Доставка по России, оплата частями, обмен и возврат в ${SITE_NAME}.`,
     path: routes.product(product.handle),
     image: product.images[0] ?? product.thumbnail,
@@ -112,7 +113,7 @@ export default async function ProductPage({ params }: Props) {
                 Товар ещё едет к нам{arrivalDate(product.preorder_date) ? <>, ожидаем <b className="font-medium">{arrivalDate(product.preorder_date)}</b></> : null}. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
               </p>
             )}
-            {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка LAFLAMME Club на этот товар не действует</p>}
+            {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка Laflamme Club на этот товар не действует</p>}
 
             <div className="mt-8">
               <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />

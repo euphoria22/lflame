@@ -16,7 +16,7 @@ import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site"
 import type { CatalogItem } from "@/lib/types"
 
 export const metadata: Metadata = pageMeta({
-  title: `${SITE_NAME} — мультибрендовый магазин оригинальной одежды и обуви`,
+  title: "Мультибрендовый магазин оригинальной одежды и обуви",
   description: SITE_DESCRIPTION,
   path: "/",
 })

@@ -36,7 +36,7 @@ export default buildConfig({
   admin: {
     user: Users.slug,
     meta: {
-      titleSuffix: " | LAFLAMME CMS",
+      titleSuffix: " | Laflamme CMS",
     },
     importMap: {
       baseDir: path.resolve(dirname),
@@ -57,10 +57,11 @@ export default buildConfig({
     const a = await payload.findGlobal({ slug: "announcement" }).catch(() => null)
     // Программа переименована в LAFLAMME Club: стартовую фразу меняем, только если её не правили
     const items = (a as { items?: { text?: string }[] } | null)?.items ?? []
-    if (a && items.some((i) => i.text === "Скидка до 15% по программе LAFLAMME")) {
+    const OLD_TEXTS = ["Скидка до 15% по программе LAFLAMME", "Скидка до 15% в LAFLAMME Club"]
+    if (a && items.some((i) => OLD_TEXTS.includes(i.text ?? ""))) {
       await payload.updateGlobal({
         slug: "announcement",
-        data: { items: items.map((i) => (i.text === "Скидка до 15% по программе LAFLAMME" ? { ...i, text: "Скидка до 15% в LAFLAMME Club" } : i)) as never },
+        data: { items: items.map((i) => (OLD_TEXTS.includes(i.text ?? "") ? { ...i, text: "Скидка до 15% в Laflamme Club" } : i)) as never },
       }).catch(() => null)
     }
     if (a && !(a as { items?: unknown[] }).items?.length) {
@@ -68,7 +69,7 @@ export default buildConfig({
         slug: "announcement",
         data: { enabled: true, theme: "dark", items: [
           { text: "Бесплатная доставка от 12 000 ₽", link: "/delivery", linkLabel: "Подробнее" },
-          { text: "Скидка до 15% в LAFLAMME Club", link: "/loyalty", linkLabel: "Как получить" },
+          { text: "Скидка до 15% в Laflamme Club", link: "/loyalty", linkLabel: "Как получить" },
         ] },
       }).catch(() => null)
     }

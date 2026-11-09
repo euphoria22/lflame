@@ -3,9 +3,10 @@ import type { Metadata } from "next"
 import { CatalogListing, SearchParams } from "@/components/catalog-listing"
 import { routes } from "@/lib/routes"
 import { NOINDEX } from "@/lib/seo"
+import { pageTitle } from "@/lib/site"
 
 // Поиск не индексируется (ТЗ, п. 7.5, 7.8)
-export const metadata: Metadata = { title: "Поиск — LAFLAMME", ...NOINDEX }
+export const metadata: Metadata = { title: pageTitle("Поиск"), ...NOINDEX }
 export const instant = false
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {

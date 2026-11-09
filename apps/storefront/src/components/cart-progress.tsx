@@ -32,10 +32,11 @@ function loadLoyalty() {
   return loyaltyReq
 }
 
-function Bar({ pct }: { pct: number }) {
+/** Полоска прогресса: доставка — чёрная, Laflamme Club — золотистая (чтобы не сливались). */
+function Bar({ pct, tone = "delivery" }: { pct: number; tone?: "delivery" | "club" }) {
   return (
-    <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-line" aria-hidden>
-      <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
+    <div className={`mt-1.5 h-[3px] overflow-hidden rounded-full ${tone === "club" ? "bg-club/20" : "bg-line"}`} aria-hidden>
+      <div className={`h-full rounded-full transition-[width] duration-500 ${tone === "club" ? "bg-club" : "bg-foreground"}`} style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
     </div>
   )
 }
@@ -82,12 +83,12 @@ export function CartProgress({ total, className = "" }: { total: number; classNa
         <div>
           <p className="text-[12px] text-muted">
             {gReached
-              ? <>С этим заказом — уровень <span className="text-foreground">{gReached.name} (−{gReached.discount}%)</span> в LAFLAMME Club</>
+              ? <>С этим заказом — уровень <span className="text-foreground">{gReached.name} (−{gReached.discount}%)</span> в Laflamme Club</>
               : gNext
-                ? <>До {gNext.name} (−{gNext.discount}%) в LAFLAMME Club — <span className="text-foreground">{formatPrice(gNext.threshold - total)}</span></>
+                ? <>До {gNext.name} (−{gNext.discount}%) в Laflamme Club — <span className="text-foreground">{formatPrice(gNext.threshold - total)}</span></>
                 : null}
           </p>
-          {gNext && <Bar pct={(total / gNext.threshold) * 100} />}
+          {gNext && <Bar tone="club" pct={(total / gNext.threshold) * 100} />}
           <p className="mt-1.5 text-[12px] text-muted">
             {!loy?.logged
               ? <><Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Авторизуйтесь</Link>, чтобы покупки засчитывались — скидка до 15%</>
@@ -105,7 +106,7 @@ export function CartProgress({ total, className = "" }: { total: number; classNa
                 : <>У вас высший уровень {l.level.name}</>}
             {l.level.discount > 0 && <> · ваша скидка {l.level.name} −{l.level.discount}% уже в цене</>}
           </p>
-          {(reached || nextAfter) && <Bar pct={nextAfter ? (projected / nextAfter.threshold) * 100 : 100} />}
+          {(reached || nextAfter) && <Bar tone="club" pct={nextAfter ? (projected / nextAfter.threshold) * 100 : 100} />}
         </div>
       )}
     </div>

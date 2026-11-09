@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 
-import { INDEXING_ENABLED, SITE_NAME, SITE_URL } from "./site"
+import { INDEXING_ENABLED, SITE_NAME, SITE_URL, TITLE_SUFFIX } from "./site"
 
 /** Обрезка по слову (ТЗ, п. 7.5: title ≤ 70, description ≤ 160). */
 export function clip(text: string, max: number): string {
@@ -26,7 +26,9 @@ export type PageMetaInput = {
  * Пока INDEXING не включён (staging), всё закрыто от индексации (п. 7.8).
  */
 export function pageMeta({ title, description, path, page = 1, index = true, image, type = "website" }: PageMetaInput): Metadata {
-  const fullTitle = clip(page > 1 ? `${title} — страница ${page}` : title, 70)
+  // «Название | Laflamme»: обрезается само название, суффикс остаётся (title ≤ 70)
+  const core = title.endsWith(TITLE_SUFFIX) ? title.slice(0, -TITLE_SUFFIX.length) : title
+  const fullTitle = `${clip(page > 1 ? `${core} — страница ${page}` : core, 70 - TITLE_SUFFIX.length)}${TITLE_SUFFIX}`
   const canonical = `${SITE_URL}${path === "/" ? "" : path}${page > 1 ? `?page=${page}` : ""}` || SITE_URL
   const desc = clip(description, 160)
   const allowIndex = INDEXING_ENABLED && index

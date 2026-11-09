@@ -18,12 +18,12 @@ export function layout(opts: { preheader: string; title: string; body: string; b
 <span style="display:none;max-height:0;overflow:hidden">${esc(opts.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f3f2;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:20px;padding:32px">
-<tr><td style="font-size:13px;letter-spacing:6px;padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none">LAFLAMME</a></td></tr>
+<tr><td style="font-size:20px;letter-spacing:0.5px;padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none">la:flamme</a></td></tr>
 <tr><td style="font-size:24px;line-height:1.25;padding-bottom:16px">${esc(opts.title)}</td></tr>
 <tr><td style="font-size:14px;line-height:1.6;color:#3a3a3a;padding-bottom:16px">${opts.body}</td></tr>
 ${btn}
 <tr><td style="border-top:1px solid #e7e7e7;padding-top:20px;font-size:12px;line-height:1.6;color:#6e6e6e">
-Магазин LAFLAMME · Омск, ул. Партизанская, 5а/8 · ежедневно 12:00–21:00<br>
+Магазин Laflamme · Омск, ул. Партизанская, 5а/8 · ежедневно 12:00–21:00<br>
 +7 913 144-64-82 · admin@laflamme.ru<br>
 <a href="${site()}" style="color:#6e6e6e">${esc(site().replace(/^https?:\/\//, ""))}</a>
 </td></tr></table></td></tr></table></body></html>`
@@ -32,7 +32,7 @@ ${btn}
 export function loginCodeMail(to: string, code: string): Mail {
   return {
     to,
-    subject: `${code} — код для входа в LAFLAMME`,
+    subject: `${code} — код для входа в Laflamme`,
     text: `Код для входа: ${code}\nДействует 10 минут. Если вы не запрашивали код — просто удалите письмо.`,
     html: layout({
       preheader: `Код для входа: ${code}`,

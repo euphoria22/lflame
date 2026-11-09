@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await load((await params).slug)
   if (!post) return { title: "Статья не найдена" }
   return pageMeta({
-    title: post.seo.title || `${post.title} — блог ${SITE_NAME}`,
+    title: post.seo.title || `${post.title} — блог`,
     description: post.seo.description || post.excerpt || post.title,
     path: routes.post(post.slug),
     image: post.cover?.url,

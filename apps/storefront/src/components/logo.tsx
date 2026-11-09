@@ -6,7 +6,7 @@ import Link from "next/link"
  */
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <Link href="/" aria-label="LAFLAMME — на главную" className={`text-foreground ${className}`}>
+    <Link href="/" aria-label="Laflamme — на главную" className={`text-foreground ${className}`}>
       <LogoMark className="h-8 w-auto md:hidden" />
       <LogoWordmark className="hidden h-[22px] w-auto md:block" />
     </Link>

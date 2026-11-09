@@ -2,15 +2,15 @@ import type { Metadata } from "next"
 
 import { InfoPage } from "@/components/info-page"
 
-export const metadata: Metadata = { title: "Правила LAFLAMME Club", alternates: { canonical: "/loyalty/rules" } }
+export const metadata: Metadata = { title: "Правила Laflamme Club | Laflamme", alternates: { canonical: "/loyalty/rules" } }
 
 /** Правила программы (ТЗ, п. 6.7 «Юридическое»). Текст — черновик, согласовать с юристом. */
 export default function LoyaltyRules() {
   return (
-    <InfoPage crumbs={[{ name: "LAFLAMME Club", href: "/loyalty" }, { name: "Правила", href: "/loyalty/rules" }]} title="Правила LAFLAMME Club">
+    <InfoPage crumbs={[{ name: "Laflamme Club", href: "/loyalty" }, { name: "Правила", href: "/loyalty/rules" }]} title="Правила Laflamme Club">
       <div className="info-text max-w-3xl">
         <h2>1. Участие</h2>
-        <p>LAFLAMME Club — программа лояльности магазина LAFLAMME. Участник — покупатель, указавший номер мобильного телефона при покупке на сайте или в магазине LAFLAMME. Один номер телефона — один участник.</p>
+        <p>Laflamme Club — программа лояльности магазина Laflamme. Участник — покупатель, указавший номер мобильного телефона при покупке на сайте или в магазине Laflamme. Один номер телефона — один участник.</p>
         <h2>2. Сумма покупок</h2>
         <p>Сумма покупок — фактически оплаченная сумма после всех скидок, без стоимости доставки, за вычетом возвратов, за последние 12 месяцев (365 дней). Покупки старше выбывают из суммы.</p>
         <p>Покупка на сайте засчитывается через 7 дней после получения заказа, если за это время не оформлен возврат. Покупка в магазине засчитывается в день покупки. Возврат уменьшает сумму, в том числе после зачёта.</p>

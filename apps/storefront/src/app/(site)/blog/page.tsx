@@ -8,8 +8,8 @@ import { routes } from "@/lib/routes"
 import { pageMeta } from "@/lib/seo"
 
 export const metadata: Metadata = pageMeta({
-  title: "Блог LAFLAMME — новости брендов, стиль, подборки",
-  description: "Новости брендов, подборки и советы по стилю от команды LAFLAMME.",
+  title: "Блог — новости брендов, стиль, подборки",
+  description: "Новости брендов, подборки и советы по стилю от команды Laflamme.",
   path: "/blog",
 })
 export const instant = false

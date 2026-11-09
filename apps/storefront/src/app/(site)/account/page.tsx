@@ -6,8 +6,9 @@ import { AccountCustomer, AccountOrder, AccountView } from "@/components/account
 import type { LoyaltyStatus } from "@/components/loyalty-card"
 import { NOINDEX } from "@/lib/seo"
 import { getAuthToken, storeFetch } from "@/lib/store-api"
+import { pageTitle } from "@/lib/site"
 
-export const metadata: Metadata = { title: "Личный кабинет — LAFLAMME", ...NOINDEX }
+export const metadata: Metadata = { title: pageTitle("Личный кабинет"), ...NOINDEX }
 export const instant = false
 
 export default async function AccountPage() {

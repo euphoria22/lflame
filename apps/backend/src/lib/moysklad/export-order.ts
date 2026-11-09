@@ -145,7 +145,7 @@ async function findOrCreateCounterparty(ms: MoyskladModuleService, order: OrderR
     companyType: "individual",
     phone: phone || undefined,
     email: order.email || undefined,
-    description: "Создан сайтом LAFLAMME",
+    description: "Создан сайтом Laflamme",
   })
   return created.id
 }

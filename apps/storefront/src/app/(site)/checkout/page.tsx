@@ -4,8 +4,9 @@ import { connection } from "next/server"
 import { CheckoutForm } from "@/components/checkout-form"
 import { NOINDEX } from "@/lib/seo"
 import { currentCustomer, storeFetch } from "@/lib/store-api"
+import { pageTitle } from "@/lib/site"
 
-export const metadata: Metadata = { title: "Оформление заказа — LAFLAMME", ...NOINDEX }
+export const metadata: Metadata = { title: pageTitle("Оформление заказа"), ...NOINDEX }
 
 type Options = { online_payment: boolean; manual_payment: boolean; cod_methods: string[]; free_shipping_from: number }
 

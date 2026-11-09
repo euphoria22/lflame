@@ -73,7 +73,7 @@ export async function priceCart(c: MedusaContainer, cartId: string, customerId: 
     // Скидка уровня выгоднее: промокод снимаем, код помним (вдруг корзина изменится)
     await setPromotions(c, cartId, [])
     const loyalty = await applyCartLoyalty(c, cartId, customerId)
-    return { loyalty, promo: { code: wanted, applied: false, saved, note: `Скидка ${loyalty ? `LAFLAMME Club ${loyalty.level}` : "LAFLAMME Club"} выгоднее — применили её` } }
+    return { loyalty, promo: { code: wanted, applied: false, saved, note: `Скидка ${loyalty ? `Laflamme Club ${loyalty.level}` : "Laflamme Club"} выгоднее — применили её` } }
   }
   return { loyalty: null, promo: { code: wanted, applied: true, saved, note: null } }
 }

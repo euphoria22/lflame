@@ -96,7 +96,7 @@ class TbankPaymentProviderService extends AbstractPaymentProvider<Options> {
     const r = await tbankCall(this.cfg, "Init", {
       Amount: kopecks(amount),
       OrderId: input.session_id,
-      Description: (input.description ?? "Заказ LAFLAMME").slice(0, 140),
+      Description: (input.description ?? "Заказ Laflamme").slice(0, 140),
       SuccessURL: input.success_url,
       FailURL: input.fail_url,
       NotificationURL: this.cfg.notificationUrl,

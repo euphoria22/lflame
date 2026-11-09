@@ -1,7 +1,7 @@
 import type { Payload } from "payload"
 
 import { OFFER, PRIVACY } from "./legal"
-import { CONTACTS_V4, CONTACTS_V5, OFFER_V4, PRIVACY_V4 } from "./previous"
+import { CONTACTS_V4, CONTACTS_V5, FAQ_V6, OFFER_V4, PRIVACY_V4 } from "./previous"
 import { md } from "./lexical"
 
 /**
@@ -167,10 +167,10 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 ## Что значит «Предзаказ»?
 Товар уже едет к нам. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
 
-## Как получить скидку LAFLAMME Club?
-Скидка до 15% по сумме покупок за последние 12 месяцев — на сайте и в магазине. Авторизуйтесь на сайте и укажите телефон: по нему мы находим ваши покупки. Подробнее — [LAFLAMME Club](/loyalty).
+## Как получить скидку Laflamme Club?
+Скидка до 15% по сумме покупок за последние 12 месяцев — на сайте и в магазине. Авторизуйтесь на сайте и укажите телефон: по нему мы находим ваши покупки. Подробнее — [Laflamme Club](/loyalty).
 
-## Промокод суммируется со скидкой LAFLAMME Club?
+## Промокод суммируется со скидкой Laflamme Club?
 Нет. Сайт сам применит ту скидку, что выгоднее для вас.
 
 ## Как с вами связаться?
@@ -181,7 +181,7 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
     slug: "about",
     title: "О магазине",
     order: 50,
-    text: ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club"),
+    text: ABOUT_V2.replace("## Программа LAFLAMME", "## Laflamme Club").replace("LAFLAMME —", "Laflamme —"),
   },
   {
     slug: "offer",
@@ -200,9 +200,9 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 ]
 
 /** Увеличивается, когда меняются стартовые тексты. */
-const SEED_VERSION = 6
+const SEED_VERSION = 7
 /** В какой версии менялся стартовый текст страницы. */
-const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 3 }
+const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 7 }
 
 /** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
 const PREVIOUS: Record<string, string> = {
@@ -302,7 +302,7 @@ export async function seedPages(payload: Payload): Promise<void> {
       // или в ней всё ещё стартовый текст прошлой версии
       const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
       const current = plain(doc.content?.root)
-      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
+      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
       if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,

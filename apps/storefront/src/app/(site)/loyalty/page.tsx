@@ -4,10 +4,11 @@ import { connection } from "next/server"
 
 import { InfoPage } from "@/components/info-page"
 import { formatPrice } from "@/lib/format"
+import { pageTitle } from "@/lib/site"
 import { storeFetch } from "@/lib/store-api"
 
 export const metadata: Metadata = {
-  title: "LAFLAMME Club — программа лояльности, скидка до 15%",
+  title: pageTitle("Программа лояльности Laflamme Club — скидка до 15%"),
   description: "Скидка до 15% по сумме покупок за 12 месяцев — на сайте и в магазине в Омске. Уровни BASE, MEMBER, SELECT, ICON, PRIVATE.",
   alternates: { canonical: "/loyalty" },
 }
@@ -22,8 +23,8 @@ export default async function LoyaltyPage() {
   const tiers = p?.tiers ?? []
   return (
     <InfoPage
-      crumbs={[{ name: "LAFLAMME Club", href: "/loyalty" }]}
-      title="LAFLAMME Club"
+      crumbs={[{ name: "Laflamme Club", href: "/loyalty" }]}
+      title="Laflamme Club"
       tab="/loyalty"
       intro="Чем больше покупаете — тем больше скидка. Считаем все покупки за последние 12 месяцев: на сайте и в магазине в Омске. Скидка действует везде — онлайн и в магазине, со следующей покупки после перехода на уровень."
     >
@@ -45,7 +46,7 @@ export default async function LoyaltyPage() {
         <p>Скидка уровня действует и на товары со скидкой: считается от текущей цены. С промокодами и акциями не суммируется — применяем то, что выгоднее для вас.</p>
         <p>Учитываются покупки за {p?.period_days === 365 || !p ? "последние 12 месяцев" : `последние ${p.period_days} дней`}: старые покупки постепенно выбывают, и уровень может понизиться. Мы предупредим заранее письмом.</p>
         {!!p?.excluded_brands.length && <p>Скидка уровня не действует на бренды: {p.excluded_brands.join(", ")}.</p>}
-        <p><Link href="/loyalty/rules">Правила LAFLAMME Club</Link></p>
+        <p><Link href="/loyalty/rules">Правила Laflamme Club</Link></p>
       </div>
 
       <div className="mt-10">

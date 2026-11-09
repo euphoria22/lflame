@@ -22,7 +22,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — мультибрендовый магазин одежды`,
+    default: `Мультибрендовый магазин оригинальной одежды и обуви | ${SITE_NAME}`,
     template: `%s`,
   },
   description: SITE_DESCRIPTION,
