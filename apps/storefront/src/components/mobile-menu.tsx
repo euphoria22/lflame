@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 
 import { routes } from "@/lib/routes"
 import { CloseIcon, MenuIcon } from "./icons"
@@ -25,7 +26,8 @@ export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBr
       <button type="button" aria-label="Меню" aria-expanded={open} onClick={() => setOpen(true)} className="rounded-full p-2 hover:bg-black/5">
         <MenuIcon className="size-[22px]" />
       </button>
-      {open && (
+      {/* В портале: «стеклянная» шапка (backdrop-filter) иначе запирает fixed-панель внутри себя */}
+      {open && createPortal(
         <div className="fixed inset-0 z-[60] p-3" role="dialog" aria-modal="true" aria-label="Меню">
           <div className="absolute inset-0 bg-black/20" onClick={close} />
           <div className="glass-strong relative flex h-full flex-col overflow-y-auto rounded-[28px] p-5">
@@ -62,7 +64,8 @@ export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBr
               <Link onClick={close} href={routes.favorites()}>Избранное</Link>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

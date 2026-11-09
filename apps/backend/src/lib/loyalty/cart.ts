@@ -5,7 +5,7 @@ import { discountFor, getLoyaltySettings } from "./engine"
 import { loyaltyPrice } from "./rules"
 
 type CartItem = { id: string; variant_id: string | null; quantity: number; unit_price: unknown; is_custom_price?: boolean; metadata?: Record<string, unknown> | null }
-type VariantRow = { id: string; metadata?: Record<string, unknown> | null; prices?: { amount: unknown; currency_code: string }[]; product?: { brand?: { name?: string } | null } | null }
+type VariantRow = { id: string; metadata?: Record<string, unknown> | null; prices?: { amount: unknown; currency_code: string }[]; product?: { brand?: { name?: string } | null; metadata?: Record<string, unknown> | null } | null }
 
 export type CartLoyalty = { level: string; pct: number; saved: number } | null
 
@@ -36,7 +36,7 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
   const ids = cart.items.map((i) => i.variant_id).filter(Boolean) as string[]
   const { data: variants } = await query.graph({
     entity: "variant",
-    fields: ["id", "metadata", "prices.amount", "prices.currency_code", "product.brand.name"],
+    fields: ["id", "metadata", "prices.amount", "prices.currency_code", "product.brand.name", "product.metadata"],
     filters: { id: ids },
   })
   const byId = new Map((variants as unknown as VariantRow[]).map((v) => [v.id, v]))
@@ -48,7 +48,8 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
     const price = Number(v.prices?.find((p) => p.currency_code === cart.currency_code)?.amount ?? item.unit_price)
     const compareAt = Number(v.metadata?.compare_at_price ?? 0) || null
     const brand = v.product?.brand?.name?.toLowerCase() ?? ""
-    const pct = discount && !excluded.has(brand) ? discount.pct : 0
+    // Исключения: бренды из настроек и товары с флажком «Не действуют скидки лояльности»
+    const pct = discount && !excluded.has(brand) && !v.product?.metadata?.no_loyalty ? discount.pct : 0
     const target = loyaltyPrice(price, compareAt, pct)
     const meta = { ...(item.metadata ?? {}) }
     const want = pct && target < price ? { level: discount!.tier.name, pct, base: price } : null

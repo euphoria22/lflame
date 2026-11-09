@@ -31,7 +31,7 @@ type OrderRow = {
     variant_title?: string
     quantity: number
     unit_price: number
-    variant?: { metadata?: Record<string, unknown> | null; product?: { external_id?: string | null } | null } | null
+    variant?: { metadata?: Record<string, unknown> | null; product?: { external_id?: string | null; metadata?: Record<string, unknown> | null } | null } | null
   }[]
 }
 
@@ -55,7 +55,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       "shipping_address.address_1", "shipping_address.city",
       "shipping_methods.name", "shipping_methods.amount",
       "items.id", "items.title", "items.product_title", "items.variant_title", "items.quantity", "items.unit_price",
-      "items.variant.metadata", "items.variant.product.external_id",
+      "items.variant.metadata", "items.variant.product.external_id", "items.variant.product.metadata",
     ],
     filters: { id: orderId },
   })
@@ -96,6 +96,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       shipping ? `Получение: ${shipping.name}${Number(shipping.amount) ? `, ${shipping.amount} ₽` : ""}` : null,
       a?.address_1 && !a.address_1.startsWith("Самовывоз") ? `Адрес: ${a.city ?? ""}, ${a.address_1}` : null,
       order.metadata?.comment ? `Комментарий покупателя: ${order.metadata.comment}` : null,
+      ...(order.items ?? []).filter((i) => i.variant?.product?.metadata?.preorder).map((i) => `ПРЕДЗАКАЗ: ${i.product_title ?? i.title} (${i.variant_title ?? ""})`),
     ].filter(Boolean).join("\n")
 
     const created = await ms.api.post<MsRow>("entity/customerorder", {

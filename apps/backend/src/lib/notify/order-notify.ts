@@ -15,7 +15,7 @@ type Row = {
   metadata: Record<string, unknown> | null
   shipping_address?: { first_name?: string; last_name?: string; phone?: string; address_1?: string; city?: string; postal_code?: string } | null
   shipping_methods?: { name: string }[]
-  items?: { product_title?: string; title: string; variant_title?: string | null; quantity: number; unit_price: unknown }[]
+  items?: { product_title?: string; title: string; variant_title?: string | null; quantity: number; unit_price: unknown; variant?: { product?: { metadata?: Record<string, unknown> | null } | null } | null }[]
   fulfillments?: { id: string; canceled_at: string | null; labels?: { tracking_number: string; tracking_url: string }[] }[]
 }
 
@@ -27,7 +27,7 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
       "id", "display_id", "email", "total", "item_total", "shipping_total", "discount_total", "metadata",
       "shipping_address.first_name", "shipping_address.last_name", "shipping_address.phone", "shipping_address.address_1",
       "shipping_address.city", "shipping_address.postal_code", "shipping_methods.name",
-      "items.product_title", "items.title", "items.variant_title", "items.quantity", "items.unit_price",
+      "items.product_title", "items.title", "items.variant_title", "items.quantity", "items.unit_price", "items.variant.product.metadata",
       "fulfillments.id", "fulfillments.canceled_at", "fulfillments.labels.tracking_number", "fulfillments.labels.tracking_url",
     ],
     filters: { id: orderId },
@@ -49,7 +49,10 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
     shipping_name: o.shipping_methods?.[0]?.name ?? "",
     // Самовывоз: адрес магазина уже есть в названии способа
     address: a.address_1?.startsWith("Самовывоз") ? "" : [a.city, a.address_1, a.postal_code].filter(Boolean).join(", "),
-    items: (o.items ?? []).map((i) => ({ title: i.product_title || i.title, variant: i.variant_title || i.title, quantity: i.quantity, unit_price: Number(i.unit_price) })),
+    items: (o.items ?? []).map((i) => ({
+      title: i.product_title || i.title, variant: i.variant_title || i.title, quantity: i.quantity, unit_price: Number(i.unit_price),
+      preorder: Boolean(i.variant?.product?.metadata?.preorder),
+    })),
     tracking: label?.tracking_number ? { number: label.tracking_number, url: label.tracking_url } : null,
   }
 }

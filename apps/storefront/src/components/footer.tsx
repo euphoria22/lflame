@@ -4,6 +4,7 @@ import Link from "next/link"
 import { GENDERS, routes } from "@/lib/routes"
 import { SITE_NAME } from "@/lib/site"
 import { getNav } from "./nav-data"
+import { LogoWordmark } from "./logo"
 
 /** Подвал: разделы, топ-бренды, информационные страницы (ТЗ, п. 7.12), реквизиты (п. 8.7). */
 export async function Footer() {
@@ -16,7 +17,7 @@ export async function Footer() {
     <footer className="mt-24 border-t border-line">
       <div className="mx-auto grid max-w-[1680px] grid-cols-2 gap-10 px-4 py-14 md:grid-cols-5 md:px-8">
         <div className="col-span-2 md:col-span-1">
-          <p className="text-[15px] font-semibold tracking-[0.32em]">{SITE_NAME}</p>
+          <LogoWordmark className="h-5 w-auto" aria-label={SITE_NAME} />
           <p className="mt-4 max-w-xs text-[13px] leading-6 text-muted">Мультибрендовый магазин оригинальной одежды, обуви и аксессуаров.</p>
         </div>
         <div>
