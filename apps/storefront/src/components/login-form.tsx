@@ -3,9 +3,12 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
+import { useFavorites } from "./favorites-context"
+
 /** Вход без пароля: email -> код из письма (ТЗ, п. 6.5). */
 export function LoginForm({ next }: { next: string }) {
   const router = useRouter()
+  const fav = useFavorites()
   const [step, setStep] = useState<"email" | "code">("email")
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
@@ -40,6 +43,8 @@ export function LoginForm({ next }: { next: string }) {
     const d = (await r.json().catch(() => ({}))) as { error?: string }
     setBusy(false)
     if (!r.ok) { setError(d.error ?? "Неверный код"); setCode(""); return }
+    // Избранное с этого устройства — в аккаунт
+    await fav.sync()
     router.replace(next)
     router.refresh()
   }

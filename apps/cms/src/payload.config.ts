@@ -8,8 +8,10 @@ import { fileURLToPath } from "url"
 
 import { BlogCategories } from "./collections/blog-categories"
 import { Media } from "./collections/media"
+import { Pages } from "./collections/pages"
 import { Posts } from "./collections/posts"
 import { Users } from "./collections/users"
+import { seedPages } from "./seed/pages"
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -40,7 +42,11 @@ export default buildConfig({
     supportedLanguages: { ru },
     fallbackLanguage: "ru",
   },
-  collections: [Posts, BlogCategories, Media, Users],
+  collections: [Pages, Posts, BlogCategories, Media, Users],
+  // Стартовые тексты страниц (доставка, оплата, оферта…) — только если их ещё нет
+  onInit: async (payload) => {
+    await seedPages(payload).catch((e) => payload.logger.error(`Стартовые страницы не созданы: ${(e as Error).message}`))
+  },
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || "",
   typescript: {

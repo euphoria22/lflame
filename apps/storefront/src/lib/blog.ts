@@ -107,3 +107,26 @@ export async function safePosts(): Promise<Post[]> {
 }
 
 export const postDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }) : "")
+
+/* ---------- Информационные страницы ---------- */
+
+export type InfoPage = { title: string; slug: string; intro: string | null; content: { root: LexicalNode } | null; seo: { title: string | null; description: string | null } }
+
+/** Страница из CMS (доставка, оплата, оферта…). Кэш сбрасывается тегом "pages" при сохранении в CMS. */
+export async function getInfoPage(slug: string): Promise<InfoPage | null> {
+  "use cache"
+  cacheTag("pages", `page:${slug}`)
+  cacheLife({ stale: 60, revalidate: 600, expire: 86400 })
+  const { docs } = await cms<{ docs: (InfoPage & { seo?: InfoPage["seo"] | null })[] }>(`/pages?where[slug][equals]=${encodeURIComponent(slug)}&limit=1&depth=1`)
+  const d = docs[0]
+  return d ? { title: d.title, slug: d.slug, intro: d.intro ?? null, content: d.content ?? null, seo: { title: d.seo?.title ?? null, description: d.seo?.description ?? null } } : null
+}
+
+/** Адреса всех страниц — для карты сайта. */
+export async function listInfoPages(): Promise<string[]> {
+  "use cache"
+  cacheTag("pages")
+  cacheLife({ stale: 60, revalidate: 600, expire: 86400 })
+  const { docs } = await cms<{ docs: { slug: string }[] }>(`/pages?limit=100&depth=0&select[slug]=true`)
+  return docs.map((d) => d.slug)
+}
