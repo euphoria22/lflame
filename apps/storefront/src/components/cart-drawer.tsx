@@ -10,6 +10,7 @@ import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
 import { FreeShippingNote } from "./free-shipping-note"
 import { CloseIcon } from "./icons"
+import { LoyaltyLine } from "./loyalty-line"
 
 /** Выезжающая панель корзины (Liquid Glass) — открывается после добавления товара. */
 export function CartDrawer() {
@@ -44,6 +45,7 @@ export function CartDrawer() {
           <>
             <div className="scroll-subtle flex-1 overflow-y-auto px-6"><CartLines cart={cart} onNavigate={() => setOpen(false)} /></div>
             <div className="border-t border-line px-6 pb-5 pt-4">
+              <LoyaltyLine cart={cart} className="mb-1" />
               <div className="flex justify-between text-[15px]"><span>Итого</span><span>{formatPrice(cart.item_total)}</span></div>
               <FreeShippingNote total={cart.item_total} />
               <Link href="/checkout" onClick={() => setOpen(false)} className="mt-4 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>

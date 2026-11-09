@@ -53,6 +53,7 @@ type MedusaCart = {
     quantity: number
     unit_price: number
     total: number
+    metadata?: { loyalty?: { level: string; pct: number; base: number } | null } | null
   }[]
 }
 
@@ -68,6 +69,7 @@ export function toCart(c: MedusaCart): Cart {
       quantity: i.quantity,
       unit_price: Number(i.unit_price),
       total: Number(i.total),
+      base_price: i.metadata?.loyalty?.base ?? null,
     }))
     .sort((a, b) => a.title.localeCompare(b.title))
   return {
@@ -77,7 +79,16 @@ export function toCart(c: MedusaCart): Cart {
     item_total: Number(c.item_total),
     shipping_total: Number(c.shipping_total),
     total: Number(c.total),
+    loyalty: loyaltyOf(c),
   }
+}
+
+function loyaltyOf(c: MedusaCart): Cart["loyalty"] {
+  const items = (c.items ?? []).filter((i) => i.metadata?.loyalty)
+  if (!items.length) return null
+  const l = items[0].metadata!.loyalty!
+  const saved = items.reduce((s, i) => s + (i.metadata!.loyalty!.base - Number(i.unit_price)) * i.quantity, 0)
+  return saved > 0 ? { level: l.level, pct: l.pct, saved: Math.round(saved) } : null
 }
 
 export async function getCartId(): Promise<string | null> {
@@ -170,4 +181,14 @@ export async function currentCustomer(): Promise<Customer | null> {
   } catch {
     return null
   }
+}
+
+/**
+ * Скидка уровня в корзине: привязка корзины к вошедшему покупателю и пересчёт цен на сервере.
+ * Без входа — обычные цены. Ошибки не мешают покупке.
+ */
+export async function syncLoyalty(cartId: string): Promise<void> {
+  const token = await getAuthToken()
+  if (token) await storeFetch(`/store/carts/${cartId}/customer`, { method: "POST", token }).catch(() => null)
+  await storeFetch("/store/loyalty/cart", { method: "POST", body: { cart_id: cartId }, token }).catch(() => null)
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getCartId, setAuthToken, storeFetch } from "@/lib/store-api"
+import { getCartId, setAuthToken, storeFetch, syncLoyalty } from "@/lib/store-api"
 
 const BACKEND = (process.env.MEDUSA_BACKEND_URL || "http://localhost:9000").replace(/\/+$/, "")
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
     await setAuthToken(token)
     const cartId = await getCartId()
-    if (cartId) await storeFetch(`/store/carts/${cartId}/customer`, { method: "POST", token }).catch(() => null)
+    if (cartId) await syncLoyalty(cartId)
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message || "Не получилось войти" }, { status: 401 })

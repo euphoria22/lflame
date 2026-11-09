@@ -11,6 +11,7 @@ import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
 import { DeliveryPicker } from "./delivery-picker"
+import { LoyaltyLine } from "./loyalty-line"
 
 /**
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
@@ -132,12 +133,16 @@ export function CheckoutForm({ onlinePayment, notice, defaults }: { onlinePaymen
                 {l.thumbnail && <Image src={l.thumbnail} alt="" fill sizes="48px" className="blend object-contain" />}
               </span>
               <span className="flex-1"><span className="line-clamp-2">{l.title}</span><span className="text-muted">{l.size} · {l.quantity} шт.</span></span>
-              <span>{formatPrice(l.total)}</span>
+              <span className="text-right">
+                {l.base_price && l.base_price > l.unit_price && <s className="block text-[11px] text-muted">{formatPrice(l.base_price * l.quantity)}</s>}
+                {formatPrice(l.total)}
+              </span>
             </li>
           ))}
         </ul>
         <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
-          <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice(cart?.item_total ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice((cart?.item_total ?? 0) + (cart?.loyalty?.saved ?? 0))}</span></div>
+          <LoyaltyLine cart={cart} />
           <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{!quote ? "—" : quote.amount === 0 ? "Бесплатно" : formatPrice(quote.amount)}</span></div>
           <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice((cart?.item_total ?? 0) + (quote?.amount ?? 0))}</span></div>
         </div>

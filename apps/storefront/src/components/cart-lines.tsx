@@ -27,7 +27,10 @@ export function CartLines({ cart, onNavigate }: { cart: Cart; onNavigate?: () =>
                 <span className="min-w-6 text-center">{l.quantity}</span>
                 <button type="button" disabled={busy} onClick={() => update(l.id, l.quantity + 1)} aria-label="Больше" className="px-3 py-1 disabled:text-subtle">+</button>
               </div>
-              <span className="text-[13px]">{formatPrice(l.total)}</span>
+              <span className="text-right text-[13px]">
+                {l.base_price && l.base_price > l.unit_price && <s className="mr-1.5 text-muted">{formatPrice(l.base_price * l.quantity)}</s>}
+                {formatPrice(l.total)}
+              </span>
             </div>
             <button type="button" disabled={busy} onClick={() => remove(l.id)} className="mt-2 self-start text-[12px] text-muted underline underline-offset-4 hover:text-foreground">Удалить</button>
           </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { cartRequest, ensureCart, humanError, toCart } from "@/lib/store-api"
+import { cartRequest, ensureCart, humanError, retrieveCart, syncLoyalty, toCart } from "@/lib/store-api"
 
 /** Добавить размер в корзину. Количество проверяет Medusa по остаткам (ТЗ, п. 3.3). */
 export async function POST(req: NextRequest) {
@@ -10,8 +10,11 @@ export async function POST(req: NextRequest) {
   }
   try {
     const cart = await ensureCart()
-    const updated = await cartRequest(`/store/carts/${cart.id}/line-items`, "POST", { variant_id, quantity })
-    return NextResponse.json({ cart: toCart(updated) })
+    await cartRequest(`/store/carts/${cart.id}/line-items`, "POST", { variant_id, quantity })
+    // Новая позиция — по обычной цене; скидку уровня ставит сервер
+    await syncLoyalty(cart.id)
+    const updated = await retrieveCart()
+    return NextResponse.json({ cart: updated ? toCart(updated) : null })
   } catch (e) {
     return NextResponse.json({ error: humanError(e) }, { status: 409 })
   }
