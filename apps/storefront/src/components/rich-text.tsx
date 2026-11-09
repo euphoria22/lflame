@@ -9,6 +9,11 @@ export function RichText({ root, className = "article" }: { root: LexicalNode; c
   return <div className={className}>{render(root.children)}</div>
 }
 
+/** Часть текста (несколько блоков) — для карточек на информационных страницах. */
+export function RichNodes({ nodes, className = "info-text" }: { nodes: LexicalNode[]; className?: string }) {
+  return <div className={className}>{render(nodes)}</div>
+}
+
 // Битовые флаги форматирования Lexical
 const BOLD = 1, ITALIC = 2, STRIKE = 4, UNDERLINE = 8, CODE = 16
 

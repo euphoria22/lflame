@@ -58,7 +58,7 @@ export async function Footer() {
       <div className="mx-auto flex max-w-[1680px] flex-col gap-2 border-t border-line px-4 py-6 text-[12px] text-subtle md:flex-row md:justify-between md:px-8">
         <p>© {year} {SITE_NAME}</p>
         {/* ТЗ, п. 8.7: реквизиты продавца — заполнить */}
-        <p>ИП / ООО «…», ИНН …, ОГРН …</p>
+        <p>ИП Парфенов Алексей Дмитриевич · ОГРНИП 320554300044865</p>
       </div>
     </footer>
   )

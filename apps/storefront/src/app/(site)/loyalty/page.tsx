@@ -24,6 +24,7 @@ export default async function LoyaltyPage() {
     <InfoPage
       crumbs={[{ name: "LAFLAMME Club", href: "/loyalty" }]}
       title="LAFLAMME Club"
+      tab="/loyalty"
       intro="Чем больше покупаете — тем больше скидка. Считаем все покупки за последние 12 месяцев: на сайте и в магазине в Омске. Скидка действует везде — онлайн и в магазине, со следующей покупки после перехода на уровень."
     >
       <div className="grid max-w-5xl gap-3 sm:grid-cols-2 lg:grid-cols-5">

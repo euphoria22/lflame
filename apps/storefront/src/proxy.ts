@@ -21,6 +21,10 @@ export function proxy(req: NextRequest) {
   // Регистр приводится только для страниц сайта (не для файлов и API)
   if (path !== path.toLowerCase() && !/\.[a-z0-9]+$/i.test(path)) { path = path.toLowerCase(); changed = true }
 
+  // Адреса прежнего сайта, на которые ссылаются оферта и политика
+  const OLD: Record<string, string> = { "/policy": "/privacy" }
+  if (OLD[path]) { path = OLD[path]; changed = true }
+
   if (url.searchParams.get("page") === "1") { url.searchParams.delete("page"); changed = true }
 
   if (!changed) return NextResponse.next()

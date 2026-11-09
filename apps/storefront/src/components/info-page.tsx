@@ -1,18 +1,56 @@
+import Link from "next/link"
 import type { ReactNode } from "react"
 
 import { Breadcrumbs, type Crumb } from "./breadcrumbs"
 
-/**
- * Единый шаблон информационных страниц: оплата, доставка, возврат, контакты, оферта, программа лояльности.
- * Крошки и заголовок — по левому краю сайта, как в каталоге и блоге; текст — колонкой удобной ширины.
- */
-export function InfoPage({ crumbs, title, intro, children }: { crumbs: Crumb[]; title: string; intro?: ReactNode; children: ReactNode }) {
+/** Вкладки раздела «Покупателям» — как на прежнем сайте. */
+export const HELP_TABS = [
+  { href: "/delivery", label: "Доставка" },
+  { href: "/payment", label: "Оплата" },
+  { href: "/returns", label: "Обмен и возврат" },
+  { href: "/loyalty", label: "LAFLAMME Club" },
+  { href: "/contacts", label: "Контакты" },
+]
+
+function HelpTabs({ active }: { active: string }) {
   return (
-    <div className="px-4 pb-24 pt-6 md:px-8">
+    <nav aria-label="Покупателям" className="-mx-4 mt-6 overflow-x-auto px-4 md:mx-0 md:px-0">
+      <ul className="flex min-w-max rounded-full border border-line p-1 md:grid md:min-w-0 md:grid-cols-5">
+        {HELP_TABS.map((t) => (
+          <li key={t.href}>
+            <Link href={t.href} aria-current={t.href === active ? "page" : undefined}
+              className={`eyebrow block whitespace-nowrap rounded-full px-5 py-3 text-center transition-colors ${t.href === active ? "bg-foreground text-background" : "hover:bg-surface"}`}>
+              {t.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+/**
+ * Единый шаблон информационных страниц: ширина и отступы — как у шапки и подвала,
+ * у страниц раздела «Покупателям» — вкладки сверху.
+ */
+export function InfoPage({ crumbs, title, intro, tab, children }: { crumbs: Crumb[]; title: string; intro?: ReactNode; tab?: string; children: ReactNode }) {
+  return (
+    <div className="mx-auto max-w-[1680px] px-4 pb-24 pt-6 md:px-8">
       <Breadcrumbs items={crumbs} />
-      <h1 className="mt-6 text-[28px] tracking-tight md:text-[40px]">{title}</h1>
+      {tab && <HelpTabs active={tab} />}
+      <h1 className={`${tab ? "mt-10" : "mt-6"} text-[28px] tracking-tight md:text-[40px]`}>{title}</h1>
       {intro && <p className="mt-3 max-w-3xl text-[16px] leading-relaxed text-muted">{intro}</p>}
       <div className="mt-10">{children}</div>
     </div>
+  )
+}
+
+/** Карточка раздела: серая подложка, как на прежнем сайте. */
+export function InfoCard({ title, children, className = "" }: { title?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-[22px] bg-surface p-6 md:p-8 ${className}`}>
+      {title && <h2 className="mb-4 text-[20px] tracking-tight md:text-[22px]">{title}</h2>}
+      {children}
+    </section>
   )
 }
