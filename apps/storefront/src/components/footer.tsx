@@ -54,7 +54,7 @@ export async function Footer() {
             <li><Link href={routes.page("delivery")}>Доставка</Link></li>
             <li><Link href={routes.page("payment")}>Оплата</Link></li>
             <li><Link href={routes.page("returns")}>Обмен и возврат</Link></li>
-            <li><Link href={routes.page("loyalty")}>LAFLAMME Club</Link></li>
+            <li><Link href={routes.page("loyalty")}>Программа лояльности</Link></li>
             <li><Link href={routes.page("faq")}>Частые вопросы</Link></li>
             <li><Link href={routes.page("contacts")}>Контакты</Link></li>
           </ul>

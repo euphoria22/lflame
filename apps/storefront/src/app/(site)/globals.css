@@ -32,6 +32,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Место под полосу прокрутки занято всегда: короткие страницы (Контакты) и открытые панели не сдвигают сайт */
+  scrollbar-gutter: stable;
   scroll-padding-top: calc(var(--header-h) + 16px);
 }
 
