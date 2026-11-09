@@ -52,14 +52,21 @@ export type MailOrder = {
   customer_name: string
   shipping_name: string
   address: string
-  items: { title: string; variant: string; quantity: number; unit_price: number; preorder?: boolean }[]
+  items: { title: string; variant: string; quantity: number; unit_price: number; preorder?: boolean; preorder_date?: string | null }[]
   tracking?: { number: string; url: string } | null
+}
+
+/** "2026-12-15" -> "15 декабря" (для писем). */
+export function arrival(iso: string | null | undefined): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ""
+  const d = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })
 }
 
 export type OrderMailKind = "placed" | "paid" | "shipped" | "delivered" | "canceled"
 
 function itemsTable(o: MailOrder): string {
-  const rows = o.items.map((i) => `<tr><td style="padding:6px 0;font-size:14px">${esc(i.title)}<br><span style="color:#6e6e6e;font-size:12px">${esc(i.variant)} · ${i.quantity} шт.${i.preorder ? " · предзаказ" : ""}</span></td><td align="right" style="padding:6px 0;font-size:14px;white-space:nowrap">${rub(i.unit_price * i.quantity)}</td></tr>`).join("")
+  const rows = o.items.map((i) => `<tr><td style="padding:6px 0;font-size:14px">${esc(i.title)}<br><span style="color:#6e6e6e;font-size:12px">${esc(i.variant)} · ${i.quantity} шт.${i.preorder ? ` · предзаказ${arrival(i.preorder_date) ? `, поступление ~${arrival(i.preorder_date)}` : ""}` : ""}</span></td><td align="right" style="padding:6px 0;font-size:14px;white-space:nowrap">${rub(i.unit_price * i.quantity)}</td></tr>`).join("")
   const line = (label: string, value: string, strong = false) =>
     `<tr><td style="padding:3px 0;font-size:${strong ? 16 : 13}px;color:${strong ? "#0b0b0b" : "#6e6e6e"}">${label}</td><td align="right" style="padding:3px 0;font-size:${strong ? 16 : 13}px">${value}</td></tr>`
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;border-top:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7;padding:10px 0">${rows}</table>
@@ -134,7 +141,7 @@ export function shopOrderMessage(o: MailOrder, adminUrl: string): string {
     `${t(o.shipping_name)}${o.address ? `: ${t(o.address)}` : ""}`,
     `Оплата: ${o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
     "",
-    ...o.items.map((i) => `• ${i.preorder ? "⏳ ПРЕДЗАКАЗ · " : ""}${t(i.title)} — ${t(i.variant)} × ${i.quantity}`),
+    ...o.items.map((i) => `• ${i.preorder ? `⏳ ПРЕДЗАКАЗ${arrival(i.preorder_date) ? ` (~${arrival(i.preorder_date)})` : ""} · ` : ""}${t(i.title)} — ${t(i.variant)} × ${i.quantity}`),
     "",
     `<a href="${adminUrl}">Открыть в админке</a>`,
   ].join("\n")

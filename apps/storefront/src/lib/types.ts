@@ -18,6 +18,8 @@ export type CatalogItem = {
   in_stock: boolean
   /** Предзаказ: размеры можно заказать без остатка */
   preorder?: boolean
+  /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
+  preorder_date?: string | null
   /** Скидка программы лояльности не действует */
   no_loyalty?: boolean
   created_at: string

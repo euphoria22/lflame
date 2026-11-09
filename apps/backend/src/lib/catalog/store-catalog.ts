@@ -31,6 +31,8 @@ export type CatalogItem = {
   in_stock: boolean
   /** Предзаказ: товар в пути, остаток внесён в МС (пометка на витрине, флажок в админке) */
   preorder: boolean
+  /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
+  preorder_date: string | null
   /** Скидка программы лояльности не действует */
   no_loyalty: boolean
   created_at: string
@@ -157,6 +159,7 @@ function toItem(row: Row, variants: CatalogVariant[]): CatalogItem {
     sizes: variants.map((v) => ({ size: v.size, in_stock: v.available > 0, variant_id: v.id })),
     in_stock: inStock.length > 0,
     preorder: Boolean(meta.preorder),
+    preorder_date: meta.preorder && typeof meta.preorder_date === "string" ? meta.preorder_date : null,
     no_loyalty: Boolean(meta.no_loyalty),
     created_at: new Date(row.created_at).toISOString(),
     old_path: oldPath(meta.old_site_url),

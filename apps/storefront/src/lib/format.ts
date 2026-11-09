@@ -28,3 +28,13 @@ export function titleWithoutBrand(title: string, brand: string | null | undefine
   if (i < 0) return title
   return `${title.slice(0, i)}${title.slice(i + brand.length)}`.replace(/\s+/g, " ").trim()
 }
+
+/**
+ * Дата поступления предзаказа: "2026-12-15" -> "15 декабря"; пустая — null.
+ * Без сравнения с сегодняшним днём: страницы кэшируются, текущая дата здесь недоступна.
+ */
+export function arrivalDate(iso: string | null | undefined): string | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const d = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })
+}

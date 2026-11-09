@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 
-import { titleWithoutBrand } from "@/lib/format"
+import { arrivalDate, titleWithoutBrand } from "@/lib/format"
 import { isNew } from "@/lib/listing"
 import { routes } from "@/lib/routes"
 import type { CatalogItem } from "@/lib/types"
@@ -40,7 +40,7 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
           )}
         </Link>
         <div className={`pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-1.5 ${compact ? "hidden" : ""}`}>
-          {item.preorder && <span className="eyebrow rounded-full bg-foreground px-2 py-1 text-background">Предзаказ</span>}
+          {item.preorder && <span className="eyebrow rounded-full bg-foreground px-2 py-1 text-background">Предзаказ{arrivalDate(item.preorder_date) ? ` · ${arrivalDate(item.preorder_date)}` : ""}</span>}
           {isNew(item) && <span className="eyebrow glass rounded-full px-2 py-1">New</span>}
           {lastSize && !item.preorder && <span className="eyebrow glass rounded-full px-2 py-1">Последний размер</span>}
         </div>

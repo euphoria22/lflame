@@ -52,6 +52,7 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
     items: (o.items ?? []).map((i) => ({
       title: i.product_title || i.title, variant: i.variant_title || i.title, quantity: i.quantity, unit_price: Number(i.unit_price),
       preorder: Boolean(i.variant?.product?.metadata?.preorder),
+      preorder_date: (i.variant?.product?.metadata?.preorder_date as string | null | undefined) ?? null,
     })),
     tracking: label?.tracking_number ? { number: label.tracking_number, url: label.tracking_url } : null,
   }

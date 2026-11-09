@@ -12,7 +12,7 @@ import { ProductRail } from "@/components/product-rail"
 import { RecentlyViewed } from "@/components/recently-viewed"
 import { ChevronIcon } from "@/components/icons"
 import { getCatalog, getProduct } from "@/lib/catalog"
-import { formatPrice } from "@/lib/format"
+import { arrivalDate, formatPrice } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { GenderSlug, genderInfo, routes } from "@/lib/routes"
 import { clip, pageMeta } from "@/lib/seo"
@@ -104,7 +104,7 @@ export default async function ProductPage({ params }: Props) {
             {product.preorder && (
               <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-[13px] leading-relaxed">
                 <span className="eyebrow mr-2 rounded-full bg-foreground px-2 py-0.5 text-background">Предзаказ</span>
-                Товар ещё едет к нам. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
+                Товар ещё едет к нам{arrivalDate(product.preorder_date) ? <>, ожидаем <b className="font-medium">{arrivalDate(product.preorder_date)}</b></> : null}. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
               </p>
             )}
             {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидки программы LAFLAMME на этот товар не действуют</p>}
