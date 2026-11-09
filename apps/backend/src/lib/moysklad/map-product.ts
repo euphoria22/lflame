@@ -11,7 +11,7 @@ export type MapOptions = {
   oldPriceName: string
   attrBrand: string
   attrGender: string
-  /** Доп. поле-флажок МС «Предзаказ»: товар появляется на сайте и без остатка */
+  /** Доп. поле-флажок МС «Предзаказ»: новый товар сразу получает пометку «Предзаказ» */
   attrPreorder: string
   attrColor: string
   attrOldUrl: string
