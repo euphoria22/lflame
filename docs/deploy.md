@@ -58,7 +58,7 @@ bash infra/scripts/deploy.sh
 2. Начальная настройка магазина (регион Россия, склад, самовывоз, ключ витрины) выполняется сама при первом запуске
    (`src/migration-scripts`). Способы доставки и оплаты:
    `... exec backend npx medusa exec ./src/scripts/setup-delivery.js` и `... exec backend npx medusa exec ./src/scripts/setup-payments.js`.
-3. В админке (https://admin.laflamme.ru/app) → Настройки → Publishable API keys — скопировать ключ в `MEDUSA_PUBLISHABLE_KEY` в infra/.env.
+3. Ключ витрины deploy.sh берёт из базы и записывает в infra/.env сам.
 4. Синхронизация с МойСкладом: админка → «МойСклад» → «Синхронизировать сейчас» (фото уйдут в S3).
 5. Пользователь CMS: `... exec cms npm run create-user -w @lflame/cms -- почта пароль`.
    Вход в CMS: https://cms.laflamme.ru/cms (не /admin).

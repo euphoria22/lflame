@@ -28,6 +28,17 @@ $COMPOSE build backend
 $COMPOSE up -d postgres redis backend
 wait_for http://127.0.0.1:9000/health "Medusa" backend
 
+# Ключ витрины (публичный, не секрет) создаётся при первом запуске Medusa — подставляем сами
+if ! grep -q '^MEDUSA_PUBLISHABLE_KEY=.' infra/.env; then
+  KEY=$($COMPOSE exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d lflame_medusa -Atc "select token from api_key where type = '"'"'publishable'"'"' and revoked_at is null and deleted_at is null order by created_at limit 1"')
+  if [ -n "$KEY" ]; then
+    sed -i "s|^MEDUSA_PUBLISHABLE_KEY=.*|MEDUSA_PUBLISHABLE_KEY=$KEY|" infra/.env
+    echo "   ключ витрины записан в infra/.env"
+  else
+    echo "Нет ключа витрины в базе — создайте его в админке (Настройки → Publishable API keys)"; exit 1
+  fi
+fi
+
 echo "== CMS"
 $COMPOSE build cms
 $COMPOSE up -d cms
