@@ -26,6 +26,8 @@ export const Pages: CollectionConfig = {
       hooks: { beforeValidate: [({ value, data }) => slugify(String(value || data?.title || ""))] },
     },
     { name: "order", type: "number", label: "Порядок", defaultValue: 100, admin: { position: "sidebar" } },
+    // Служебное: версия стартового текста (стартовые тексты обновляются, пока страницу не правили)
+    { name: "seed_version", type: "number", admin: { hidden: true } },
     { name: "intro", type: "textarea", label: "Подзаголовок", admin: { description: "Короткое пояснение под заголовком (необязательно)" } },
     { name: "content", type: "richText", label: "Текст", required: true },
     {

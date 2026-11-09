@@ -8,7 +8,7 @@ import type {
 import { estimateParcel, ParcelItem } from "../../lib/delivery/parcel"
 import { getShopSettings } from "../../lib/settings/shop-settings"
 import { applyFreeShipping, applyMarkup, itemsTotal, PricedItem } from "../../lib/delivery/free-shipping"
-import { pochtaQuote } from "../../lib/delivery/pochta-client"
+import { POCHTA_OBJECTS, pochtaQuote } from "../../lib/delivery/pochta-client"
 
 /**
  * Провайдер доставки Почтой России (ТЗ, п. 5). Цена — по калькулятору tariff.pochta.ru.
@@ -18,7 +18,7 @@ class PochtaFulfillmentProviderService extends AbstractFulfillmentProviderServic
   static identifier = "pochta"
 
   async getFulfillmentOptions(): Promise<FulfillmentOption[]> {
-    return [{ id: "pochta-parcel", name: "Почта России — посылка" }]
+    return [{ id: "pochta-parcel", name: "Почта России — посылка", object: POCHTA_OBJECTS.standard, kind: "pochta" }]
   }
 
   async validateOption(): Promise<boolean> {
@@ -36,15 +36,16 @@ class PochtaFulfillmentProviderService extends AbstractFulfillmentProviderServic
   }
 
   async calculatePrice(
-    _optionData: CalculateShippingOptionPriceDTO["optionData"],
+    optionData: CalculateShippingOptionPriceDTO["optionData"],
     data: CalculateShippingOptionPriceDTO["data"],
     context: CalculateShippingOptionPriceDTO["context"]
   ): Promise<CalculatedShippingOptionPrice> {
     const index = String(data?.postal_code ?? context.shipping_address?.postal_code ?? "")
     const settings = await getShopSettings()
     const parcel = estimateParcel((context.items ?? []) as unknown as ParcelItem[], settings.parcel)
-    const quote = await pochtaQuote(index, parcel.weight)
-    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.pochta), itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_from), is_calculated_price_tax_inclusive: true }
+    const quote = await pochtaQuote(index, parcel.weight, Number(optionData?.object) || POCHTA_OBJECTS.standard)
+    const kind = "pochta"
+    return { calculated_amount: applyFreeShipping(applyMarkup(quote.amount, settings.markup.pochta), itemsTotal((context.items ?? []) as unknown as PricedItem[]), settings.free_shipping_methods.includes(kind) ? settings.free_shipping_from : 0), is_calculated_price_tax_inclusive: true }
   }
 
   async createFulfillment(): Promise<CreateFulfillmentResult> {

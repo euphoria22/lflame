@@ -7,14 +7,14 @@ import { currentCustomer, storeFetch } from "@/lib/store-api"
 
 export const metadata: Metadata = { title: "Оформление заказа — LAFLAMME", ...NOINDEX }
 
-type Options = { online_payment: boolean; free_shipping_from: number }
+type Options = { online_payment: boolean; manual_payment: boolean; cod_methods: string[]; free_shipping_from: number }
 
 export default async function CheckoutPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
   // Страница рендерится только по запросу: настройки из админки должны быть свежими
   await connection()
   const { payment } = await searchParams
   const [options, customer] = await Promise.all([
-    storeFetch<Options>("/store/checkout/options").catch(() => ({ online_payment: false, free_shipping_from: 0 })),
+    storeFetch<Options>("/store/checkout/options").catch(() => ({ online_payment: false, manual_payment: true, cod_methods: [], free_shipping_from: 0 })),
     currentCustomer(),
   ])
   const notice = payment === "failed" ? "Оплата не прошла. Попробуйте ещё раз или выберите оплату при получении."
@@ -23,7 +23,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
   const defaults = customer
     ? { email: customer.email, first_name: customer.first_name ?? "", last_name: customer.last_name ?? "", phone: customer.phone ?? "" }
     : undefined
-  return <CheckoutForm onlinePayment={options.online_payment} notice={notice} defaults={defaults} />
+  return <CheckoutForm options={options} notice={notice} defaults={defaults} />
 }
 
 export const instant = false

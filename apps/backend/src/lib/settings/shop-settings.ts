@@ -22,6 +22,10 @@ export type ShopSettings = {
   cdek_tariff_door_mode: number
   /** Адрес магазина для тарифов «от двери» (курьер СДЭК забирает посылку) */
   sender_address: string
+  /** Для каких способов действует бесплатная доставка от суммы */
+  free_shipping_methods: string[]
+  /** Оплата: предоплата по ссылке от менеджера; при получении — только для перечисленных способов */
+  payments: { manual: boolean; cod_methods: string[] }
   /** Наценка на доставку для покупателя (к цене перевозчика) */
   markup: { cdek: Markup; pochta: Markup }
   /** Вес и коробка по умолчанию — если у товара не заполнены */
@@ -40,6 +44,10 @@ export function defaultSettings(): ShopSettings {
     sender_address: "ул. Партизанская, 5а/8",
     parcel: DEFAULT_PARCEL,
     markup: { cdek: NO_MARKUP, pochta: NO_MARKUP },
+    // Условия магазина: бесплатно от суммы — СДЭК до пункта выдачи и обычная Почта
+    free_shipping_methods: ["cdek-pvz", "pochta"],
+    // Только предоплата: наложенным платежом не работаем
+    payments: { manual: true, cod_methods: [] },
   }
 }
 
@@ -57,7 +65,7 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) } }
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) } }
     cache = { value, at: Date.now() }
     return value
   } catch {
@@ -106,6 +114,18 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
       m[k] = { type, value }
     }
     out.markup = m
+  }
+  const KINDS = ["pickup", "omsk-courier", "cdek-pvz", "cdek-door", "pochta"]
+  if (input.free_shipping_methods !== undefined) {
+    if (!Array.isArray(input.free_shipping_methods)) return { error: "Способы бесплатной доставки: неверный формат" }
+    out.free_shipping_methods = [...new Set(input.free_shipping_methods.map(String).filter((k) => KINDS.includes(k)))]
+  }
+  if (input.payments !== undefined) {
+    const p = input.payments ?? {}
+    out.payments = {
+      manual: Boolean(p.manual),
+      cod_methods: Array.isArray(p.cod_methods) ? [...new Set(p.cod_methods.map(String).filter((k) => KINDS.includes(k)))] : [],
+    }
   }
   if (input.parcel !== undefined) {
     const r = validateParcelConfig(input.parcel)

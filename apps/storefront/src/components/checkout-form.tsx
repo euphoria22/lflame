@@ -17,15 +17,24 @@ import { LoyaltyLine } from "./loyalty-line"
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
  * Без обязательной регистрации. Согласие на обработку ПД — отдельная галочка, не отмечена (п. 8.7).
  */
-export function CheckoutForm({ onlinePayment, notice, defaults }: { onlinePayment: boolean; notice?: string | null; defaults?: Partial<CheckoutInput> }) {
+export type PaymentOptions = { online_payment: boolean; manual_payment: boolean; cod_methods: string[] }
+
+export function CheckoutForm({ options, notice, defaults }: { options: PaymentOptions; notice?: string | null; defaults?: Partial<CheckoutInput> }) {
   const { cart, clear } = useCart()
   const router = useRouter()
   const [v, setV] = useState<Partial<CheckoutInput>>({ consent: false, marketing: false, ...defaults })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(notice ?? null)
-  const [payment, setPayment] = useState<PaymentMethod>(onlinePayment ? "tbank" : "cod")
+  const [chosenPayment, setPayment] = useState<PaymentMethod | null>(null)
   const [sending, setSending] = useState(false)
   const [delivery, setDelivery] = useState<DeliveryChoice>({ kind: "pickup" })
+  // Доступные способы оплаты зависят от способа получения (оплата при получении — не везде)
+  const available: PaymentMethod[] = [
+    ...(options.online_payment ? ["tbank" as const] : []),
+    ...(options.manual_payment ? ["manual" as const] : []),
+    ...(options.cod_methods.includes(delivery.kind) ? ["cod" as const] : []),
+  ]
+  const payment: PaymentMethod | null = chosenPayment && available.includes(chosenPayment) ? chosenPayment : available[0] ?? null
   const [quote, setQuote] = useState<Quote | null>({ amount: 0, days_min: 0, days_max: 0 })
 
   const set = (k: keyof CheckoutInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -44,6 +53,7 @@ export function CheckoutForm({ onlinePayment, notice, defaults }: { onlinePaymen
     setSending(true)
     setError(null)
     try {
+      if (!payment) { setError("Выберите способ оплаты"); return }
       const res = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...v, delivery, payment }) })
       const data = (await res.json()) as { order?: { number: number }; redirect?: string; error?: string; errors?: Record<string, string> }
       if (res.ok && data.redirect) {
@@ -101,12 +111,19 @@ export function CheckoutForm({ onlinePayment, notice, defaults }: { onlinePaymen
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">3. Оплата</h2>
           <div className="space-y-2">
-            {onlinePayment && (
+            {available.includes("tbank") && (
               <PayOption checked={payment === "tbank"} onSelect={() => setPayment("tbank")} title="Картой или СБП онлайн"
                 hint="Visa, Mastercard, МИР, СБП, T-Pay — безопасная оплата на странице Т-Банка" />
             )}
-            <PayOption checked={payment === "cod"} onSelect={() => setPayment("cod")} title="При получении"
-              hint={delivery.kind === "pickup" ? "Картой или наличными в магазине" : "Картой или наличными в пункте выдачи, курьеру или на почте"} />
+            {available.includes("manual") && (
+              <PayOption checked={payment === "manual"} onSelect={() => setPayment("manual")} title="Предоплата по ссылке"
+                hint="Подтвердим наличие и пришлём ссылку на оплату. Отправим заказ после оплаты." />
+            )}
+            {available.includes("cod") && (
+              <PayOption checked={payment === "cod"} onSelect={() => setPayment("cod")} title="При получении"
+                hint={delivery.kind === "pickup" ? "Картой или наличными в магазине" : "Картой или наличными при получении"} />
+            )}
+            {!available.length && <p className="text-[13px] text-sale">Оплата сейчас недоступна — позвоните нам, оформим заказ по телефону.</p>}
           </div>
         </section>
 

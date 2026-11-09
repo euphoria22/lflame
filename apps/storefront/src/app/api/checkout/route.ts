@@ -25,12 +25,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Корзина пуста" }, { status: 400 })
   }
 
-  const payment: PaymentMethod = input.payment === "tbank" ? "tbank" : "cod"
+  // Способ оплаты проверяется по настройкам магазина (админка «Доставка и оплата»)
+  const opts = await storeFetch<{ online_payment: boolean; manual_payment: boolean; cod_methods: string[] }>("/store/checkout/options")
+    .catch(() => ({ online_payment: false, manual_payment: true, cod_methods: [] as string[] }))
+  const payment = input.payment as PaymentMethod
+  const allowed = (payment === "tbank" && opts.online_payment) || (payment === "manual" && opts.manual_payment)
+    || (payment === "cod" && opts.cod_methods.includes(String(input.delivery?.kind)))
+  if (!allowed) return NextResponse.json({ error: "Выберите способ оплаты" }, { status: 400 })
   const phone = normalizePhone(input.phone!)!
   const d = input.delivery as DeliveryChoice
   const clean = (s: string | undefined, n = 200) => (s ?? "").trim().slice(0, n)
   const place =
     d.kind === "pickup" ? { address_1: `Самовывоз: ${PICKUP.address}`, city: "Омск" }
+      : d.kind === "omsk-courier" ? { address_1: clean(d.address), city: "Омск" }
       : d.kind === "cdek-pvz" ? { address_1: `ПВЗ СДЭК ${clean(d.pvz_code, 20)}: ${clean(d.pvz_address)}`, city: clean(d.city, 100), postal_code: clean(d.postal_code, 6) || undefined }
         : d.kind === "cdek-door" ? { address_1: clean(d.address), city: clean(d.city, 100) }
           : { address_1: clean(d.address), city: clean(d.city, 100), postal_code: clean(d.postal_code, 6) }
@@ -42,7 +49,7 @@ export async function POST(req: NextRequest) {
     ...place,
   }
   const methodData =
-    d.kind === "pickup" ? {}
+    d.kind === "pickup" || d.kind === "omsk-courier" ? {}
       : d.kind === "pochta" ? { postal_code: d.postal_code }
         : { city_code: d.city_code, city: clean(d.city, 100), pvz_code: d.pvz_code ?? null, pvz_address: d.pvz_address ? clean(d.pvz_address) : null }
 

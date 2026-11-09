@@ -3,7 +3,7 @@ import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/frame
 import { createShippingOptionsWorkflow, updateShippingOptionsWorkflow } from "@medusajs/medusa/core-flows"
 
 /**
- * Способы доставки (ТЗ, п. 5): самовывоз в Омске, СДЭК (пункт выдачи и курьер), Почта России.
+ * Способы доставки (ТЗ, п. 5): самовывоз и курьер по Омску, СДЭК (пункт выдачи и курьер), Почта России.
  * Повторный запуск ничего не дублирует.
  *
  *   npx medusa exec ./src/scripts/setup-delivery.ts
@@ -75,5 +75,23 @@ export default async function setupDelivery({ container }: ExecArgs) {
       })),
     })
   }
-  logger.info(`Доставка: создано способов ${toCreate.length}, всего ${existing.length + toCreate.length}`)
+  // Курьер по Омску: фиксированная цена (меняется в админке: Настройки → Места и доставка)
+  let courier = 0
+  if (!(existing as { name: string }[]).some((o) => o.name === "Курьер по Омску")) {
+    await createShippingOptionsWorkflow(container).run({
+      input: [{
+        name: "Курьер по Омску",
+        price_type: "flat" as const,
+        provider_id: "manual_manual",
+        service_zone_id: zone.id,
+        shipping_profile_id: profile.id,
+        data: { id: "manual-fulfillment" },
+        type: { label: "Курьер по Омску", description: "1–3 часа, время согласуем по телефону", code: "omsk-courier" },
+        prices: [{ currency_code: "rub", amount: 100 }],
+        rules,
+      }],
+    })
+    courier = 1
+  }
+  logger.info(`Доставка: создано способов ${toCreate.length + courier}, всего ${existing.length + toCreate.length + courier}`)
 }
