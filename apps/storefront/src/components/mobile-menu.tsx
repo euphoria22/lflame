@@ -7,11 +7,13 @@ import { createPortal } from "react-dom"
 import { routes } from "@/lib/routes"
 import { CloseIcon, MenuIcon } from "./icons"
 import type { NavBrand, NavGender } from "./nav-data"
+import { usePresence } from "./use-presence"
 
 /** Мобильное меню: стеклянная панель на весь экран. */
 export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBrand[]; saleCount: number } }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState(nav.genders[0]?.slug)
+  const { mounted, state } = usePresence(open, 200)
 
   useEffect(() => {
     document.documentElement.style.overflow = open ? "hidden" : ""
@@ -27,10 +29,10 @@ export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBr
         <MenuIcon className="size-[22px]" />
       </button>
       {/* В портале: «стеклянная» шапка (backdrop-filter) иначе запирает fixed-панель внутри себя */}
-      {open && createPortal(
+      {mounted && createPortal(
         <div className="fixed inset-0 z-[60] p-3" role="dialog" aria-modal="true" aria-label="Меню">
-          <div className="absolute inset-0 bg-black/20" onClick={close} />
-          <div className="glass-strong relative flex h-full flex-col overflow-y-auto rounded-[28px] p-5">
+          <div data-state={state} className="overlay absolute inset-0 bg-black/20" onClick={close} />
+          <div data-state={state} className="pop glass-strong relative flex h-full flex-col overflow-y-auto rounded-[28px] p-5">
             <div className="mb-6 flex items-center justify-between">
               <div className="flex gap-2">
                 {nav.genders.map((x) => (

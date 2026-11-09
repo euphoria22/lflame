@@ -40,7 +40,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   // Полоска с акциями: её высота сдвигает шапку и начало страницы (переменная --bar)
   const bar = await safeAnnouncement()
   return (
-    <html lang="ru" className={`${inter.variable} antialiased`} style={{ "--bar": bar ? "34px" : "0px" } as React.CSSProperties}>
+    <html lang="ru" data-scroll-behavior="smooth" className={`${inter.variable} antialiased`} style={{ "--bar": bar ? "34px" : "0px" } as React.CSSProperties}>
       <body className="flex min-h-screen flex-col">
         <CartProvider>
           <FavoritesProvider>

@@ -1,5 +1,4 @@
 import { cacheTag } from "next/cache"
-import Image from "next/image"
 import Link from "next/link"
 
 import { routes } from "@/lib/routes"
@@ -9,6 +8,7 @@ import { SearchIcon, UserIcon } from "./icons"
 import { Logo } from "./logo"
 import { MobileMenu } from "./mobile-menu"
 import { getNav, type NavTile } from "./nav-data"
+import { FadeImage } from "./fade-image"
 
 /**
  * Шапка: плавающая «стеклянная» капсула. Меню — серверный HTML со ссылками,
@@ -18,14 +18,14 @@ import { getNav, type NavTile } from "./nav-data"
  * Выпадающая панель: начинается сразу под шапкой (pt-2 — невидимый «мостик»),
  * поэтому при переводе курсора вниз меню не пропадает. Скрывается с небольшой задержкой.
  */
-const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 opacity-0 transition-[opacity,visibility] delay-150 duration-200 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:delay-0 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-hover:delay-0"
+const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 opacity-0 -translate-y-1 transition-[opacity,visibility,translate] delay-150 duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:delay-0 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-hover:delay-0"
 
 /** Плитка с фото в меню (как у Brandshop): фото 3:4 и подпись капслоком. */
 function MenuTile({ tile }: { tile: NavTile }) {
   return (
     <Link href={tile.href} className="group/tile block min-w-0 max-w-[240px] flex-1">
       <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface">
-        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="240px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
+        {tile.image && <FadeImage src={tile.image} alt={tile.label} fill sizes="240px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
       </span>
       <span className="eyebrow mt-2 block text-center">{tile.label}</span>
     </Link>

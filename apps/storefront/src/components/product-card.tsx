@@ -1,4 +1,3 @@
-import Image from "next/image"
 import Link from "next/link"
 
 import { arrivalDate, titleWithoutBrand } from "@/lib/format"
@@ -9,6 +8,7 @@ import { FavButton } from "./fav-button"
 import { Price } from "./price"
 import { QuickSizes } from "./quick-sizes"
 import { YourPrice } from "./your-price"
+import { FadeImage } from "./fade-image"
 
 /**
  * Карточка товара в сетке (ТЗ, п. 6.2): фото 3:4 на серой подложке, второе фото при наведении,
@@ -32,11 +32,11 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
       <div className="relative aspect-[3/4] overflow-hidden bg-surface">
         <Link href={routes.product(item.handle)} className="absolute inset-0" tabIndex={-1} aria-hidden="true">
           {item.thumbnail && (
-            <Image src={item.thumbnail} alt={alt} fill priority={priority} sizes={sizes}
+            <FadeImage src={item.thumbnail} alt={alt} fill priority={priority} sizes={sizes}
               className={`blend object-contain transition-opacity duration-300 ${item.hover_image ? "md:group-hover:opacity-0" : ""}`} />
           )}
           {item.hover_image && (
-            <Image src={item.hover_image} alt="" fill sizes={sizes} loading="lazy"
+            <FadeImage src={item.hover_image} alt="" fill sizes={sizes} loading="lazy"
               className="blend hidden object-contain opacity-0 transition-opacity duration-300 md:block md:group-hover:opacity-100" />
           )}
         </Link>

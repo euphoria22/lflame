@@ -44,6 +44,7 @@ export function BuyBox({ variants, price, preorder = false }: { variants: Catalo
     return () => io.disconnect()
   }, [])
 
+  const [adding, setAdding] = useState(false)
   const add = async () => {
     const target = chosen ?? (onlyOneSize ? variants[0] : undefined)
     if (!target) {
@@ -52,14 +53,17 @@ export function BuyBox({ variants, price, preorder = false }: { variants: Catalo
       return
     }
     setMessage(null)
+    setAdding(true)
     const ok = await cart.add(target.id)
+    setAdding(false)
     if (!ok) setMessage(cart.error ?? "Не получилось добавить в корзину")
   }
 
   const button = (
-    <button type="button" onClick={add} disabled={!anyAvailable || cart.busy}
-      className="h-12 w-full rounded-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted">
-      {!anyAvailable ? "Нет в наличии" : chosen || onlyOneSize ? (preorder ? "Оформить предзаказ" : "В корзину") : "Выберите размер"}
+    // Пока товар добавляется, кнопка остаётся чёрной и пишет «Добавляем…» — без резкого серого мигания
+    <button type="button" onClick={() => { if (!adding && !cart.busy) add() }} disabled={!anyAvailable} aria-busy={adding}
+      className="h-12 w-full rounded-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted aria-busy:opacity-70">
+      {!anyAvailable ? "Нет в наличии" : adding ? "Добавляем…" : chosen || onlyOneSize ? (preorder ? "Оформить предзаказ" : "В корзину") : "Выберите размер"}
     </button>
   )
 

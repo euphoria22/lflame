@@ -8,6 +8,7 @@ import { formatPrice, plural } from "@/lib/format"
 import { sizeKind, sizeLabel } from "@/lib/size-groups"
 import { filtersToQuery, ListingFilters, ListingResult, SORTS, SortKey, withQuery } from "@/lib/listing"
 import { ChevronIcon, CloseIcon, FilterIcon } from "./icons"
+import { usePresence } from "./use-presence"
 
 type Props = {
   basePath: string
@@ -53,6 +54,7 @@ export function FilterPanel({ basePath, filters, facets, names, total, showBrand
   }
   const active = filters.categories.length + filters.brands.length + filters.sizes.length + filters.colors.length + (filters.priceMin || filters.priceMax ? 1 : 0)
 
+  const sheet = usePresence(open)
   useEffect(() => {
     document.documentElement.style.overflow = open ? "hidden" : ""
     return () => { document.documentElement.style.overflow = "" }
@@ -155,10 +157,10 @@ export function FilterPanel({ basePath, filters, facets, names, total, showBrand
         </label>
       </div>
 
-      {open && (
+      {sheet.mounted && (
         <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Фильтры">
-          <div className="absolute inset-0 bg-black/25" onClick={() => setOpen(false)} />
-          <div className="glass-strong absolute inset-x-2 bottom-2 flex max-h-[85vh] flex-col rounded-[28px]">
+          <div data-state={sheet.state} className="overlay absolute inset-0 bg-black/25" onClick={() => setOpen(false)} />
+          <div data-state={sheet.state} className="drawer-bottom glass-strong absolute inset-x-2 bottom-2 flex max-h-[85vh] flex-col rounded-[28px]">
             <div className="flex items-center justify-between px-5 pb-2 pt-5">
               <p className="text-[17px]">Фильтры</p>
               <button type="button" aria-label="Закрыть" onClick={() => setOpen(false)} className="rounded-full p-2 hover:bg-black/5"><CloseIcon className="size-6" /></button>

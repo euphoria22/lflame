@@ -11,11 +11,13 @@ import { CartLines } from "./cart-lines"
 import { CartProgress } from "./cart-progress"
 import { CloseIcon } from "./icons"
 import { LoyaltyLine } from "./loyalty-line"
+import { usePresence } from "./use-presence"
 
 /** Выезжающая панель корзины (Liquid Glass) — открывается после добавления товара. */
 export function CartDrawer() {
   const { cart, open, setOpen, error } = useCart()
   const pathname = usePathname()
+  const { mounted, state } = usePresence(open)
 
   useEffect(() => {
     setOpen(false)
@@ -29,13 +31,13 @@ export function CartDrawer() {
     return () => { document.documentElement.style.overflow = ""; window.removeEventListener("keydown", onKey) }
   }, [open, setOpen])
 
-  if (!open) return null
+  if (!mounted) return null
   const count = cart?.count ?? 0
 
   return (
     <div className="fixed inset-0 z-[65]" role="dialog" aria-modal="true" aria-label="Корзина">
-      <div className="absolute inset-0 bg-black/25" onClick={() => setOpen(false)} />
-      <div className="glass-strong absolute inset-y-2 right-2 flex w-[calc(100%-16px)] max-w-[440px] flex-col rounded-[28px]">
+      <div data-state={state} className="overlay absolute inset-0 bg-black/25" onClick={() => setOpen(false)} />
+      <div data-state={state} className="drawer-right glass-strong absolute inset-y-2 right-2 flex w-[calc(100%-16px)] max-w-[440px] flex-col rounded-[28px]">
         <div className="flex items-center justify-between px-6 pb-2 pt-5">
           <p className="text-[17px]">Корзина{count ? ` · ${count} ${plural(count, ["товар", "товара", "товаров"])}` : ""}</p>
           <button type="button" aria-label="Закрыть" onClick={() => setOpen(false)} className="rounded-full p-2 hover:bg-black/5"><CloseIcon className="size-6" /></button>

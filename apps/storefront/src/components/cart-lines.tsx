@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 
@@ -9,6 +8,7 @@ import { routes } from "@/lib/routes"
 import type { Cart } from "@/lib/cart-types"
 import { useCart } from "./cart-context"
 import { TrashIcon } from "./icons"
+import { FadeImage } from "./fade-image"
 
 type Size = { size: string; in_stock: boolean; variant_id?: string }
 
@@ -41,7 +41,7 @@ export function CartLines({ cart, onNavigate, compact = false }: { cart: Cart; o
           <li key={l.id} className={`flex gap-4 ${compact ? "py-3" : "py-4"}`}>
             <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate}
               className={`relative shrink-0 overflow-hidden bg-surface ${compact ? "h-20 w-15" : "h-28 w-21"}`}>
-              {l.thumbnail && <Image src={l.thumbnail} alt={l.title} fill sizes="84px" className="blend object-contain" />}
+              {l.thumbnail && <FadeImage src={l.thumbnail} alt={l.title} fill sizes="84px" className="blend object-contain" />}
             </Link>
             <div className="flex min-w-0 flex-1 flex-col">
               <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate} className="line-clamp-2 text-[13px] leading-snug">{l.title}</Link>
