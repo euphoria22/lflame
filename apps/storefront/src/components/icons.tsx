@@ -32,3 +32,15 @@ export const FilterIcon = ({ className }: P) => (
 export const TrashIcon = ({ className }: P) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...base}><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg>
 )
+
+/* Соцсети: заливка, в круглой кнопке подвала */
+export const VkIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
+    <path d="M3 7h3.2c.3 3.1 1.6 4.8 2.8 5.2V7h3v2.9c1.2-.1 2.4-1.5 2.9-2.9H18c-.4 1.9-1.8 3.4-2.8 4 1 .5 2.6 1.8 3.2 4h-3.1c-.5-1.5-1.7-2.7-3.3-2.9V17h-.4C6.2 17 3.2 13.3 3 7Z" />
+  </svg>
+)
+export const TelegramIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
+    <path d="M20.7 4.3 2.9 11.2c-.9.4-.9 1.6.1 1.9l4.5 1.4 1.7 5.3c.2.7 1.1.9 1.6.4l2.5-2.4 4.6 3.4c.6.4 1.4.1 1.6-.6l3-14.4c.2-.9-.7-1.6-1.8-1.1ZM9.3 14.1l8.4-7.5-6.9 8.7-.3 2.9-1.2-4.1Z" />
+  </svg>
+)

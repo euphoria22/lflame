@@ -8,3 +8,9 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8
 
 /** Индексация разрешена только на production (ТЗ, п. 7.8: staging закрыт). */
 export const INDEXING_ENABLED = process.env.INDEXING === "on"
+
+/** Соцсети магазина: подвал, «Контакты», микроразметка. */
+export const SOCIAL = [
+  { id: "vk", name: "ВКонтакте", url: "https://vk.ru/laflammeru" },
+  { id: "telegram", name: "Telegram", url: "https://t.me/laflammeru" },
+] as const

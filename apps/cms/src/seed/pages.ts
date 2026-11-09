@@ -1,7 +1,7 @@
 import type { Payload } from "payload"
 
 import { OFFER, PRIVACY } from "./legal"
-import { CONTACTS_V4, OFFER_V4, PRIVACY_V4 } from "./previous"
+import { CONTACTS_V4, CONTACTS_V5, OFFER_V4, PRIVACY_V4 } from "./previous"
 import { md } from "./lexical"
 
 /**
@@ -117,8 +117,8 @@ const PAGES: { slug: string; title: string; order: number; intro?: string; text:
 ## Связаться
 Телефон: +7 913 144-64-82
 Email: admin@laflamme.ru
-VK: [ссылка на сообщество]
-Telegram: [ссылка на канал или аккаунт]
+VK: [vk.ru/laflammeru](https://vk.ru/laflammeru)
+Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 
 ## Реквизиты
 ИП Парфенов Алексей Дмитриевич
@@ -151,9 +151,9 @@ Telegram: [ссылка на канал или аккаунт]
 ]
 
 /** Увеличивается, когда меняются стартовые тексты. */
-const SEED_VERSION = 5
+const SEED_VERSION = 6
 /** В какой версии менялся стартовый текст страницы. */
-const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 5, offer: 5, privacy: 5, about: 3 }
+const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 3 }
 
 /** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
 const PREVIOUS: Record<string, string> = {
@@ -253,7 +253,7 @@ export async function seedPages(payload: Payload): Promise<void> {
       // или в ней всё ещё стартовый текст прошлой версии
       const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
       const current = plain(doc.content?.root)
-      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug]].some((t) => !!t && current === plain(md(t).root as Lex))
+      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
       if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,

@@ -54,7 +54,8 @@ function render(nodes: LexicalNode[] | undefined): ReactNode[] {
       case "link":
       case "autolink": {
         const url = n.fields?.url ?? n.url ?? "#"
-        const internal = url.startsWith("/") || /laflamme/i.test(url)
+        // Свои страницы — относительные адреса и домен магазина (vk.ru/laflammeru и т. п. — внешние)
+        const internal = url.startsWith("/") || /^https?:\/\/(www\.)?laflamme\.(ru|store)(\/|$)/i.test(url)
         return internal
           ? <Link key={i} href={url.replace(/^https?:\/\/[^/]+/, "") || "/"}><>{kids}</></Link>
           : <a key={i} href={url} target="_blank" rel="noopener noreferrer">{kids}</a>

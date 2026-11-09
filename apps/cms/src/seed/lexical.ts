@@ -7,10 +7,18 @@ type Node = Record<string, unknown>
 
 const base = { version: 1, direction: "ltr", format: "", indent: 0 }
 
+const textNode = (text: string, format = 0): Node => ({ type: "text", text, format, version: 1, detail: 0, mode: "normal", style: "" })
+
+/** **жирный** и [текст](https://ссылка) */
 function inline(s: string): Node[] {
-  return s.split(/(\*\*[^*]+\*\*)/).filter(Boolean).map((part) => {
-    const bold = part.startsWith("**") && part.endsWith("**")
-    return { type: "text", text: bold ? part.slice(2, -2) : part, format: bold ? 1 : 0, version: 1, detail: 0, mode: "normal", style: "" }
+  return s.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\))/).filter(Boolean).map((part) => {
+    if (part.startsWith("**") && part.endsWith("**")) return textNode(part.slice(2, -2), 1)
+    const link = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/)
+    if (link) {
+      const external = /^https?:/.test(link[2])
+      return { ...base, type: "link", fields: { url: link[2], newTab: external, linkType: "custom" }, children: [textNode(link[1])] }
+    }
+    return textNode(part)
   })
 }
 

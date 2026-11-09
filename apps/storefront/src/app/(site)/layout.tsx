@@ -9,7 +9,7 @@ import { Footer } from "@/components/footer"
 import { Header } from "@/components/header"
 import { JsonLd } from "@/components/json-ld"
 import { safeAnnouncement } from "@/lib/blog"
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL } from "@/lib/site"
 import "./globals.css"
 
 // Шрифт собирается при сборке и раздаётся с нашего сервера (ТЗ, п. 7.10)
@@ -58,6 +58,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             name: SITE_NAME,
             url: SITE_URL,
             logo: `${SITE_URL}/icon.png`,
+            sameAs: SOCIAL.map((s) => s.url),
           },
           {
             "@context": "https://schema.org",

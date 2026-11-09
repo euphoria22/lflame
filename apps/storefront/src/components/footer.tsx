@@ -2,7 +2,8 @@ import { cacheTag } from "next/cache"
 import Link from "next/link"
 
 import { GENDERS, routes } from "@/lib/routes"
-import { SITE_NAME } from "@/lib/site"
+import { SITE_NAME, SOCIAL } from "@/lib/site"
+import { TelegramIcon, VkIcon } from "./icons"
 import { getNav } from "./nav-data"
 import { LogoWordmark } from "./logo"
 
@@ -19,6 +20,18 @@ export async function Footer() {
         <div className="col-span-2 md:col-span-1">
           <LogoWordmark className="h-5 w-auto" aria-label={SITE_NAME} />
           <p className="mt-4 max-w-xs text-[13px] leading-6 text-muted">Мультибрендовый магазин оригинальной одежды, обуви и аксессуаров.</p>
+          <a href="tel:+79131446482" className="mt-4 block text-[13px] hover:opacity-60">+7 913 144-64-82</a>
+          <a href="mailto:admin@laflamme.ru" className="block text-[13px] text-muted hover:text-foreground">admin@laflamme.ru</a>
+          <ul className="mt-5 flex gap-2">
+            {SOCIAL.map((s) => (
+              <li key={s.id}>
+                <a href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.name} title={s.name}
+                  className="grid size-10 place-items-center rounded-full border border-line transition-colors hover:border-foreground hover:bg-foreground hover:text-background">
+                  {s.id === "vk" ? <VkIcon className="size-5" /> : <TelegramIcon className="size-[18px]" />}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
         <div>
           <p className="eyebrow mb-4">Каталог</p>
