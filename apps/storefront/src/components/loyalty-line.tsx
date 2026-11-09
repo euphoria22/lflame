@@ -1,5 +1,6 @@
 import { formatPrice } from "@/lib/format"
 import type { Cart } from "@/lib/cart-types"
+import { ClubBadge } from "./order-summary"
 
 /** Скидки в итогах: «Скидка LAFLAMME MEMBER −5%» (ТЗ, п. 6.7) и промокод. Не суммируются — действует одна. */
 export function LoyaltyLine({ cart, className = "" }: { cart: Cart | null; className?: string }) {
@@ -10,7 +11,7 @@ export function LoyaltyLine({ cart, className = "" }: { cart: Cart | null; class
     <div className={`space-y-1 text-[13px] text-sale ${className}`}>
       {cart.loyalty && (
         <div className="flex justify-between">
-          <span>Скидка Laflamme Club {cart.loyalty.level} −{cart.loyalty.pct}%</span>
+          <span className="flex items-center gap-2">Скидка <ClubBadge className="border-sale" /> {cart.loyalty.pct}%</span>
           <span>−{formatPrice(cart.loyalty.saved)}</span>
         </div>
       )}

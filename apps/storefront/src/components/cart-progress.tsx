@@ -68,31 +68,33 @@ export function CartProgress({ total, className = "" }: { total: number; classNa
   const nextAfter = l ? l.tiers.find((t) => t.threshold > projected) ?? null : null
   const reached = l?.next && projected >= l.next.threshold ? l.tiers.filter((t) => t.threshold <= projected).pop() : null
 
+  // Целевой уровень для полоски: если заказ дотягивает до уровня — он (полоска полная), иначе следующий
+  const gTarget = gReached && (!gNext || gReached.threshold > 0) ? gReached : gNext
+  const tag = <span className="eyebrow ml-1 rounded-full border border-club px-1.5 py-[2px] text-[9px] text-club">Club</span>
+
   return (
-    <div className={`space-y-3 ${className}`}>
-      {!!from && (
+    <div className={`space-y-4 ${className}`}>
+      {!!from && (left > 0 ? (
         <div>
-          <p className="text-[12px] text-muted">
-            {left > 0 ? <>До бесплатной доставки — <span className="text-foreground">{formatPrice(left)}</span></> : <span className="text-foreground">Бесплатная доставка до пункта СДЭК и Почтой России</span>}
-          </p>
+          <p className="text-[12px] text-muted">До бесплатной доставки — <span className="text-foreground">{formatPrice(left)}</span></p>
           <Bar pct={(total / from) * 100} />
         </div>
-      )}
+      ) : (
+        <p className="flex items-center gap-2 text-[12px]"><span aria-hidden className="grid size-4 place-items-center rounded-full bg-foreground text-[9px] text-background">✓</span>Доставка бесплатная — до пункта СДЭК и Почтой России</p>
+      ))}
 
-      {guest && (
+      {guest && gTarget && (
         <div>
           <p className="text-[12px] text-muted">
             {gReached
-              ? <>С этим заказом — уровень <span className="text-foreground">{gReached.name} (−{gReached.discount}%)</span> в Laflamme Club</>
-              : gNext
-                ? <>До {gNext.name} (−{gNext.discount}%) в Laflamme Club — <span className="text-foreground">{formatPrice(gNext.threshold - total)}</span></>
-                : null}
+              ? <>Этот заказ даст уровень <span className="text-foreground">{gReached.name} (−{gReached.discount}%)</span> на следующие покупки{tag}</>
+              : <>До уровня {gTarget.name} (−{gTarget.discount}%) — ещё <span className="text-foreground">{formatPrice(gTarget.threshold - total)}</span>{tag}</>}
           </p>
-          {gNext && <Bar tone="club" pct={(total / gNext.threshold) * 100} />}
-          <p className="mt-1.5 text-[12px] text-muted">
+          <Bar tone="club" pct={gReached ? 100 : (total / gTarget.threshold) * 100} />
+          <p className="mt-2 text-[12px] text-muted">
             {!loy?.logged
-              ? <><Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Авторизуйтесь</Link>, чтобы покупки засчитывались — скидка до 15%</>
-              : <>Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы покупки засчитывались</>}
+              ? <><Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Авторизуйтесь</Link>, чтобы заказ засчитался в Laflamme Club</>
+              : <>Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы заказ засчитался в Laflamme Club</>}
           </p>
         </div>
       )}
@@ -100,13 +102,12 @@ export function CartProgress({ total, className = "" }: { total: number; classNa
         <div>
           <p className="text-[12px] text-muted">
             {reached
-              ? <>С этим заказом — уровень <span className="text-foreground">{reached.name} (−{reached.discount}%)</span></>
+              ? <>Этот заказ даст уровень <span className="text-foreground">{reached.name} (−{reached.discount}%)</span> на следующие покупки{tag}</>
               : nextAfter
-                ? <>До {nextAfter.name} (−{nextAfter.discount}%) с этим заказом — <span className="text-foreground">{formatPrice(nextAfter.threshold - projected)}</span></>
-                : <>У вас высший уровень {l.level.name}</>}
-            {l.level.discount > 0 && <> · ваша скидка {l.level.name} −{l.level.discount}% уже в цене</>}
+                ? <>До уровня {nextAfter.name} (−{nextAfter.discount}%) — ещё <span className="text-foreground">{formatPrice(nextAfter.threshold - projected)}</span>{tag}</>
+                : <>У вас высший уровень {l.level.name}{tag}</>}
           </p>
-          {(reached || nextAfter) && <Bar tone="club" pct={nextAfter ? (projected / nextAfter.threshold) * 100 : 100} />}
+          {(reached || nextAfter) && <Bar tone="club" pct={reached ? 100 : (projected / nextAfter!.threshold) * 100} />}
         </div>
       )}
     </div>

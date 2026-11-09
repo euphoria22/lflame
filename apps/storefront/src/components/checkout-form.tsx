@@ -6,14 +6,12 @@ import { useState } from "react"
 
 import { CheckoutInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
-import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
 import { CartProgress } from "./cart-progress"
 import { DeliveryPicker } from "./delivery-picker"
-import { fullGoods, LoyaltyLine } from "./loyalty-line"
-import { PromoField } from "./promo-field"
+import { OrderSummary } from "./order-summary"
 
 /**
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
@@ -90,7 +88,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
   const err = (k: string) => errors[k] && <p className="mt-1 text-[12px] text-sale">{errors[k]}</p>
 
   return (
-    <form onSubmit={submit} noValidate className="mx-auto grid max-w-6xl gap-10 px-4 pt-8 md:grid-cols-[1fr_380px] md:px-8">
+    <form onSubmit={submit} noValidate className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 pt-8 md:grid-cols-[minmax(0,1fr)_380px] md:px-8">
       <div>
         <h1 className="text-[28px] tracking-tight md:text-[40px]">Оформление заказа</h1>
 
@@ -144,21 +142,15 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
       </div>
 
       <aside className="h-fit rounded-[22px] bg-surface p-6 md:sticky md:top-[96px]">
-        <p className="text-[17px]">Ваш заказ</p>
+        <p className="text-[22px] tracking-tight">Ваш заказ</p>
         {/* Размер и количество можно поменять и здесь */}
-        {cart && <div className="mt-2"><CartLines cart={cart} compact /></div>}
-        <PromoField className="mt-3" />
-        <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
-          <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice(fullGoods(cart))}</span></div>
-          <LoyaltyLine cart={cart} />
-          <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{!quote ? "—" : quote.amount === 0 ? "Бесплатно" : formatPrice(quote.amount)}</span></div>
-          <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice((cart?.item_total ?? 0) + (quote?.amount ?? 0))}</span></div>
-        </div>
-        {cart && <CartProgress total={cart.goods_total} className="mt-4 border-t border-line pt-4" />}
+        {cart && <div className="mt-2 border-b border-line pb-4"><CartLines cart={cart} compact /></div>}
+        {cart && <div className="mt-5"><OrderSummary cart={cart} delivery={quote ? quote.amount : null} /></div>}
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
           {sending ? "Оформляем…" : payment === "tbank" ? "Перейти к оплате" : "Подтвердить заказ"}
         </button>
+        {cart && <CartProgress total={cart.goods_total} className="mt-5 border-t border-line pt-5" />}
       </aside>
     </form>
   )

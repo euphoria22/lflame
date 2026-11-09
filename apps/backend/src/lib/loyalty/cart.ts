@@ -58,13 +58,17 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
     saved += (price - target) * item.quantity
     if (opts.dryRun) continue
     const current = Number(item.unit_price)
-    const sameMeta = JSON.stringify(meta.loyalty ?? null) === JSON.stringify(want)
-    // Ничего не меняем, если цена и отметка уже верные (и обычная цена не была переопределена)
+    // Зачёркнутая цена товара — для сводки «Товаров на / Скидки на товары» (Store API не отдаёт metadata варианта)
+    const compare = compareAt && compareAt > price ? compareAt : null
+    const sameMeta = JSON.stringify(meta.loyalty ?? null) === JSON.stringify(want) && (meta.compare_at ?? null) === compare
+    // Ничего не меняем, если цена и отметки уже верные (и обычная цена не была переопределена)
     if (current === target && sameMeta && (want || !item.is_custom_price)) continue
-    if (!want && !item.is_custom_price && current === target) continue
     meta.loyalty = want
+    meta.compare_at = compare
+    // Цену ставим, только если она меняется или была переопределена — иначе обновляем лишь отметки
+    const priceChange = current !== target || (!!item.is_custom_price && !want)
     await updateLineItemInCartWorkflow(c).run({
-      input: { cart_id: cart.id, item_id: item.id, update: { quantity: item.quantity, unit_price: target, metadata: meta } },
+      input: { cart_id: cart.id, item_id: item.id, update: { quantity: item.quantity, metadata: meta, ...(priceChange || want ? { unit_price: target } : {}) } },
     })
   }
   return discount && saved > 0 ? { level: discount.tier.name, pct: discount.pct, saved: Math.round(saved) } : null

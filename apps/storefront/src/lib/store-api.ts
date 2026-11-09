@@ -57,7 +57,7 @@ type MedusaCart = {
     quantity: number
     unit_price: number
     total: number
-    metadata?: { loyalty?: { level: string; pct: number; base: number } | null } | null
+    metadata?: { loyalty?: { level: string; pct: number; base: number } | null; compare_at?: number | null } | null
   }[]
 }
 
@@ -74,6 +74,7 @@ export function toCart(c: MedusaCart): Cart {
       unit_price: Number(i.unit_price),
       total: Number(i.total),
       base_price: i.metadata?.loyalty?.base ?? null,
+      compare_at: i.metadata?.compare_at ?? null,
     }))
     .sort((a, b) => a.title.localeCompare(b.title))
   return {

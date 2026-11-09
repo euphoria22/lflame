@@ -11,6 +11,8 @@ export type CartLine = {
   total: number
   /** Цена без скидки уровня (если скидка применена) */
   base_price: number | null
+  /** Зачёркнутая цена товара (постоянная уценка), за 1 шт. */
+  compare_at: number | null
 }
 
 export type Cart = {
