@@ -5,11 +5,11 @@ import { Mail } from "./mailer"
  * Вёрстка таблицами и встроенными стилями: так письма одинаково выглядят в Яндекс Почте, Mail.ru и Gmail.
  */
 
-const site = () => (process.env.STOREFRONT_URL || "http://localhost:8000").replace(/\/+$/, "")
+export const site = () => (process.env.STOREFRONT_URL || "http://localhost:8000").replace(/\/+$/, "")
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!)
 export const rub = (n: number) => `${Math.round(n).toLocaleString("ru-RU").replace(/ /g, " ")} ₽`
 
-function layout(opts: { preheader: string; title: string; body: string; button?: { label: string; url: string } }): string {
+export function layout(opts: { preheader: string; title: string; body: string; button?: { label: string; url: string } }): string {
   const btn = opts.button
     ? `<tr><td style="padding:8px 0 24px"><a href="${esc(opts.button.url)}" style="display:inline-block;background:#0b0b0b;color:#fff;text-decoration:none;font-size:14px;padding:14px 28px;border-radius:999px">${esc(opts.button.label)}</a></td></tr>`
     : ""

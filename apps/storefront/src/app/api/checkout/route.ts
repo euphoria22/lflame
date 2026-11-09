@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { CheckoutInput, normalizePhone, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, PICKUP, validateDelivery } from "@/lib/delivery"
 import { SITE_URL } from "@/lib/site"
-import { cartRequest, getAuthToken, retrieveCart, setCartId, storeFetch } from "@/lib/store-api"
+import { cartRequest, getAuthToken, retrieveCart, setCartId, storeFetch, syncLoyalty } from "@/lib/store-api"
 
 /**
  * Оформление заказа (ТЗ, п. 6.4): контакты → способ получения → оплата → заказ.
@@ -74,6 +74,9 @@ export async function POST(req: NextRequest) {
         payment_method: payment,
       },
     })
+
+    // Скидка уровня пересчитывается на сервере прямо перед заказом (ТЗ, п. 6.7)
+    await syncLoyalty(cart.id)
 
     const { shipping_options } = await storeFetch<{ shipping_options: { id: string; type?: { code?: string } }[] }>(
       `/store/shipping-options?cart_id=${cart.id}`

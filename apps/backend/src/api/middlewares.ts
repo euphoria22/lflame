@@ -11,6 +11,11 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer", "session"])],
     },
     {
+      // Скидка уровня: вход не обязателен (без входа — обычные цены)
+      matcher: "/store/loyalty/cart",
+      middlewares: [authenticate("customer", ["bearer"], { allowUnauthenticated: true })],
+    },
+    {
       method: ["POST"],
       matcher: "/admin/moysklad/sync",
       middlewares: [validateAndTransformBody(MoyskladSyncBodySchema)],

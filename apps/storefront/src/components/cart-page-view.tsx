@@ -7,6 +7,7 @@ import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
 import { FreeShippingNote } from "./free-shipping-note"
 import { CartLines } from "./cart-lines"
+import { LoyaltyLine } from "./loyalty-line"
 
 export function CartPageView() {
   const { cart, error } = useCart()
@@ -18,7 +19,9 @@ export function CartPageView() {
         <div className="mt-8 grid gap-10 md:grid-cols-[1fr_320px]">
           <CartLines cart={cart} />
           <aside className="h-fit rounded-[22px] bg-surface p-6 md:sticky md:top-[96px]">
-            <div className="flex justify-between text-[15px]"><span>Товары</span><span>{formatPrice(cart.item_total)}</span></div>
+            <div className="flex justify-between text-[15px]"><span>Товары</span><span>{formatPrice(cart.item_total + (cart.loyalty?.saved ?? 0))}</span></div>
+            <LoyaltyLine cart={cart} className="mt-1" />
+            {cart.loyalty && <div className="mt-1 flex justify-between text-[15px]"><span>Итого</span><span>{formatPrice(cart.item_total)}</span></div>}
             <FreeShippingNote total={cart.item_total} />
             <Link href="/checkout" className="mt-6 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
           </aside>

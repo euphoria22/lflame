@@ -7,6 +7,7 @@ import { useState } from "react"
 
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
+import { LoyaltyCard, LoyaltyStatus } from "./loyalty-card"
 
 export type AccountOrder = {
   id: string
@@ -30,7 +31,7 @@ const STATUS_COLOR: Record<string, string> = {
 const date = (s: string) => new Date(s).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
 
 /** Личный кабинет (ТЗ, п. 6.5): заказы со статусами и треками, профиль. */
-export function AccountView({ customer, orders }: { customer: AccountCustomer; orders: AccountOrder[] }) {
+export function AccountView({ customer, orders, loyalty }: { customer: AccountCustomer; orders: AccountOrder[]; loyalty: LoyaltyStatus | null }) {
   const router = useRouter()
   const [open, setOpen] = useState<string | null>(orders[0]?.id ?? null)
 
@@ -99,11 +100,7 @@ export function AccountView({ customer, orders }: { customer: AccountCustomer; o
       </div>
 
       <aside className="space-y-3 md:pt-[88px]">
-        <div className="rounded-[22px] bg-foreground p-6 text-background">
-          <p className="eyebrow opacity-60">Программа LAFLAMME</p>
-          <p className="mt-2 text-[20px]">Скоро</p>
-          <p className="mt-2 text-[13px] leading-relaxed opacity-70">Скидка до 15% по сумме покупок за год — онлайн и в магазине. Уровень появится здесь.</p>
-        </div>
+        {loyalty && <LoyaltyCard s={loyalty} />}
         <Profile customer={customer} />
         <button type="button" onClick={logout} className="w-full rounded-full border border-line py-3 text-[14px] hover:border-foreground">Выйти</button>
       </aside>
