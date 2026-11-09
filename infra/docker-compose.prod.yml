@@ -38,7 +38,7 @@ services:
       redis: { condition: service_healthy }
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lflame_medusa
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lflame_medusa?ssl_mode=disable
       REDIS_URL: redis://redis:6379
       MEDUSA_BACKEND_URL: https://${ADMIN_DOMAIN}
       STORE_CORS: https://${SITE_DOMAIN}
