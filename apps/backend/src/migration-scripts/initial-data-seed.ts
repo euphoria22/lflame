@@ -36,6 +36,14 @@ export default async function initialDataSeed({
     ModuleRegistrationName.FULFILLMENT
   )
 
+  // Идемпотентность: в собранном коде скрипт называется .js, а не .ts, и Medusa
+  // считает его новым. Если магазин уже есть — ничего не создаём повторно.
+  const { data: existing } = await query.graph({ entity: "store", fields: ["id"] })
+  if (existing.length) {
+    logger.info("LAFLAMME: магазин уже настроен, начальные данные пропущены")
+    return
+  }
+
   logger.info("LAFLAMME: канал продаж и ключ витрины...")
   const {
     result: [webSalesChannel],

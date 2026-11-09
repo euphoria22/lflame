@@ -1,0 +1,5 @@
+# Расписание на сервере: crontab -e (от пользователя deploy), путь — папка проекта.
+# Бэкап каждые 6 часов (ТЗ, п. 8.5)
+15 */6 * * * cd /home/deploy/lflame && bash infra/scripts/backup.sh >> /home/deploy/backup.log 2>&1
+# Проверка сайта каждую минуту (ТЗ, п. 8.6)
+* * * * * cd /home/deploy/lflame && bash infra/scripts/monitor.sh >/dev/null 2>&1

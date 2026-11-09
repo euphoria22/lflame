@@ -1,0 +1,63 @@
+# LAFLAMME — веб-сервер перед сайтом: HTTPS (Let's Encrypt, автопродление), заголовки безопасности,
+# доступ к админкам только с разрешённых IP (ТЗ, п. 8.2, 8.3).
+{
+	email {$ACME_EMAIL}
+}
+
+(security) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=()"
+		X-Frame-Options "DENY"
+		-Server
+		-X-Powered-By
+	}
+}
+
+# Только с разрешённых адресов (ADMIN_ALLOW_IPS — через пробел, например «1.2.3.4 5.6.7.0/24»)
+(admin_only) {
+	@denied not remote_ip {$ADMIN_ALLOW_IPS}
+	respond @denied "Доступ закрыт" 403
+}
+
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+{$SITE_DOMAIN} {
+	import security
+	encode zstd gzip
+	header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://mc.yandex.ru https://yastatic.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://mc.yandex.ru https://mc.yandex.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https:"
+	reverse_proxy storefront:8000
+}
+
+# Medusa: админка магазина (/app), API админки — только с разрешённых IP.
+# Вебхуки (Т-Банк, СДЭК, МойСклад) и фото товаров (/static, если без S3) — открыты.
+{$ADMIN_DOMAIN} {
+	import security
+	encode zstd gzip
+	@public path /hooks/* /static/* /health
+	handle @public {
+		reverse_proxy backend:9000
+	}
+	handle {
+		import admin_only
+		reverse_proxy backend:9000
+	}
+}
+
+# Payload CMS: админка (/cms) — только с разрешённых IP; файлы баннеров и блога (/api/media/file/*) — открыты.
+{$CMS_DOMAIN} {
+	import security
+	encode zstd gzip
+	@media path /api/media/file/*
+	handle @media {
+		reverse_proxy cms:3001
+	}
+	handle {
+		import admin_only
+		reverse_proxy cms:3001
+	}
+}

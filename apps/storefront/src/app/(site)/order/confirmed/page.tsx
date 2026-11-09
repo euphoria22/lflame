@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 
+import { TrackPurchase } from "@/components/track"
 import { routes } from "@/lib/routes"
 import { NOINDEX } from "@/lib/seo"
 import { pageTitle } from "@/lib/site"
@@ -20,6 +21,7 @@ export default async function OrderConfirmed({ searchParams }: { searchParams: P
       <p className="mt-4 text-[14px] leading-relaxed text-muted">
         {paid ? "Оплата получена. Мы соберём заказ и пришлём номер для отслеживания." : "Мы скоро свяжемся с вами по телефону, чтобы подтвердить заказ и согласовать получение."}
       </p>
+      {n && <TrackPurchase order={n} />}
       <Link href={routes.newIn()} className="mt-8 inline-block rounded-full bg-foreground px-6 py-3 text-[14px] text-background">Продолжить покупки</Link>
     </div>
   )

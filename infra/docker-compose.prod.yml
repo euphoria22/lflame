@@ -1,0 +1,130 @@
+# LAFLAMME production: один сервер, всё в Docker (ТЗ, п. 8.1).
+# Наружу открыт только Caddy (80/443). База, Redis, Medusa и CMS — во внутренней сети;
+# Medusa и CMS дополнительно слушают 127.0.0.1 (для сборки витрины и обслуживания), но не интернет.
+# Запуск и обновление — infra/scripts/deploy.sh. Переменные — infra/.env (шаблон infra/prod.env.template).
+name: lflame
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ["127.0.0.1:5432:5432"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"], interval: 5s, retries: 20 }
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 20 }
+    logging: *logging
+
+  backend:
+    build: { context: .., dockerfile: infra/docker/Dockerfile, target: backend }
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lflame_medusa
+      REDIS_URL: redis://redis:6379
+      MEDUSA_BACKEND_URL: https://${ADMIN_DOMAIN}
+      STORE_CORS: https://${SITE_DOMAIN}
+      ADMIN_CORS: https://${ADMIN_DOMAIN}
+      AUTH_CORS: https://${ADMIN_DOMAIN},https://${SITE_DOMAIN}
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      STOREFRONT_URL: https://${SITE_DOMAIN}
+      STOREFRONT_REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+    env_file: [.env.backend]
+    ports: ["127.0.0.1:9000:9000"]
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health || exit 1"], interval: 10s, retries: 30, start_period: 60s }
+    logging: *logging
+
+  cms:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile
+      target: cms
+      network: host
+      args:
+        CMS_URL: https://${CMS_DOMAIN}
+        PAYLOAD_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/lflame_payload
+        PAYLOAD_SECRET: ${PAYLOAD_SECRET}
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      NODE_ENV: production
+      CMS_URL: https://${CMS_DOMAIN}
+      PAYLOAD_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lflame_payload
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET}
+      STOREFRONT_URL: http://storefront:8000
+      STOREFRONT_REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+    volumes: [cmsmedia:/repo/apps/cms/media]
+    ports: ["127.0.0.1:3001:3001"]
+    logging: *logging
+
+  storefront:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile
+      target: storefront
+      network: host
+      args:
+        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_YM_ID: ${YM_ID}
+        MEDUSA_BACKEND_URL: http://127.0.0.1:9000
+        CMS_URL: http://127.0.0.1:3001
+        CMS_PUBLIC_URL: https://${CMS_DOMAIN}
+        IMAGES_CDN_URL: ${IMAGES_CDN_URL}
+        INDEXING: ${INDEXING}
+    restart: unless-stopped
+    depends_on: [backend, cms]
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY}
+      MEDUSA_BACKEND_URL: http://backend:9000
+      CMS_URL: http://cms:3001
+      CMS_PUBLIC_URL: https://${CMS_DOMAIN}
+      IMAGES_CDN_URL: ${IMAGES_CDN_URL}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      INDEXING: ${INDEXING}
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on: [storefront, backend, cms]
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      CMS_DOMAIN: ${CMS_DOMAIN}
+      ADMIN_ALLOW_IPS: ${ADMIN_ALLOW_IPS}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+  cmsmedia:
+  caddydata:
+  caddyconfig:

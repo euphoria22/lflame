@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
+import { Suspense } from "react"
 
 import { AnnouncementBar } from "@/components/announcement-bar"
 import { CartDrawer } from "@/components/cart-drawer"
@@ -10,6 +11,7 @@ import { Header } from "@/components/header"
 import { JsonLd } from "@/components/json-ld"
 import { safeAnnouncement } from "@/lib/blog"
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL } from "@/lib/site"
+import { CookieConsent } from "@/components/cookie-consent"
 import "./globals.css"
 
 // Шрифт собирается при сборке и раздаётся с нашего сервера (ТЗ, п. 7.10)
@@ -49,6 +51,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           <main className="flex-1 pt-[calc(84px+var(--bar))]">{children}</main>
           <Footer />
           <CartDrawer />
+          <Suspense fallback={null}><CookieConsent /></Suspense>
           </FavoritesProvider>
         </CartProvider>
         <JsonLd data={[

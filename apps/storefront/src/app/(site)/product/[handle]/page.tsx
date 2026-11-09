@@ -7,6 +7,7 @@ import { BuyBox } from "@/components/buy-box"
 import { FavButton } from "@/components/fav-button"
 import { JsonLd } from "@/components/json-ld"
 import { Price } from "@/components/price"
+import { TrackView } from "@/components/track"
 import { YourPrice } from "@/components/your-price"
 import { ProductGallery } from "@/components/product-gallery"
 import { ProductRail } from "@/components/product-rail"
@@ -116,6 +117,7 @@ export default async function ProductPage({ params }: Props) {
             {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка Laflamme Club на этот товар не действует</p>}
 
             <div className="mt-8">
+              <TrackView id={product.handle} name={product.title} price={product.price} brand={product.brand?.name} category={product.category?.name} />
               <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />
             </div>
 

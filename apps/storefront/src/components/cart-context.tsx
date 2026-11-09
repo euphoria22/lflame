@@ -1,6 +1,8 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
+
+import { trackCartChange } from "@/lib/analytics"
 
 import type { Cart } from "@/lib/cart-types"
 
@@ -28,8 +30,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const last = useRef<Cart | null>(null)
 
-  const call = useCallback(async (url: string, init?: RequestInit) => {
+  const call = useCallback(async (url: string, init?: RequestInit, track = true) => {
     setBusy(true)
     setError(null)
     try {
@@ -39,6 +42,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setError(data.error ?? "Ошибка")
         return false
       }
+      // Метрика: что добавили / убрали (при загрузке корзины — не считаем)
+      if (track) trackCartChange(last.current, data.cart ?? null)
+      last.current = data.cart ?? null
       setCart(data.cart ?? null)
       return true
     } catch {
@@ -49,7 +55,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const refresh = useCallback(async () => { await call("/api/cart") }, [call])
+  const refresh = useCallback(async () => { await call("/api/cart", undefined, false) }, [call])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- корзина загружается в браузере
@@ -81,7 +87,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/cart/promo", { method: code ? "POST" : "DELETE", headers: { "content-type": "application/json" }, body: code ? JSON.stringify({ code }) : undefined })
       const data = (await res.json()) as { cart?: Cart | null; promoError?: string | null; error?: string }
-      if (data.cart !== undefined) setCart(data.cart ?? null)
+      if (data.cart !== undefined) { last.current = data.cart ?? null; setCart(data.cart ?? null) }
       return data.promoError ?? data.error ?? null
     } catch {
       return "Нет связи. Попробуйте ещё раз."

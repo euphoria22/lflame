@@ -1,0 +1,24 @@
+# Выкладка на сервер: вручную (кнопка Run workflow) или после успешного CI на main.
+# Секреты репозитория (Settings → Secrets → Actions): SSH_HOST, SSH_PORT, SSH_USER, SSH_KEY.
+name: Deploy
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+concurrency: { group: deploy, cancel-in-progress: false }
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && vars.AUTO_DEPLOY == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Выкладка по SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 40m
+          script: cd ~/lflame && bash infra/scripts/deploy.sh

@@ -1,0 +1,21 @@
+# Проверки при каждом изменении (ТЗ, п. 8.4): линтер, типы, тесты, уязвимости зависимостей.
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - name: Критические уязвимости блокируют выкладку
+        run: npm audit --omit=dev --audit-level=critical
+      - run: npx turbo run lint
+      - run: npm run typecheck -w @lflame/storefront
+      - run: npm run typecheck -w @lflame/cms
+      - run: npx tsc --noEmit -p apps/backend
+      - name: Юнит-тесты бэкенда
+        run: npm run test:unit -w @lflame/backend

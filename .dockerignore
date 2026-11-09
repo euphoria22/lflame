@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/.turbo
+**/.medusa
+**/dist
+**/.env
+**/.env.*
+!**/.env.template
+apps/cms/media
+apps/backend/static
+.git
+infra/backups

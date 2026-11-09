@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
+import { rememberPurchase } from "@/lib/analytics"
 import { CheckoutInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
 import { routes } from "@/lib/routes"
@@ -56,6 +57,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
       if (!payment) { setError("Выберите способ оплаты"); return }
       const res = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...v, delivery, payment }) })
       const data = (await res.json()) as { order?: { number: number }; redirect?: string; error?: string; errors?: Record<string, string> }
+      if (res.ok) rememberPurchase(cart)
       if (res.ok && data.redirect) {
         // Переход на платёжную форму Т-Банка; корзина сохраняется до подтверждения оплаты
         window.location.assign(data.redirect)
