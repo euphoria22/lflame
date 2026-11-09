@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 
+import { AnnouncementBar } from "@/components/announcement-bar"
 import { CartDrawer } from "@/components/cart-drawer"
 import { CartProvider } from "@/components/cart-context"
 import { FavoritesProvider } from "@/components/favorites-context"
 import { Footer } from "@/components/footer"
 import { Header } from "@/components/header"
 import { JsonLd } from "@/components/json-ld"
+import { safeAnnouncement } from "@/lib/blog"
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site"
 import "./globals.css"
 
@@ -34,14 +36,17 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 }
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  // Полоска с акциями: её высота сдвигает шапку и начало страницы (переменная --bar)
+  const bar = await safeAnnouncement()
   return (
-    <html lang="ru" className={`${inter.variable} antialiased`}>
+    <html lang="ru" className={`${inter.variable} antialiased`} style={{ "--bar": bar ? "34px" : "0px" } as React.CSSProperties}>
       <body className="flex min-h-screen flex-col">
         <CartProvider>
           <FavoritesProvider>
+          {bar && <AnnouncementBar data={bar} />}
           <Header />
-          <main className="flex-1 pt-[84px]">{children}</main>
+          <main className="flex-1 pt-[calc(84px+var(--bar))]">{children}</main>
           <Footer />
           <CartDrawer />
           </FavoritesProvider>
