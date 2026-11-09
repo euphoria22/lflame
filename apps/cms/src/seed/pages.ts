@@ -1,6 +1,7 @@
 import type { Payload } from "payload"
 
 import { OFFER, PRIVACY } from "./legal"
+import { CONTACTS_V4, OFFER_V4, PRIVACY_V4 } from "./previous"
 import { md } from "./lexical"
 
 /**
@@ -114,13 +115,17 @@ const PAGES: { slug: string; title: string; order: number; intro?: string; text:
 Ежедневно с 12:00 до 21:00
 
 ## Связаться
-Телефон: +7 913 646-12-89
+Телефон: +7 913 144-64-82
 Email: admin@laflamme.ru
 VK: [ссылка на сообщество]
 Telegram: [ссылка на канал или аккаунт]
 
 ## Реквизиты
-ИП Парфенов Алексей Дмитриевич, ОГРНИП 320554300044865
+ИП Парфенов Алексей Дмитриевич
+
+ИНН 550117485296, ОГРНИП 320554300044865
+
+644112, Омская обл., г. Омск, пр-кт Комарова, д. 16, кв. 296
 `,
   },
   {
@@ -146,9 +151,9 @@ Telegram: [ссылка на канал или аккаунт]
 ]
 
 /** Увеличивается, когда меняются стартовые тексты. */
-const SEED_VERSION = 4
+const SEED_VERSION = 5
 /** В какой версии менялся стартовый текст страницы. */
-const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 4, offer: 4, privacy: 4, about: 3 }
+const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 5, offer: 5, privacy: 5, about: 3 }
 
 /** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
 const PREVIOUS: Record<string, string> = {
@@ -232,6 +237,8 @@ Telegram: [ссылка на канал или аккаунт]
 `,
 }
 
+const PREVIOUS_V4: Record<string, string> = { offer: OFFER_V4, privacy: PRIVACY_V4, contacts: CONTACTS_V4 }
+
 type Lex = { text?: string; children?: Lex[] }
 const plain = (n: Lex | undefined): string => (n ? (n.text ?? "") + (n.children ?? []).map(plain).join(" ") : "").replace(/\s+/g, " ").trim()
 
@@ -245,8 +252,8 @@ export async function seedPages(payload: Payload): Promise<void> {
       // Обновляем стартовый текст, только если страницу ещё никто не правил: она не менялась с создания
       // или в ней всё ещё стартовый текст прошлой версии
       const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
-      const prev = PREVIOUS[p.slug]
-      const untouched = fresh || (!!prev && plain(doc.content?.root) === plain(md(prev).root as Lex))
+      const current = plain(doc.content?.root)
+      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug]].some((t) => !!t && current === plain(md(t).root as Lex))
       if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,

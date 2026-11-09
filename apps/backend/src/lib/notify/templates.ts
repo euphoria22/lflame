@@ -24,6 +24,7 @@ export function layout(opts: { preheader: string; title: string; body: string; b
 ${btn}
 <tr><td style="border-top:1px solid #e7e7e7;padding-top:20px;font-size:12px;line-height:1.6;color:#6e6e6e">
 Магазин LAFLAMME · Омск, ул. Партизанская, 5а/8 · ежедневно 12:00–21:00<br>
++7 913 144-64-82 · admin@laflamme.ru<br>
 <a href="${site()}" style="color:#6e6e6e">${esc(site().replace(/^https?:\/\//, ""))}</a>
 </td></tr></table></td></tr></table></body></html>`
 }
