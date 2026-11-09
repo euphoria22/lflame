@@ -16,6 +16,10 @@ export type CatalogItem = {
   compare_at: number | null
   sizes: { size: string; in_stock: boolean; variant_id?: string }[]
   in_stock: boolean
+  /** Предзаказ: размеры можно заказать без остатка */
+  preorder?: boolean
+  /** Скидка программы лояльности не действует */
+  no_loyalty?: boolean
   created_at: string
   /** Путь на старом сайте (для 301) */
   old_path?: string | null

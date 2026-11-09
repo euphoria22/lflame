@@ -10,7 +10,7 @@ import { useCart } from "./cart-context"
  * Выбор размера и кнопка «В корзину» (ТЗ, п. 6.3).
  * На телефоне снизу закреплена стеклянная панель с ценой и кнопкой.
  */
-export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price: number }) {
+export function BuyBox({ variants, price, preorder = false }: { variants: CatalogVariant[]; price: number; preorder?: boolean }) {
   const [selected, setSelected] = useState<string | null>(() => {
     const available = variants.filter((v) => v.available > 0)
     return available.length === 1 && variants.length === 1 ? available[0].id : null
@@ -59,7 +59,7 @@ export function BuyBox({ variants, price }: { variants: CatalogVariant[]; price:
   const button = (
     <button type="button" onClick={add} disabled={!anyAvailable || cart.busy}
       className="h-12 w-full rounded-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted">
-      {!anyAvailable ? "Нет в наличии" : chosen || onlyOneSize ? "В корзину" : "Выберите размер"}
+      {!anyAvailable ? "Нет в наличии" : chosen || onlyOneSize ? (preorder ? "Оформить предзаказ" : "В корзину") : "Выберите размер"}
     </button>
   )
 

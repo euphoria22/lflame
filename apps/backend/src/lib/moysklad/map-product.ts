@@ -11,6 +11,8 @@ export type MapOptions = {
   oldPriceName: string
   attrBrand: string
   attrGender: string
+  /** Доп. поле-флажок МС «Предзаказ»: товар появляется на сайте и без остатка */
+  attrPreorder: string
   attrColor: string
   attrOldUrl: string
 }
@@ -20,6 +22,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions = {
   oldPriceName: "Старая цена",
   attrBrand: "Бренд",
   attrGender: "Для кого",
+  attrPreorder: "Предзаказ",
   attrColor: "Цвет",
   attrOldUrl: "Ссылка на товар",
 }
@@ -51,6 +54,8 @@ export type MappedProduct = {
   variants: MappedVariant[]
   sizes: string[]
   totalStock: number
+  /** Отмечен «Предзаказ» в МС */
+  preorder: boolean
   /** Минимальная цена среди вариантов, ₽ (0 — цены нет) */
   minPrice: number
   /** Почему товар не может продаваться на сайте (пусто — может) */
@@ -162,6 +167,7 @@ export function mapProduct(
     variants: mappedVariants,
     sizes: order,
     totalStock: mappedVariants.reduce((s, v) => s + v.stock, 0),
+    preorder: /^(true|да|yes|1)$/i.test(attr(product, opts.attrPreorder) ?? ""),
     minPrice,
     problems,
   }

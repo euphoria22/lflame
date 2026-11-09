@@ -97,9 +97,16 @@ export default async function ProductPage({ params }: Props) {
               <Price price={product.price} compareAt={product.compare_at} size="lg" />
             </div>
             {product.color_name && <p className="mt-2 text-[13px] text-muted">Цвет: {product.color_name}</p>}
+            {product.preorder && (
+              <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-[13px] leading-relaxed">
+                <span className="eyebrow mr-2 rounded-full bg-foreground px-2 py-0.5 text-background">Предзаказ</span>
+                Товар ещё едет к нам. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
+              </p>
+            )}
+            {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидки программы LAFLAMME на этот товар не действуют</p>}
 
             <div className="mt-8">
-              <BuyBox variants={product.variants} price={product.price} />
+              <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} />
             </div>
 
             <ul className="mt-6 space-y-1.5 text-[13px] text-muted">
