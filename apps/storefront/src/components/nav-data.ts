@@ -1,15 +1,28 @@
 import { getCatalog, getTaxonomy } from "@/lib/catalog"
 import { scopeItems } from "@/lib/listing"
-import { GENDERS, GenderSlug } from "@/lib/routes"
+import { GENDERS, GenderSlug, routes } from "@/lib/routes"
+import type { CatalogItem } from "@/lib/types"
 
 export type NavCategory = { handle: string; name: string; count: number }
 export type NavBrand = { handle: string; name: string; count: number }
-export type NavGender = { slug: GenderSlug; name: string; categories: NavCategory[]; brands: NavBrand[] }
+export type NavTile = { label: string; href: string; image: string | null }
+export type NavGender = { slug: GenderSlug; name: string; categories: NavCategory[]; brands: NavBrand[]; tiles: NavTile[] }
+
+/** Фото для плитки меню: товар в наличии, предпочтительно верхняя одежда и трикотаж. */
+function photo(list: CatalogItem[], used: Set<string>): string | null {
+  const ok = list.filter((i) => i.in_stock && i.thumbnail && !used.has(i.id))
+  const preferred = ["kurtki", "hudi-i-svitshoty", "svitery-i-kardigany", "futbolki-i-longslivy", "dzhinsy"]
+  const hit = preferred.map((c) => ok.find((i) => i.category?.handle === c)).find(Boolean) ?? ok[0]
+  if (!hit) return null
+  used.add(hit.id)
+  return hit.thumbnail
+}
 
 /** Данные меню: категории и топ-бренды для каждого раздела, только где есть товары. */
-export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand[]; saleCount: number }> {
+export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand[]; brandTiles: NavTile[]; saleCount: number }> {
   const [items, taxonomy] = await Promise.all([getCatalog(), getTaxonomy()])
   const rank = new Map(taxonomy.categories.map((c) => [c.handle, c.rank]))
+  const used = new Set<string>()
 
   const genders = GENDERS.map((g) => {
     const scoped = scopeItems(items, { gender: g.slug })
@@ -31,7 +44,11 @@ export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand
       slug: g.slug,
       name: g.name,
       categories: [...cats.values()].sort((a, b) => (rank.get(a.handle) ?? 0) - (rank.get(b.handle) ?? 0) || a.name.localeCompare(b.name)),
-      brands: [...brands.values()].sort((a, b) => b.count - a.count).slice(0, 12),
+      brands: [...brands.values()].sort((a, b) => b.count - a.count).slice(0, 14).sort((a, b) => a.name.localeCompare(b.name)),
+      tiles: [
+        { label: "Новинки", href: routes.newIn(g.slug), image: photo(scopeItems(items, { gender: g.slug, onlyNew: true }), used) },
+        { label: "Sale", href: routes.sale(g.slug), image: photo(scopeItems(items, { gender: g.slug, onlySale: true }), used) },
+      ],
     }
   })
 
@@ -42,9 +59,12 @@ export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand
     b.count++
     all.set(i.brand.handle, b)
   }
+  const byCount = [...all.values()].sort((a, b) => b.count - a.count)
   return {
     genders,
-    brands: [...all.values()].sort((a, b) => b.count - a.count),
+    // Все бренды по алфавиту; две плитки — самые большие бренды
+    brands: [...byCount].sort((a, b) => a.name.localeCompare(b.name)),
+    brandTiles: byCount.slice(0, 2).map((b) => ({ label: b.name, href: routes.brand(b.handle), image: photo(items.filter((i) => i.brand?.handle === b.handle), used) })),
     saleCount: scopeItems(items, { onlySale: true }).length,
   }
 }

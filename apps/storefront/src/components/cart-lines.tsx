@@ -2,40 +2,85 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import type { Cart } from "@/lib/cart-types"
 import { useCart } from "./cart-context"
+import { TrashIcon } from "./icons"
 
-/** Позиции корзины: панель и страница корзины. */
-export function CartLines({ cart, onNavigate }: { cart: Cart; onNavigate?: () => void }) {
-  const { update, remove, busy } = useCart()
+type Size = { size: string; in_stock: boolean; variant_id?: string }
+
+/**
+ * Позиции корзины: панель, страница корзины и оформление.
+ * Размер меняется прямо здесь; «−» на последней штуке убирает товар (значок корзины).
+ */
+export function CartLines({ cart, onNavigate, compact = false }: { cart: Cart; onNavigate?: () => void; compact?: boolean }) {
+  const { update, remove, changeSize, busy } = useCart()
+  const [sizes, setSizes] = useState<Record<string, Size[]>>({})
+  const handles = [...new Set(cart.lines.map((l) => l.handle).filter(Boolean))].sort().join(",")
+
+  useEffect(() => {
+    if (!handles) return
+    let cancelled = false
+    fetch(`/api/catalog/sizes?h=${encodeURIComponent(handles)}`)
+      .then((r) => r.json())
+      .then((d: { sizes: Record<string, Size[]> }) => { if (!cancelled) setSizes(d.sizes ?? {}) })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [handles])
+
   return (
     <ul className="divide-y divide-line">
-      {cart.lines.map((l) => (
-        <li key={l.id} className="flex gap-4 py-4">
-          <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate} className="relative h-28 w-21 shrink-0 overflow-hidden bg-surface">
-            {l.thumbnail && <Image src={l.thumbnail} alt={l.title} fill sizes="84px" className="blend object-contain" />}
-          </Link>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate} className="line-clamp-2 text-[13px] leading-snug">{l.title}</Link>
-            <p className="mt-1 text-[12px] text-muted">Размер: {l.size}</p>
-            <div className="mt-auto flex items-center justify-between pt-2">
-              <div className="flex items-center rounded-full border border-line text-[13px]">
-                <button type="button" disabled={busy || l.quantity <= 1} onClick={() => update(l.id, l.quantity - 1)} aria-label="Меньше" className="px-3 py-1 disabled:text-subtle">−</button>
-                <span className="min-w-6 text-center">{l.quantity}</span>
-                <button type="button" disabled={busy} onClick={() => update(l.id, l.quantity + 1)} aria-label="Больше" className="px-3 py-1 disabled:text-subtle">+</button>
+      {cart.lines.map((l) => {
+        const options = (l.handle && sizes[l.handle]) || []
+        const canChange = options.filter((s) => s.in_stock).length > 1 || (options.length > 1 && !options.find((s) => s.variant_id === l.variant_id)?.in_stock)
+        return (
+          <li key={l.id} className={`flex gap-4 ${compact ? "py-3" : "py-4"}`}>
+            <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate}
+              className={`relative shrink-0 overflow-hidden bg-surface ${compact ? "h-20 w-15" : "h-28 w-21"}`}>
+              {l.thumbnail && <Image src={l.thumbnail} alt={l.title} fill sizes="84px" className="blend object-contain" />}
+            </Link>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Link href={l.handle ? routes.product(l.handle) : "#"} onClick={onNavigate} className="line-clamp-2 text-[13px] leading-snug">{l.title}</Link>
+              <div className="mt-1 text-[12px] text-muted">
+                {canChange ? (
+                  <label className="inline-flex items-center gap-1">
+                    Размер:
+                    <select value={l.variant_id} disabled={busy} onChange={(e) => changeSize(l.id, e.target.value)} aria-label={`Размер: ${l.title}`}
+                      className="cursor-pointer rounded-full border border-line bg-background py-0.5 pl-2 pr-6 text-[12px] text-foreground outline-none hover:border-foreground focus:border-foreground">
+                      {options.filter((s) => s.variant_id).map((s) => (
+                        <option key={s.variant_id} value={s.variant_id} disabled={!s.in_stock && s.variant_id !== l.variant_id}>
+                          {s.size}{!s.in_stock ? " — нет" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : <>Размер: {l.size}</>}
               </div>
-              <span className="text-right text-[13px]">
-                {l.base_price && l.base_price > l.unit_price && <s className="mr-1.5 text-muted">{formatPrice(l.base_price * l.quantity)}</s>}
-                {formatPrice(l.total)}
-              </span>
+              <div className="mt-auto flex items-center justify-between pt-2">
+                <div className="flex items-center rounded-full border border-line text-[13px]">
+                  {l.quantity <= 1 ? (
+                    <button type="button" disabled={busy} onClick={() => remove(l.id)} aria-label={`Убрать из корзины: ${l.title}`}
+                      className="grid h-7 w-9 place-items-center text-muted hover:text-sale disabled:opacity-50">
+                      <TrashIcon className="size-4" />
+                    </button>
+                  ) : (
+                    <button type="button" disabled={busy} onClick={() => update(l.id, l.quantity - 1)} aria-label="Меньше" className="h-7 w-9 disabled:text-subtle">−</button>
+                  )}
+                  <span className="min-w-6 text-center">{l.quantity}</span>
+                  <button type="button" disabled={busy} onClick={() => update(l.id, l.quantity + 1)} aria-label="Больше" className="h-7 w-9 disabled:text-subtle">+</button>
+                </div>
+                <span className="text-right text-[13px]">
+                  {l.base_price && l.base_price > l.unit_price && <s className="mr-1.5 text-muted">{formatPrice(l.base_price * l.quantity)}</s>}
+                  {formatPrice(l.total)}
+                </span>
+              </div>
             </div>
-            <button type="button" disabled={busy} onClick={() => remove(l.id)} className="mt-2 self-start text-[12px] text-muted underline underline-offset-4 hover:text-foreground">Удалить</button>
-          </div>
-        </li>
-      ))}
+          </li>
+        )
+      })}
     </ul>
   )
 }

@@ -1,4 +1,5 @@
 import { cacheTag } from "next/cache"
+import Image from "next/image"
 import Link from "next/link"
 
 import { routes } from "@/lib/routes"
@@ -7,12 +8,30 @@ import { FavLink } from "./fav-button"
 import { SearchIcon, UserIcon } from "./icons"
 import { Logo } from "./logo"
 import { MobileMenu } from "./mobile-menu"
-import { getNav } from "./nav-data"
+import { getNav, type NavTile } from "./nav-data"
 
 /**
  * Шапка: плавающая «стеклянная» капсула. Меню — серверный HTML со ссылками,
  * доступно без JavaScript (ТЗ, п. 7.12); выпадающие панели открываются по наведению и фокусу.
  */
+/**
+ * Выпадающая панель: начинается сразу под шапкой (pt-2 — невидимый «мостик»),
+ * поэтому при переводе курсора вниз меню не пропадает. Скрывается с небольшой задержкой.
+ */
+const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 opacity-0 transition-[opacity,visibility] delay-150 duration-200 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:delay-0 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-hover:delay-0"
+
+/** Плитка с фото в меню (как у Brandshop): фото и подпись капслоком. */
+function MenuTile({ tile, wide = false }: { tile: NavTile; wide?: boolean }) {
+  return (
+    <Link href={tile.href} className="group/tile block">
+      <span className={`relative block overflow-hidden rounded-2xl bg-surface ${wide ? "aspect-[16/9]" : "h-[340px]"}`}>
+        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="300px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
+      </span>
+      <span className="eyebrow mt-2 block text-center">{tile.label}</span>
+    </Link>
+  )
+}
+
 export async function Header() {
   "use cache"
   cacheTag("catalog")
@@ -28,53 +47,51 @@ export async function Header() {
 
         <nav aria-label="Основное меню" className="hidden md:block">
           <ul className="flex items-center">
-            <li><Link href={routes.newIn()} className={link}>Новинки</Link></li>
-            <li className="group">
+            <li className="flex h-14 items-center"><Link href={routes.newIn()} className={link}>Новинки</Link></li>
+            <li className="group flex h-14 items-center">
               <Link href={routes.brands()} className={link}>Бренды</Link>
-              <div className="pointer-events-none invisible absolute inset-x-0 top-[calc(100%+8px)] opacity-0 transition-all duration-200 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100">
-                <div className="glass-strong rounded-[28px] p-8">
-                  <p className="eyebrow mb-5 text-muted">Бренды</p>
-                  <ul className="columns-4 gap-8 text-[14px] leading-8">
-                    {nav.brands.map((b) => (
-                      <li key={b.handle}><Link href={routes.brand(b.handle)} className="hover:opacity-60">{b.name}</Link></li>
-                    ))}
-                  </ul>
-                  <Link href={routes.brands()} className="eyebrow mt-6 inline-block underline underline-offset-4">Все бренды</Link>
+              <div className={PANEL}>
+                <div className="grid grid-cols-[1fr_300px] gap-10 rounded-[28px] border border-line bg-background p-8 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
+                  <div>
+                    <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
+                    <ul className="columns-4 gap-8 text-[14px] leading-8">
+                      {nav.brands.map((b) => (
+                        <li key={b.handle} className="break-inside-avoid"><Link href={routes.brand(b.handle)} className="hover:opacity-60">{b.name}</Link></li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="flex flex-col gap-4">{nav.brandTiles.map((t) => <MenuTile key={t.href} tile={t} wide />)}</div>
                 </div>
               </div>
             </li>
             {nav.genders.map((g) => (
-              <li key={g.slug} className="group">
+              <li key={g.slug} className="group flex h-14 items-center">
                 <Link href={routes.gender(g.slug)} className={link}>{g.name}</Link>
-                <div className="pointer-events-none invisible absolute inset-x-0 top-[calc(100%+8px)] opacity-0 transition-all duration-200 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100">
-                  <div className="glass-strong grid grid-cols-[1fr_1fr_280px] gap-10 rounded-[28px] p-8">
+                <div className={PANEL}>
+                  <div className="grid grid-cols-[220px_260px_1fr] gap-10 rounded-[28px] border border-line bg-background p-8 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
                     <div>
-                      <p className="eyebrow mb-5 text-muted">Категории</p>
-                      <ul className="columns-2 gap-8 text-[14px] leading-8">
-                        <li><Link href={routes.gender(g.slug)} className="font-medium hover:opacity-60">Всё</Link></li>
-                        {g.categories.map((c) => (
-                          <li key={c.handle}><Link href={routes.category(g.slug, c.handle)} className="hover:opacity-60">{c.name}</Link></li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="eyebrow mb-5 text-muted">Популярные бренды</p>
-                      <ul className="columns-2 gap-8 text-[14px] leading-8">
+                      <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
+                      <ul className="text-[14px] leading-8">
                         {g.brands.map((b) => (
                           <li key={b.handle}><Link href={routes.brandGender(b.handle, g.slug)} className="hover:opacity-60">{b.name}</Link></li>
                         ))}
                       </ul>
                     </div>
-                    <div className="flex flex-col gap-3">
-                      <Link href={routes.newIn(g.slug)} className="flex flex-1 items-end rounded-2xl bg-surface p-5 text-[15px] hover:bg-surface-2">Новинки →</Link>
-                      <Link href={routes.sale(g.slug)} className="flex flex-1 items-end rounded-2xl bg-foreground p-5 text-[15px] text-background hover:opacity-90">Sale →</Link>
+                    <div>
+                      <Link href={routes.gender(g.slug)} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все категории</Link>
+                      <ul className="text-[14px] leading-8">
+                        {g.categories.map((c) => (
+                          <li key={c.handle}><Link href={routes.category(g.slug, c.handle)} className="hover:opacity-60">{c.name}</Link></li>
+                        ))}
+                      </ul>
                     </div>
+                    <div className="grid grid-cols-2 content-start gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                   </div>
                 </div>
               </li>
             ))}
-            {nav.saleCount > 0 && <li><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></li>}
-            <li><Link href={routes.blog()} className={link}>Блог</Link></li>
+            {nav.saleCount > 0 && <li className="flex h-14 items-center"><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></li>}
+            <li className="flex h-14 items-center"><Link href={routes.blog()} className={link}>Блог</Link></li>
           </ul>
         </nav>
 
