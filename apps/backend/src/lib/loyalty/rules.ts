@@ -90,13 +90,13 @@ export function dropForecast(entries: EntryLike[], s: LoyaltySettings, now = new
 }
 
 /**
- * Цена со скидкой уровня по правилу «большая из двух» (не суммируются):
- * обычная цена (или «цена до скидки», если товар уценён) × (1 − скидка уровня), но не дороже текущей цены.
+ * Цена со скидкой уровня: от текущей цены, в том числе для товаров с постоянной уценкой
+ * («старая цена» зачёркнута) — скидки суммируются (решение от 09.11.2026).
+ * С промокодами и акциями не суммируется — это решает cart-pricing.ts.
  */
-export function loyaltyPrice(price: number, compareAt: number | null | undefined, discountPct: number): number {
+export function loyaltyPrice(price: number, _compareAt: number | null | undefined, discountPct: number): number {
   if (!discountPct) return price
-  const base = compareAt && compareAt > price ? compareAt : price
-  return Math.min(price, Math.round(base * (1 - discountPct / 100)))
+  return Math.round(price * (1 - discountPct / 100))
 }
 
 export function isExcludedCounterparty(name: string | null | undefined, s: LoyaltySettings): boolean {

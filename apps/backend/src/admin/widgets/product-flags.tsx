@@ -60,7 +60,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
         <div className="flex items-start gap-3">
           <Switch id="lf-noloyalty" className="mt-0.5 shrink-0" checked={noLoyalty} disabled={busy} onCheckedChange={(v) => save({ no_loyalty: v })} />
           <div className="min-w-0 flex-1">
-            <Label htmlFor="lf-noloyalty" weight="plus">Не действуют скидки LAFLAMME</Label>
+            <Label htmlFor="lf-noloyalty" weight="plus">Не действуют скидки LAFLAMME Club</Label>
             <Text size="small" className="text-ui-fg-subtle">Скидка уровня программы лояльности на этот товар не применяется.</Text>
           </div>
         </div>

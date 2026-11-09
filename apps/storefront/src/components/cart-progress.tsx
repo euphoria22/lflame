@@ -21,6 +21,12 @@ function loadThreshold(): Promise<number> {
   optionsReq ??= fetch("/api/checkout/options").then((r) => r.json()).then((d: { free_shipping_from?: number }) => Number(d.free_shipping_from ?? 0)).catch(() => 0)
   return optionsReq
 }
+type Tier = { code: string; name: string; threshold: number; discount: number }
+let programReq: Promise<{ enabled: boolean; tiers: Tier[] }> | null = null
+function loadProgram() {
+  programReq ??= fetch("/api/loyalty/program").then((r) => r.json()).catch(() => ({ enabled: false, tiers: [] }))
+  return programReq
+}
 function loadLoyalty() {
   loyaltyReq ??= fetch("/api/account/loyalty").then((r) => r.json()).catch(() => ({ logged: false }))
   return loyaltyReq
@@ -41,10 +47,18 @@ function Bar({ pct }: { pct: number }) {
 export function CartProgress({ total, className = "" }: { total: number; className?: string }) {
   const [from, setFrom] = useState<number | null>(null)
   const [loy, setLoy] = useState<{ logged: boolean; loyalty?: LoyaltyStatus } | null>(null)
+  const [program, setProgram] = useState<{ enabled: boolean; tiers: Tier[] } | null>(null)
   useEffect(() => {
     loadThreshold().then(setFrom)
     loadLoyalty().then(setLoy)
+    loadProgram().then(setProgram)
   }, [])
+
+  // Гость или телефон ещё не засчитан: показываем, какой уровень даст этот заказ
+  const guest = !!loy && (!loy.logged || (!!loy.loyalty?.enabled && !loy.loyalty.confirmed)) && !!program?.enabled
+  const gTiers = [...(program?.tiers ?? [])].sort((a, b) => a.threshold - b.threshold)
+  const gNext = gTiers.find((t) => t.threshold > total) ?? null
+  const gReached = gTiers.filter((t) => t.threshold > 0 && t.threshold <= total).pop() ?? null
 
   const left = from ? from - total : 0
   const l = loy?.loyalty
@@ -64,15 +78,22 @@ export function CartProgress({ total, className = "" }: { total: number; classNa
         </div>
       )}
 
-      {loy && !loy.logged && (
-        <p className="text-[12px] text-muted">
-          <Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Войдите</Link> — скидка до 15% по программе LAFLAMME
-        </p>
-      )}
-      {l?.enabled && !l.confirmed && (
-        <p className="text-[12px] text-muted">
-          Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы копить на скидку LAFLAMME
-        </p>
+      {guest && (
+        <div>
+          <p className="text-[12px] text-muted">
+            {gReached
+              ? <>С этим заказом — уровень <span className="text-foreground">{gReached.name} (−{gReached.discount}%)</span> в LAFLAMME Club</>
+              : gNext
+                ? <>До {gNext.name} (−{gNext.discount}%) в LAFLAMME Club — <span className="text-foreground">{formatPrice(gNext.threshold - total)}</span></>
+                : null}
+          </p>
+          {gNext && <Bar pct={(total / gNext.threshold) * 100} />}
+          <p className="mt-1.5 text-[12px] text-muted">
+            {!loy?.logged
+              ? <><Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Авторизуйтесь</Link>, чтобы покупки засчитывались — скидка до 15%</>
+              : <>Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы покупки засчитывались</>}
+          </p>
+        </div>
       )}
       {l?.enabled && l.confirmed && (
         <div>

@@ -10,7 +10,7 @@ export function LoyaltyLine({ cart, className = "" }: { cart: Cart | null; class
     <div className={`space-y-1 text-[13px] text-sale ${className}`}>
       {cart.loyalty && (
         <div className="flex justify-between">
-          <span>Скидка LAFLAMME {cart.loyalty.level} −{cart.loyalty.pct}%</span>
+          <span>Скидка LAFLAMME Club {cart.loyalty.level} −{cart.loyalty.pct}%</span>
           <span>−{formatPrice(cart.loyalty.saved)}</span>
         </div>
       )}

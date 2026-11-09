@@ -7,6 +7,19 @@ import { md } from "./lexical"
  * дальше их правят в CMS. Места в [квадратных скобках] нужно заполнить. Оферту и политику —
  * проверить у юриста перед запуском.
  */
+/** «О магазине» в версии 2 (до переименования программы в LAFLAMME Club). */
+const ABOUT_V2 = `
+LAFLAMME — мультибрендовый магазин оригинальной одежды, обуви и аксессуаров в Омске.
+
+Мы привозим вещи мировых брендов — Calvin Klein, Tommy Hilfiger, C.P. Company, Stone Island, Carhartt WIP, MISBHV и других — и продаём только оригинал.
+
+## Приходите в магазин
+Омск, ул. Партизанская, 5а/8, ежедневно с 12:00 до 21:00. Поможем с размером и соберём образ.
+
+## Программа LAFLAMME
+Скидка до 15% по сумме покупок за год — на сайте и в магазине.
+`
+
 const PAGES: { slug: string; title: string; order: number; intro?: string; text: string }[] = [
   {
     slug: "delivery",
@@ -48,16 +61,12 @@ const PAGES: { slug: string; title: string; order: number; intro?: string; text:
     order: 20,
     intro: "Мы работаем только по полной предоплате.",
     text: `
-## Онлайн на сайте
-Картой (Visa, Mastercard, МИР), через СБП или T-Pay на защищённой странице Т-Банка. Данные карты не попадают к нам.
+Принимаем платежи в соответствии с 54-ФЗ через защищённый платёжный модуль Т-Банка или Яндекс Сплит.
 
-## Предоплата по ссылке
-Оформите заказ — мы подтвердим наличие и пришлём ссылку на оплату. Отправим заказ сразу после оплаты.
+Оплатить заказ можно картой (Visa, Mastercard, МИР), через СБП или T-Pay. Данные карты передаются напрямую в банк и не попадают к нам.
 
-## Наложенный платёж
-Не работаем.
+Наложенным платежом не работаем.
 
-## Чеки
 Электронный чек приходит на почту или телефон, указанные в заказе.
 `,
   },
@@ -117,17 +126,7 @@ Telegram: [ссылка на канал или аккаунт]
     slug: "about",
     title: "О магазине",
     order: 50,
-    text: `
-LAFLAMME — мультибрендовый магазин оригинальной одежды, обуви и аксессуаров в Омске.
-
-Мы привозим вещи мировых брендов — Calvin Klein, Tommy Hilfiger, C.P. Company, Stone Island, Carhartt WIP, MISBHV и других — и продаём только оригинал.
-
-## Приходите в магазин
-Омск, ул. Партизанская, 5а/8, ежедневно с 12:00 до 21:00. Поможем с размером и соберём образ.
-
-## Программа LAFLAMME
-Скидка до 15% по сумме покупок за год — на сайте и в магазине.
-`,
+    text: ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club"),
   },
   {
     slug: "offer",
@@ -194,18 +193,44 @@ LAFLAMME — мультибрендовый магазин оригинальн�
 ]
 
 /** Увеличивается, когда меняются стартовые тексты. */
-const SEED_VERSION = 2
-/** Страницы, тексты которых изменились в этой версии. */
-const UPDATED_IN_V2 = new Set(["delivery", "payment", "returns", "contacts", "offer", "privacy"])
+const SEED_VERSION = 3
+/** В какой версии менялся стартовый текст страницы. */
+const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 2, offer: 2, privacy: 2, about: 3 }
+
+/** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
+const PREVIOUS: Record<string, string> = {
+  payment: `
+## Онлайн на сайте
+Картой (Visa, Mastercard, МИР), через СБП или T-Pay на защищённой странице Т-Банка. Данные карты не попадают к нам.
+
+## Предоплата по ссылке
+Оформите заказ — мы подтвердим наличие и пришлём ссылку на оплату. Отправим заказ сразу после оплаты.
+
+## Наложенный платёж
+Не работаем.
+
+## Чеки
+Электронный чек приходит на почту или телефон, указанные в заказе.
+`,
+  about: ABOUT_V2,
+}
+
+type Lex = { text?: string; children?: Lex[] }
+const plain = (n: Lex | undefined): string => (n ? (n.text ?? "") + (n.children ?? []).map(plain).join(" ") : "").replace(/\s+/g, " ").trim()
 
 export async function seedPages(payload: Payload): Promise<void> {
   for (const p of PAGES) {
     const found = await payload.find({ collection: "pages", where: { slug: { equals: p.slug } }, limit: 1, depth: 0 })
-    const doc = found.docs[0] as { id: number | string; seed_version?: number | null; createdAt: string; updatedAt: string } | undefined
+    const doc = found.docs[0] as { id: number | string; seed_version?: number | null; createdAt: string; updatedAt: string; content?: { root?: Lex } } | undefined
     if (doc) {
-      // Обновляем стартовый текст, только если страницу ещё никто не правил
-      const untouched = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
-      if (untouched && (doc.seed_version ?? 1) < SEED_VERSION && UPDATED_IN_V2.has(p.slug)) {
+      const version = doc.seed_version ?? 1
+      const changed = CHANGED[p.slug] ?? 0
+      // Обновляем стартовый текст, только если страницу ещё никто не правил: она не менялась с создания
+      // или в ней всё ещё стартовый текст прошлой версии
+      const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
+      const prev = PREVIOUS[p.slug]
+      const untouched = fresh || (!!prev && plain(doc.content?.root) === plain(md(prev).root as Lex))
+      if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,
           data: { title: p.title, intro: p.intro, content: md(p.text) as never, seed_version: SEED_VERSION },

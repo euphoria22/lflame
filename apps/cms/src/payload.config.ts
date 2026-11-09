@@ -52,12 +52,20 @@ export default buildConfig({
     await seedPages(payload).catch((e) => payload.logger.error(`Стартовые страницы не созданы: ${(e as Error).message}`))
     // Стартовая плашка: бесплатная доставка (если плашку ещё не заполняли)
     const a = await payload.findGlobal({ slug: "announcement" }).catch(() => null)
+    // Программа переименована в LAFLAMME Club: стартовую фразу меняем, только если её не правили
+    const items = (a as { items?: { text?: string }[] } | null)?.items ?? []
+    if (a && items.some((i) => i.text === "Скидка до 15% по программе LAFLAMME")) {
+      await payload.updateGlobal({
+        slug: "announcement",
+        data: { items: items.map((i) => (i.text === "Скидка до 15% по программе LAFLAMME" ? { ...i, text: "Скидка до 15% в LAFLAMME Club" } : i)) as never },
+      }).catch(() => null)
+    }
     if (a && !(a as { items?: unknown[] }).items?.length) {
       await payload.updateGlobal({
         slug: "announcement",
         data: { enabled: true, theme: "dark", items: [
           { text: "Бесплатная доставка от 12 000 ₽", link: "/delivery", linkLabel: "Подробнее" },
-          { text: "Скидка до 15% по программе LAFLAMME", link: "/loyalty", linkLabel: "Как получить" },
+          { text: "Скидка до 15% в LAFLAMME Club", link: "/loyalty", linkLabel: "Как получить" },
         ] },
       }).catch(() => null)
     }

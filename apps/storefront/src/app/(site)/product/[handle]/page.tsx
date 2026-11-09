@@ -100,7 +100,7 @@ export default async function ProductPage({ params }: Props) {
             </div>
             <div className="mt-4">
               <Price price={product.price} compareAt={product.compare_at} size="lg" />
-              <YourPrice price={product.price} compareAt={product.compare_at} brand={product.brand?.name} noLoyalty={product.no_loyalty} size="lg" />
+              <YourPrice price={product.price} brand={product.brand?.name} noLoyalty={product.no_loyalty} size="lg" />
             </div>
             {product.color_name && <p className="mt-2 text-[13px] text-muted">Цвет: {product.color_name}</p>}
             {product.preorder && (
@@ -109,7 +109,7 @@ export default async function ProductPage({ params }: Props) {
                 Товар ещё едет к нам{arrivalDate(product.preorder_date) ? <>, ожидаем <b className="font-medium">{arrivalDate(product.preorder_date)}</b></> : null}. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
               </p>
             )}
-            {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидки программы LAFLAMME на этот товар не действуют</p>}
+            {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка LAFLAMME Club на этот товар не действует</p>}
 
             <div className="mt-8">
               <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} />

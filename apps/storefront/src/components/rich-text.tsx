@@ -5,8 +5,8 @@ import type { ReactNode } from "react"
 import { absMedia, type LexicalNode } from "@/lib/blog"
 
 /** Текст статьи из редактора Payload (Lexical) -> HTML. Поддерживаются блоки, которые даёт редактор CMS. */
-export function RichText({ root }: { root: LexicalNode }) {
-  return <div className="article">{render(root.children)}</div>
+export function RichText({ root, className = "article" }: { root: LexicalNode; className?: string }) {
+  return <div className={className}>{render(root.children)}</div>
 }
 
 // Битовые флаги форматирования Lexical

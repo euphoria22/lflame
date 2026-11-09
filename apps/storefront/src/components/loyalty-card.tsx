@@ -25,7 +25,7 @@ export function LoyaltyCard({ s }: { s: LoyaltyStatus }) {
   if (!s.confirmed) {
     return (
       <div className="rounded-[22px] bg-foreground p-6 text-background">
-        <p className="eyebrow opacity-60">Программа LAFLAMME</p>
+        <p className="eyebrow opacity-60">LAFLAMME Club</p>
         <p className="mt-2 text-[20px]">Уровень по телефону</p>
         <p className="mt-2 text-[13px] leading-relaxed opacity-70">
           {s.phone
@@ -39,7 +39,7 @@ export function LoyaltyCard({ s }: { s: LoyaltyStatus }) {
   const pct = s.next ? Math.min(100, Math.round(((s.total - s.level.threshold) / (s.next.threshold - s.level.threshold)) * 100)) : 100
   return (
     <div className="rounded-[22px] bg-foreground p-6 text-background">
-      <p className="eyebrow opacity-60">Программа LAFLAMME</p>
+      <p className="eyebrow opacity-60">LAFLAMME Club</p>
       <div className="mt-2 flex items-baseline justify-between">
         <p className="text-[26px] tracking-tight">{s.level.name}</p>
         <p className="text-[15px]">{s.level.discount ? `−${s.level.discount}%` : ""}</p>

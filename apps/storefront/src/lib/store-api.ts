@@ -95,7 +95,7 @@ function promoOf(c: MedusaCart): Cart["promo"] {
   const applied = (c.promotions ?? []).some((p) => p.code?.toUpperCase() === code.toUpperCase())
   return applied
     ? { code, applied, saved: Math.round(Number(c.discount_total ?? 0)), note: null }
-    : { code, applied, saved: 0, note: "Скидка LAFLAMME выгоднее — применили её. Промокод и скидка не суммируются." }
+    : { code, applied, saved: 0, note: "Скидка LAFLAMME Club выгоднее — применили её. Промокод и скидка не суммируются." }
 }
 
 function loyaltyOf(c: MedusaCart): Cart["loyalty"] {

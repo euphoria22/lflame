@@ -53,7 +53,7 @@ export function PromoField({ className = "" }: { className?: string }) {
         </button>
       </div>
       {error && <p className="mt-1.5 text-[12px] text-sale" role="alert">{error}</p>}
-      <p className="mt-1.5 text-[12px] leading-snug text-subtle">Не суммируется со скидкой LAFLAMME — применим ту, что выгоднее.</p>
+      <p className="mt-1.5 text-[12px] leading-snug text-subtle">Не суммируется со скидкой LAFLAMME Club — применим ту, что выгоднее.</p>
     </div>
   )
 }

@@ -59,7 +59,7 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
         </h3>
         <div className="mt-auto pt-2">
           <Price price={item.price} compareAt={item.compare_at} />
-          <YourPrice price={item.price} compareAt={item.compare_at} brand={item.brand?.name} noLoyalty={item.no_loyalty} />
+          <YourPrice price={item.price} brand={item.brand?.name} noLoyalty={item.no_loyalty} />
         </div>
       </div>
     </article>

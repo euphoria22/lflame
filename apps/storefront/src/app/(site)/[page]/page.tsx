@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { Breadcrumbs } from "@/components/breadcrumbs"
+import { InfoPage as InfoShell } from "@/components/info-page"
 import { RichText } from "@/components/rich-text"
 import { getInfoPage } from "@/lib/blog"
 import { routes } from "@/lib/routes"
@@ -28,11 +28,8 @@ export default async function InfoPage({ params }: Props) {
   const p = await load((await params).page)
   if (!p) notFound()
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-24 pt-6 md:px-8">
-      <Breadcrumbs items={[{ name: p.title, href: routes.page(p.slug) }]} />
-      <h1 className="mt-6 text-[28px] tracking-tight md:text-[40px]">{p.title}</h1>
-      {p.intro && <p className="mt-3 text-[16px] leading-relaxed text-muted">{p.intro}</p>}
-      {p.content && <div className="mt-10"><RichText root={p.content.root} /></div>}
-    </div>
+    <InfoShell crumbs={[{ name: p.title, href: routes.page(p.slug) }]} title={p.title} intro={p.intro}>
+      {p.content && <div className="max-w-3xl"><RichText root={p.content.root} className="info-text" /></div>}
+    </InfoShell>
   )
 }

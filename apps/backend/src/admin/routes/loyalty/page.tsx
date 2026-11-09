@@ -64,7 +64,7 @@ const LoyaltyPage = () => {
     <div className="flex flex-col gap-y-3">
       <Container className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
         <div>
-          <Heading level="h1">Программа лояльности LAFLAMME</Heading>
+          <Heading level="h1">LAFLAMME Club — программа лояльности</Heading>
           <Text size="small" className="text-ui-fg-subtle">
             Уровень — по сумме покупок за {settings.period_days} дней: сайт + магазин (из МоегоСклада). Клиент = номер телефона.
           </Text>
