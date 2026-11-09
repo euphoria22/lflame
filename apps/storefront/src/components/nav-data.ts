@@ -13,6 +13,7 @@ export type NavGender = { slug: GenderSlug; name: string; categories: NavCategor
 const DEFAULT_TILES = [
   { category: "kurtki", label: null, image: null },
   { category: "hudi-i-svitshoty", label: null, image: null },
+  { category: "svitery-i-kardigany", label: null, image: null },
 ]
 
 /** Фото для плитки меню: товар в наличии, предпочтительно верхняя одежда и трикотаж. */

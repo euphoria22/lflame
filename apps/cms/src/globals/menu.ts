@@ -22,7 +22,7 @@ export const MENU_CATEGORIES = [
 const tiles = (name: string, label: string): Field => ({
   name, type: "array", label, maxRows: 3,
   labels: { singular: "Плитка", plural: "Плитки" },
-  admin: { description: "До 3 плиток с фото справа в выпадающем меню. Пусто — «Куртки» и «Худи и свитшоты» с фото из каталога" },
+  admin: { description: "До 3 плиток с фото справа в выпадающем меню. Пусто — «Куртки», «Худи и свитшоты», «Свитеры и кардиганы» с фото из каталога" },
   fields: [
     { name: "category", type: "select", label: "Категория", required: true, options: MENU_CATEGORIES },
     { name: "label", type: "text", label: "Подпись (необязательно)", maxLength: 30, admin: { description: "Пусто — название категории" } },

@@ -23,9 +23,9 @@ const PANEL = "pointer-events-none invisible absolute inset-x-0 top-full pt-2 op
 /** Плитка с фото в меню (как у Brandshop): фото 3:4 и подпись капслоком. */
 function MenuTile({ tile }: { tile: NavTile }) {
   return (
-    <Link href={tile.href} className="group/tile block w-[240px] min-w-0 shrink">
+    <Link href={tile.href} className="group/tile block min-w-0 max-w-[240px] flex-1">
       <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface">
-        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="260px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
+        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="240px" className="object-cover transition-transform duration-500 group-hover/tile:scale-[1.04]" />}
       </span>
       <span className="eyebrow mt-2 block text-center">{tile.label}</span>
     </Link>
@@ -62,7 +62,7 @@ export async function Header() {
                       ))}
                     </ul>
                   </div>
-                  <div className="flex w-[440px] justify-end gap-4">{nav.brandTiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
+                  <div className="flex w-[clamp(300px,28vw,480px)] justify-end gap-4">{nav.brandTiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                 </div>
               </div>
             </li>
@@ -70,24 +70,24 @@ export async function Header() {
               <li key={g.slug} className="group flex h-14 items-center">
                 <Link href={routes.gender(g.slug)} className={link}>{g.name}</Link>
                 <div className={PANEL}>
-                  <div className="glass-strong grid w-fit max-w-full grid-cols-[minmax(0,200px)_minmax(0,240px)_auto] gap-10 rounded-[28px] p-8">
+                  <div className="glass-strong grid grid-cols-[auto_auto_minmax(0,752px)] justify-between gap-12 rounded-[28px] p-8">
                     <div>
                       <Link href={routes.brands()} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все бренды</Link>
-                      <ul className="text-[14px] leading-8">
+                      <ul className="columns-2 gap-12 text-[15px] leading-9">
                         {g.brands.map((b) => (
-                          <li key={b.handle}><Link href={routes.brandGender(b.handle, g.slug)} className="hover:opacity-60">{b.name}</Link></li>
+                          <li key={b.handle} className="break-inside-avoid whitespace-nowrap"><Link href={routes.brandGender(b.handle, g.slug)} className="hover:opacity-60">{b.name}</Link></li>
                         ))}
                       </ul>
                     </div>
                     <div>
                       <Link href={routes.gender(g.slug)} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все категории</Link>
-                      <ul className="text-[14px] leading-8">
+                      <ul className="columns-2 gap-12 text-[15px] leading-9">
                         {g.categories.map((c) => (
-                          <li key={c.handle}><Link href={routes.category(g.slug, c.handle)} className="hover:opacity-60">{c.name}</Link></li>
+                          <li key={c.handle} className="break-inside-avoid whitespace-nowrap"><Link href={routes.category(g.slug, c.handle)} className="hover:opacity-60">{c.name}</Link></li>
                         ))}
                       </ul>
                     </div>
-                    <div className="flex items-start gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
+                    <div className="flex items-start justify-end gap-4">{g.tiles.map((t) => <MenuTile key={t.href} tile={t} />)}</div>
                   </div>
                 </div>
               </li>
