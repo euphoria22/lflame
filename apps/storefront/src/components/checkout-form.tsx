@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -10,6 +9,8 @@ import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
+import { CartLines } from "./cart-lines"
+import { CartProgress } from "./cart-progress"
 import { DeliveryPicker } from "./delivery-picker"
 import { LoyaltyLine } from "./loyalty-line"
 
@@ -105,7 +106,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">2. Получение</h2>
           <DeliveryPicker value={delivery} onChange={(d) => { setDelivery(d); setErrors((x) => ({ ...x, delivery: "" })) }}
-            quote={quote} onQuote={setQuote} error={errors.delivery} />
+            quote={quote} onQuote={setQuote} error={errors.delivery} refreshKey={`${cart?.item_total ?? 0}:${cart?.count ?? 0}`} />
         </section>
 
         <section className="mt-10">
@@ -143,26 +144,15 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
 
       <aside className="h-fit rounded-[22px] bg-surface p-6 md:sticky md:top-[96px]">
         <p className="text-[17px]">Ваш заказ</p>
-        <ul className="mt-4 space-y-3">
-          {cart?.lines.map((l) => (
-            <li key={l.id} className="flex gap-3 text-[13px]">
-              <span className="relative h-16 w-12 shrink-0 overflow-hidden bg-background">
-                {l.thumbnail && <Image src={l.thumbnail} alt="" fill sizes="48px" className="blend object-contain" />}
-              </span>
-              <span className="flex-1"><span className="line-clamp-2">{l.title}</span><span className="text-muted">{l.size} · {l.quantity} шт.</span></span>
-              <span className="text-right">
-                {l.base_price && l.base_price > l.unit_price && <s className="block text-[11px] text-muted">{formatPrice(l.base_price * l.quantity)}</s>}
-                {formatPrice(l.total)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* Размер и количество можно поменять и здесь */}
+        {cart && <div className="mt-2"><CartLines cart={cart} compact /></div>}
         <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
           <div className="flex justify-between"><span className="text-muted">Товары</span><span>{formatPrice((cart?.item_total ?? 0) + (cart?.loyalty?.saved ?? 0))}</span></div>
           <LoyaltyLine cart={cart} />
           <div className="flex justify-between"><span className="text-muted">Доставка</span><span>{!quote ? "—" : quote.amount === 0 ? "Бесплатно" : formatPrice(quote.amount)}</span></div>
           <div className="flex justify-between pt-2 text-[17px]"><span>Итого</span><span>{formatPrice((cart?.item_total ?? 0) + (quote?.amount ?? 0))}</span></div>
         </div>
+        {cart && <CartProgress total={cart.item_total} className="mt-4 border-t border-line pt-4" />}
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
           {sending ? "Оформляем…" : payment === "tbank" ? "Перейти к оплате" : "Подтвердить заказ"}

@@ -13,6 +13,7 @@ type CartState = {
   add: (variantId: string, quantity?: number) => Promise<boolean>
   update: (lineId: string, quantity: number) => Promise<void>
   remove: (lineId: string) => Promise<void>
+  changeSize: (lineId: string, variantId: string) => Promise<void>
   refresh: () => Promise<void>
   clear: () => void
 }
@@ -67,9 +68,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     await call(`/api/cart/items/${lineId}`, { method: "DELETE" })
   }, [call])
 
+  const changeSize = useCallback(async (lineId: string, variantId: string) => {
+    await call(`/api/cart/items/${lineId}`, { method: "PATCH", body: JSON.stringify({ variant_id: variantId }) })
+  }, [call])
+
   const clear = useCallback(() => setCart(null), [])
 
-  return <Ctx.Provider value={{ cart, open, busy, error, setOpen, add, update, remove, refresh, clear }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ cart, open, busy, error, setOpen, add, update, remove, changeSize, refresh, clear }}>{children}</Ctx.Provider>
 }
 
 export function useCart(): CartState {

@@ -19,6 +19,8 @@ type Props = {
   quote: Quote | null
   onQuote: (q: Quote | null) => void
   error?: string
+  /** Меняется вместе с составом корзины — цена доставки пересчитывается */
+  refreshKey?: string
 }
 
 const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
@@ -33,7 +35,7 @@ const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
  * Выбор способа получения (ТЗ, п. 5.2): город с подсказками СДЭК, пункты выдачи и отделения
  * Почты на карте и списком с поиском, адрес для курьера; цена и срок пересчитываются сразу.
  */
-export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props) {
+export function DeliveryPicker({ value, onChange, quote, onQuote, error, refreshKey }: Props) {
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const set = (patch: Partial<DeliveryChoice>) => onChange({ ...value, ...patch })
@@ -68,7 +70,7 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error }: Props
     return () => { cancelled = true }
     // onQuote стабилен по смыслу; пересчёт — только при смене входных данных
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.kind, value.city_code, value.pvz_code, value.postal_code, ready])
+  }, [value.kind, value.city_code, value.pvz_code, value.postal_code, ready, refreshKey])
 
   return (
     <div className="space-y-2">

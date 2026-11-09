@@ -5,7 +5,7 @@ import Link from "next/link"
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
 import { useCart } from "./cart-context"
-import { FreeShippingNote } from "./free-shipping-note"
+import { CartProgress } from "./cart-progress"
 import { CartLines } from "./cart-lines"
 import { LoyaltyLine } from "./loyalty-line"
 
@@ -22,7 +22,7 @@ export function CartPageView() {
             <div className="flex justify-between text-[15px]"><span>Товары</span><span>{formatPrice(cart.item_total + (cart.loyalty?.saved ?? 0))}</span></div>
             <LoyaltyLine cart={cart} className="mt-1" />
             {cart.loyalty && <div className="mt-1 flex justify-between text-[15px]"><span>Итого</span><span>{formatPrice(cart.item_total)}</span></div>}
-            <FreeShippingNote total={cart.item_total} />
+            <CartProgress total={cart.item_total} className="mt-3" />
             <Link href="/checkout" className="mt-6 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
           </aside>
         </div>

@@ -1,0 +1,90 @@
+"use client"
+
+import Link from "next/link"
+import { useEffect, useState } from "react"
+
+import { formatPrice } from "@/lib/format"
+import type { LoyaltyStatus } from "./loyalty-card"
+
+// Настройки и уровень загружаются один раз на вкладку
+let optionsReq: Promise<number> | null = null
+let loyaltyReq: Promise<{ logged: boolean; loyalty?: LoyaltyStatus }> | null = null
+
+/** После входа или выхода уровень нужно запросить заново. */
+export function resetCartProgress() {
+  loyaltyReq = null
+}
+
+function loadThreshold(): Promise<number> {
+  optionsReq ??= fetch("/api/checkout/options").then((r) => r.json()).then((d: { free_shipping_from?: number }) => Number(d.free_shipping_from ?? 0)).catch(() => 0)
+  return optionsReq
+}
+function loadLoyalty() {
+  loyaltyReq ??= fetch("/api/account/loyalty").then((r) => r.json()).catch(() => ({ logged: false }))
+  return loyaltyReq
+}
+
+function Bar({ pct }: { pct: number }) {
+  return (
+    <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-line" aria-hidden>
+      <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
+    </div>
+  )
+}
+
+/**
+ * Прогресс в корзине: бесплатная доставка и уровень программы LAFLAMME.
+ * Показывается в панели корзины, на странице корзины и при оформлении.
+ */
+export function CartProgress({ total, className = "" }: { total: number; className?: string }) {
+  const [from, setFrom] = useState<number | null>(null)
+  const [loy, setLoy] = useState<{ logged: boolean; loyalty?: LoyaltyStatus } | null>(null)
+  useEffect(() => {
+    loadThreshold().then(setFrom)
+    loadLoyalty().then(setLoy)
+  }, [])
+
+  const left = from ? from - total : 0
+  const l = loy?.loyalty
+  // Сумма за год + ожидающие зачёта + этот заказ
+  const projected = l ? l.total + l.pending + total : 0
+  const nextAfter = l ? l.tiers.find((t) => t.threshold > projected) ?? null : null
+  const reached = l?.next && projected >= l.next.threshold ? l.tiers.filter((t) => t.threshold <= projected).pop() : null
+
+  return (
+    <div className={`space-y-3 ${className}`}>
+      {!!from && (
+        <div>
+          <p className="text-[12px] text-muted">
+            {left > 0 ? <>До бесплатной доставки — <span className="text-foreground">{formatPrice(left)}</span></> : <span className="text-foreground">Бесплатная доставка до пункта СДЭК и Почтой России</span>}
+          </p>
+          <Bar pct={(total / from) * 100} />
+        </div>
+      )}
+
+      {loy && !loy.logged && (
+        <p className="text-[12px] text-muted">
+          <Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Войдите</Link> — скидка до 15% по программе LAFLAMME
+        </p>
+      )}
+      {l?.enabled && !l.confirmed && (
+        <p className="text-[12px] text-muted">
+          Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы копить на скидку LAFLAMME
+        </p>
+      )}
+      {l?.enabled && l.confirmed && (
+        <div>
+          <p className="text-[12px] text-muted">
+            {reached
+              ? <>С этим заказом — уровень <span className="text-foreground">{reached.name} (−{reached.discount}%)</span></>
+              : nextAfter
+                ? <>До {nextAfter.name} (−{nextAfter.discount}%) с этим заказом — <span className="text-foreground">{formatPrice(nextAfter.threshold - projected)}</span></>
+                : <>У вас высший уровень {l.level.name}</>}
+            {l.level.discount > 0 && <> · ваша скидка {l.level.name} −{l.level.discount}% уже в цене</>}
+          </p>
+          {(reached || nextAfter) && <Bar pct={nextAfter ? (projected / nextAfter.threshold) * 100 : 100} />}
+        </div>
+      )}
+    </div>
+  )
+}

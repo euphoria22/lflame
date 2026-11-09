@@ -29,3 +29,6 @@ export const ChevronIcon = ({ className }: P) => (
 export const FilterIcon = ({ className }: P) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...base}><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
 )
+export const TrashIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...base}><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg>
+)
