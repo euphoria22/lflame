@@ -45,7 +45,7 @@ $COMPOSE up -d cms
 wait_for http://127.0.0.1:3001/cms "CMS" cms
 
 echo "== Витрина"
-$COMPOSE build storefront
+$COMPOSE build --build-arg BUILD_ID="$(date +%s)" storefront
 $COMPOSE up -d storefront caddy
 
 docker image prune -f >/dev/null

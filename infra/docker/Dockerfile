@@ -66,7 +66,9 @@ ARG INDEXING
 ENV NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=$NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY \
     NEXT_PUBLIC_YM_ID=$NEXT_PUBLIC_YM_ID MEDUSA_BACKEND_URL=$MEDUSA_BACKEND_URL CMS_URL=$CMS_URL CMS_PUBLIC_URL=$CMS_PUBLIC_URL \
     IMAGES_CDN_URL=$IMAGES_CDN_URL INDEXING=$INDEXING
-RUN npm run build -w @lflame/storefront
+# Каждая выкладка — новая сборка витрины: страницы собираются с актуальным каталогом (кэш Docker тут неуместен)
+ARG BUILD_ID
+RUN echo "build $BUILD_ID" && npm run build -w @lflame/storefront
 
 FROM node:22-alpine AS storefront
 WORKDIR /repo
