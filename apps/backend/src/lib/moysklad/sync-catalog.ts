@@ -46,6 +46,8 @@ export type SyncCatalogStats = {
   skipped_no_price: number
   discontinued: number
   images_uploaded: number
+  /** Черновики без фото, получившие фото из МС и опубликованные */
+  images_published?: number
   categories_created: number
   brands_created: number
   errors: number
@@ -194,7 +196,10 @@ export async function syncCatalog(
     }
   }
 
-  // 6. Остатки
+  // 6. Товары, созданные без фото (черновики): фото могли добавить в МС позже
+  await retryMissingImages(ctx, stats)
+
+  // 7. Остатки
   stats.stock = await syncStockLevels(ctx, freeStock)
   return stats
 }
@@ -441,6 +446,35 @@ async function importImages(
   const { result } = await uploadFilesWorkflow(ctx.container).run({ input: { files } })
   stats.images_uploaded += result.length
   return result.map((f) => f.url)
+}
+
+/**
+ * Товар без фото создаётся черновиком (п. 2.3). Если фото потом добавили в МС — забираем их и публикуем.
+ * Проверяются только черновики без фото, не снятые с продажи; уже загруженные фото сайт не трогает.
+ */
+export async function retryMissingImages(ctx: SyncContext, stats: SyncCatalogStats) {
+  const { data } = await ctx.query.graph({
+    entity: "product",
+    fields: ["id", "handle", "external_id", "metadata", "images.id"],
+    filters: { status: ProductStatus.DRAFT },
+    pagination: { take: 5000 },
+  })
+  const waiting = (data as { id: string; handle: string; external_id: string | null; metadata: Record<string, unknown> | null; images?: { id: string }[] }[])
+    .filter((p) => p.external_id && !p.images?.length && !p.metadata?.discontinued)
+  for (const p of waiting) {
+    try {
+      const images = await importImages(ctx, p.external_id!, p.handle, stats)
+      if (!images.length) continue
+      await updateProductsWorkflow(ctx.container).run({
+        input: { products: [{ id: p.id, images: images.map((url) => ({ url })), thumbnail: images[0], status: ProductStatus.PUBLISHED }] },
+      })
+      stats.images_published = (stats.images_published ?? 0) + 1
+      ctx.container.resolve(ContainerRegistrationKeys.LOGGER).info(`МойСклад: у товара ${p.handle} появились фото — опубликован`)
+    } catch (e) {
+      stats.errors++
+      ctx.container.resolve(ContainerRegistrationKeys.LOGGER).warn(`МойСклад: фото для ${p.handle} не загружены: ${(e as Error).message}`)
+    }
+  }
 }
 
 async function linkBrand(ctx: SyncContext, productId: string, brandId: string | null, previous?: string | null) {
