@@ -23,6 +23,8 @@ git pull --ff-only
 echo "== Бэкап базы перед выкладкой"
 if $COMPOSE ps postgres --status running -q | grep -q .; then bash infra/scripts/backup.sh pre-deploy; fi
 
+[ -s infra/certs/russian-trusted-ca.pem ] || bash infra/scripts/ru-ca.sh || echo "ВНИМАНИЕ: нет сертификатов Минцифры — оплата Т-Банка может не работать"
+
 echo "== База, Redis, Medusa"
 $COMPOSE build backend
 $COMPOSE up -d postgres redis backend

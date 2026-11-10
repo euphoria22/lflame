@@ -62,3 +62,4 @@ Thumbs.db
 infra/.env
 infra/.env.backend
 infra/backups/
+infra/certs/
