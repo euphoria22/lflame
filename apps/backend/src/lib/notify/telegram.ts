@@ -9,12 +9,20 @@ export async function sendTelegram(text: string, log: { info: (m: string) => voi
     log.info(`[Telegram не настроен] ${text}`)
     return
   }
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }),
-  })
-  if (!res.ok) log.warn(`Telegram: ${res.status} ${await res.text().catch(() => "")}`)
+  // TELEGRAM_API_URL — посредник, если api.telegram.org недоступен с сервера (в РФ бывает заблокирован)
+  const api = (process.env.TELEGRAM_API_URL || "https://api.telegram.org").replace(/\/+$/, "")
+  try {
+    const res = await fetch(`${api}/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }),
+      // Недоступный Telegram не должен задерживать заказы и задачи
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) log.warn(`Telegram: ${res.status} ${await res.text().catch(() => "")}`)
+  } catch (e) {
+    log.warn(`Telegram недоступен: ${(e as Error).message}`)
+  }
 }
 
 export const esc = (s: unknown) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)

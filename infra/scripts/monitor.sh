@@ -11,7 +11,7 @@ alert() { # $1 — ключ, $2 — текст
   local f="$STATE/$1"
   if [ -f "$f" ] && [ $(( $(date +%s) - $(stat -c %Y "$f") )) -lt 3600 ]; then return; fi
   touch "$f"
-  [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && curl -fsS -m 10 "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+  [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && curl -fsS -m 10 "${TELEGRAM_API_URL:-https://api.telegram.org}/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
     -d chat_id="$TELEGRAM_CHAT_ID" --data-urlencode text="⚠️ Laflamme: $2" >/dev/null || true
 }
 ok() { rm -f "$STATE/$1"; }
