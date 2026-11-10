@@ -17,6 +17,7 @@ import { Home } from "./globals/home"
 import { Menu } from "./globals/menu"
 import { seedPages } from "./seed/pages"
 import { seedSizeCharts } from "./seed/size-charts"
+import { migrations } from "./migrations"
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -83,6 +84,11 @@ export default buildConfig({
     pool: {
       connectionString: process.env.PAYLOAD_DATABASE_URL || "",
     },
+    // Таблицы в production создаются миграциями (в разработке — автоматически).
+    // Новая миграция после изменения коллекций: временный вызов payload.db.createMigration (CLI Payload здесь не работает)
+    migrationDir: path.resolve(dirname, "migrations"),
+    // В production недостающие миграции применяются при запуске CMS
+    prodMigrations: migrations,
   }),
   sharp,
   telemetry: false,
