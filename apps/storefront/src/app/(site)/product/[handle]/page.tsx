@@ -29,7 +29,8 @@ export const instant = false
 
 export async function generateStaticParams() {
   const items = await getCatalog()
-  return items.map((i) => ({ handle: i.handle }))
+  // Пустой каталог (первый запуск сервера): Next.js требует хотя бы один адрес — заглушка отдаёт 404
+  return items.length ? items.map((i) => ({ handle: i.handle })) : [{ handle: "_" }]
 }
 
 /** Раздел для крошек и ссылок: унисекс показываем в мужском (ассортимент в основном мужской). */

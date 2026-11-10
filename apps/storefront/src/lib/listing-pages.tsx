@@ -245,8 +245,10 @@ export type { GenderSlug }
 /** Параметры для generateStaticParams: только страницы с товарами (п. 7.3). */
 export async function staticParams(pattern: RegExp, names: string[]): Promise<Record<string, string>[]> {
   const paths = await listingPaths()
-  return paths
+  const params = paths
     .map((p) => p.path.match(pattern))
     .filter((m): m is RegExpMatchArray => Boolean(m))
     .map((m) => Object.fromEntries(names.map((n, i) => [n, m[i + 1]])))
+  // Пустой каталог (первый запуск сервера): Next.js требует хотя бы один адрес — заглушка отдаёт 404
+  return params.length ? params : [Object.fromEntries(names.map((n) => [n, "_"]))]
 }
