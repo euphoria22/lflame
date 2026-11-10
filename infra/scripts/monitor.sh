@@ -4,7 +4,7 @@
 # Берёт TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID из infra/.env.backend. Повторно о той же проблеме — не чаще раза в час.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
-set -a; . infra/.env; . infra/.env.backend; set +a
+. infra/scripts/lib-env.sh; load_env infra/.env; load_env infra/.env.backend
 STATE="/tmp/lflame-monitor"; mkdir -p "$STATE"
 
 alert() { # $1 — ключ, $2 — текст

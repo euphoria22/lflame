@@ -5,7 +5,7 @@
 # (адрес rclone, например «yandex:lflame-backups»; настроить: rclone config). Хранение — 30 дней.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-set -a; . infra/.env; set +a
+. infra/scripts/lib-env.sh; load_env infra/.env
 LABEL="${1:-daily}"
 STAMP="$(date +%Y%m%d-%H%M)"
 DIR="infra/backups"

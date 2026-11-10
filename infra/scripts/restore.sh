@@ -4,7 +4,7 @@
 # ВНИМАНИЕ: заменяет текущие базы. На рабочем сервере — только если всё сломалось.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-set -a; . infra/.env; set +a
+. infra/scripts/lib-env.sh; load_env infra/.env
 FILE="${1:?Укажите файл бэкапа}"
 read -r -p "Базы будут заменены данными из $FILE. Продолжить? Напишите ДА: " ok
 [ "$ok" = "ДА" ] || exit 1
