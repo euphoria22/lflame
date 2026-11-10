@@ -1,7 +1,7 @@
 # Сборка LAFLAMME: один Dockerfile, цели backend / cms / storefront (ТЗ, п. 8.1).
 # Все сервисы работают не от root (пользователь node).
 
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /repo
 COPY package.json package-lock.json turbo.json ./
 COPY apps/backend/package.json apps/backend/
@@ -20,7 +20,7 @@ RUN npm run build -w @lflame/backend
 FROM backend-build AS backend-prune
 RUN npm prune --omit=dev --no-audit --no-fund && mkdir -p apps/backend/node_modules
 
-FROM node:22-alpine AS backend
+FROM node:26-alpine AS backend
 ENV MEDUSA_DISABLE_TELEMETRY=true
 ENV NODE_ENV=production
 COPY --from=backend-prune --chown=node:node /repo/node_modules /repo/node_modules
@@ -42,7 +42,7 @@ ARG PAYLOAD_SECRET
 ENV NEXT_TELEMETRY_DISABLED=1 CMS_URL=$CMS_URL PAYLOAD_DATABASE_URL=$PAYLOAD_DATABASE_URL PAYLOAD_SECRET=$PAYLOAD_SECRET
 RUN npm run build -w @lflame/cms
 
-FROM node:22-alpine AS cms
+FROM node:26-alpine AS cms
 WORKDIR /repo
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PAYLOAD_TELEMETRY_DISABLED=1
 COPY --from=cms-build --chown=node:node /repo /repo
@@ -70,7 +70,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL NEXT_PU
 ARG BUILD_ID
 RUN echo "build $BUILD_ID" && npm run build -w @lflame/storefront
 
-FROM node:22-alpine AS storefront
+FROM node:26-alpine AS storefront
 WORKDIR /repo
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PAYLOAD_TELEMETRY_DISABLED=1
 COPY --from=storefront-build --chown=node:node /repo /repo
