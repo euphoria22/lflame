@@ -75,6 +75,8 @@ const fileModules = S3_BUCKET
               region: process.env.S3_REGION,
               bucket: S3_BUCKET,
               endpoint: process.env.S3_ENDPOINT,
+              // Адреса вида https://s3.regru.cloud/бакет — так работают все российские S3
+              additional_client_config: { forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== "false" },
             },
           },
         ],
