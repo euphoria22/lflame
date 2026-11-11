@@ -14,7 +14,11 @@ export async function sendTelegram(text: string, log: { info: (m: string) => voi
   try {
     const res = await fetch(`${api}/bot${token}/sendMessage`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Секрет посредника (infra/telegram-relay): без него посредник не пропустит сообщение
+        ...(process.env.TELEGRAM_RELAY_SECRET ? { "X-Relay-Secret": process.env.TELEGRAM_RELAY_SECRET } : {}),
+      },
       body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }),
       // Недоступный Telegram не должен задерживать заказы и задачи
       signal: AbortSignal.timeout(10_000),
