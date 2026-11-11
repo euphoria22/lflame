@@ -122,13 +122,14 @@ export function scopeItems(items: CatalogItem[], scope: ListingScope): CatalogIt
   })
   if (scope.onlyNew) {
     const fresh = res.filter((i) => isNew(i))
-    // Если новинок мало (например, давно не было поступлений) — показываем последние поступившие
-    res = fresh.length >= 24 ? fresh : [...res].sort(byNew).slice(0, 96)
+    // Новинок нет совсем (давно не было поступлений и ничего не отмечено) — последние поступившие, чтобы раздел не пустовал
+    res = fresh.length ? fresh : [...res].sort(byNew).slice(0, 96)
   }
   return res
 }
 
-const byNew = (a: CatalogItem, b: CatalogItem) => b.created_at.localeCompare(a.created_at)
+// Сначала новинки (в т.ч. отмеченные вручную), затем по дате появления на сайте
+const byNew = (a: CatalogItem, b: CatalogItem) => Number(isNew(b)) - Number(isNew(a)) || b.created_at.localeCompare(a.created_at)
 
 function sortItems(items: CatalogItem[], sort: SortKey): CatalogItem[] {
   const arr = [...items]

@@ -3,7 +3,7 @@ import type { AdminProduct, DetailWidgetProps } from "@medusajs/framework/types"
 import { Button, Container, Heading, Input, Label, Switch, Text, Textarea, toast } from "@medusajs/ui"
 import { useState } from "react"
 
-type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null }
+type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean }
 type Patch = Partial<Flags>
 
 /** Флажки товара для сайта: предзаказ (с ожидаемой датой поступления), Outlet (с описанием дефекта) и исключение из программы лояльности. */
@@ -13,6 +13,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
   const [noLoyalty, setNoLoyalty] = useState(Boolean(m.no_loyalty))
   const [date, setDate] = useState(typeof m.preorder_date === "string" ? m.preorder_date : "")
   const [savedDate, setSavedDate] = useState(date)
+  const [isNew, setIsNew] = useState(m.is_new === true)
   const [outlet, setOutlet] = useState(Boolean(m.outlet))
   const [note, setNote] = useState(typeof m.outlet_note === "string" ? m.outlet_note : "")
   const [savedNote, setSavedNote] = useState(note)
@@ -30,6 +31,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
       setNoLoyalty(d.no_loyalty)
       setDate(d.preorder_date ?? "")
       setSavedDate(d.preorder_date ?? "")
+      setIsNew(d.is_new)
       setOutlet(d.outlet)
       setNote(d.outlet_note ?? "")
       setSavedNote(d.outlet_note ?? "")
@@ -61,6 +63,13 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
                 <Text size="xsmall" className="mt-1 text-ui-fg-muted">На сайте: «Предзаказ · 15 декабря». Пусто — без даты.</Text>
               </div>
             )}
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <Switch id="lf-new" className="mt-0.5 shrink-0" checked={isNew} disabled={busy} onCheckedChange={(v) => save({ is_new: v })} />
+          <div className="min-w-0 flex-1">
+            <Label htmlFor="lf-new" weight="plus">Новинка</Label>
+            <Text size="small" className="text-ui-fg-subtle">Товар в разделе «Новинки» и с пометкой New, пока флажок включён. Новые поступления из МоегоСклада попадают в новинки сами на 45 дней.</Text>
           </div>
         </div>
         <div className="flex items-start gap-3">

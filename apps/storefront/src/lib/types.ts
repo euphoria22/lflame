@@ -30,6 +30,10 @@ export type CatalogItem = {
   old_path?: string | null
   /** Вычисляется витриной при загрузке каталога */
   is_new?: boolean
+  /** Флажок «Новинка» в админке */
+  new_manual?: boolean
+  /** Пришёл с первой загрузкой каталога — новинкой сам по себе не считается */
+  initial_import?: boolean
 }
 
 export type CatalogVariant = {

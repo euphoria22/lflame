@@ -33,6 +33,10 @@ export type CatalogItem = {
   preorder: boolean
   /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
   preorder_date: string | null
+  /** Флажок «Новинка» в админке: товар в новинках независимо от даты */
+  new_manual: boolean
+  /** Пришёл с первой загрузкой каталога (запуск сайта) — не новинка, если не отмечен вручную */
+  initial_import: boolean
   /** Outlet: вещь с небольшим дефектом (флажок в админке) и описание дефекта */
   outlet: boolean
   outlet_note: string | null
@@ -140,7 +144,7 @@ function toVariants(row: Row, stock: Map<string, number>): CatalogVariant[] {
     .map(({ rank: _rank, ...v }) => v)
 }
 
-function toItem(row: Row, variants: CatalogVariant[]): CatalogItem {
+function toItem(row: Row, variants: CatalogVariant[], start: number): CatalogItem {
   const images = [...(row.images ?? [])].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((i) => i.url)
   const inStock = variants.filter((v) => v.available > 0)
   const pool = (inStock.length ? inStock : variants).filter((v) => v.price > 0)
@@ -163,6 +167,8 @@ function toItem(row: Row, variants: CatalogVariant[]): CatalogItem {
     in_stock: inStock.length > 0,
     preorder: Boolean(meta.preorder),
     preorder_date: meta.preorder && typeof meta.preorder_date === "string" ? meta.preorder_date : null,
+    new_manual: meta.is_new === true,
+    initial_import: new Date(row.created_at).getTime() < start + INITIAL_IMPORT_WINDOW,
     outlet: Boolean(meta.outlet),
     outlet_note: meta.outlet && typeof meta.outlet_note === "string" ? meta.outlet_note : null,
     no_loyalty: Boolean(meta.no_loyalty),
@@ -190,6 +196,21 @@ async function salesChannelId(container: MedusaContainer): Promise<string> {
   return data[0]?.default_sales_channel_id as string
 }
 
+/** Первая загрузка каталога длится не дольше суток: всё, что создано в эти сутки, — стартовый ассортимент. */
+const INITIAL_IMPORT_WINDOW = 24 * 3600 * 1000
+let catalogStartCache: number | null = null
+
+/** Когда на сайте появился первый товар (начало первой загрузки из МоегоСклада). */
+async function catalogStart(container: MedusaContainer): Promise<number> {
+  if (catalogStartCache !== null) return catalogStartCache
+  const { data } = await resolveQuery(container).graph({
+    entity: "product", fields: ["created_at"], pagination: { take: 1, order: { created_at: "ASC" } },
+  })
+  const first = data[0] ? new Date((data[0] as { created_at: string | Date }).created_at).getTime() : Date.now()
+  catalogStartCache = first
+  return first
+}
+
 /** Все опубликованные товары канала «Интернет-магазин» в лёгком виде для листингов. */
 export async function loadCatalogItems(container: MedusaContainer): Promise<CatalogItem[]> {
   const query = resolveQuery(container)
@@ -208,7 +229,8 @@ export async function loadCatalogItems(container: MedusaContainer): Promise<Cata
   }
   const visible = rows.filter((r) => r.sales_channels?.some((s) => s.id === channel))
   const stock = await availability(container, visible.flatMap((r) => (r.variants ?? []).map((v) => v.id)), channel)
-  return visible.map((r) => toItem(r, toVariants(r, stock))).filter((i) => i.price > 0)
+  const start = await catalogStart(container)
+  return visible.map((r) => toItem(r, toVariants(r, stock), start)).filter((i) => i.price > 0)
 }
 
 /**
@@ -232,7 +254,7 @@ export async function loadCatalogProduct(container: MedusaContainer, handle: str
   const variants = toVariants(row, stock)
   const images = [...(row.images ?? [])].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((i) => i.url)
   return {
-    ...toItem(row, variants),
+    ...toItem(row, variants, await catalogStart(container)),
     description: row.description ?? null,
     images,
     variants,

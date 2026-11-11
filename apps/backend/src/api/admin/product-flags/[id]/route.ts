@@ -2,11 +2,11 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 
-type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null }
+type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null; is_new?: boolean }
 
 /**
  * Флажки товара: «Предзаказ» (+ ожидаемая дата поступления) (пометка: товар в пути, продаётся по остатку из МС, как обычно)
- * «Не действуют скидки лояльности» и «Outlet» (вещь с небольшим дефектом; + описание дефекта). Хранятся в metadata товара; синхронизация с МС их не трогает.
+ * «Не действуют скидки лояльности», «Новинка» (в новинках независимо от даты) и «Outlet» (вещь с небольшим дефектом; + описание дефекта). Хранятся в metadata товара; синхронизация с МС их не трогает.
  */
 export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
@@ -28,6 +28,7 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
     }
     meta.preorder_date = d || null
   }
+  if (typeof b.is_new === "boolean") meta.is_new = b.is_new
   if (typeof b.outlet === "boolean") meta.outlet = b.outlet
   if (b.outlet_note !== undefined) {
     const n = String(b.outlet_note ?? "").trim()
@@ -40,6 +41,6 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
   await updateProductsWorkflow(req.scope).run({ input: { products: [{ id: p.id, metadata: meta }] } })
   res.json({
     preorder: Boolean(meta.preorder), no_loyalty: Boolean(meta.no_loyalty), preorder_date: (meta.preorder_date as string | null) ?? null,
-    outlet: Boolean(meta.outlet), outlet_note: (meta.outlet_note as string | null) ?? null,
+    outlet: Boolean(meta.outlet), outlet_note: (meta.outlet_note as string | null) ?? null, is_new: meta.is_new === true,
   })
 }

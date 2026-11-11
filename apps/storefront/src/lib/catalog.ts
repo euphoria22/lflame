@@ -36,7 +36,12 @@ export async function getCatalog(): Promise<CatalogItem[]> {
   const { items } = await store<{ items: CatalogItem[] }>("/store/catalog/products")
   // Признак новинки считается здесь, внутри кэша: текущее время нельзя брать при статической сборке
   const now = Date.now()
-  return items.map((i) => ({ ...i, is_new: now - new Date(i.created_at).getTime() < NEW_DAYS * 86400 * 1000 }))
+  // Новинка: отмечена вручную в админке или поступила после запуска сайта и не старше 45 дней.
+  // Стартовый ассортимент (первая загрузка из МоегоСклада) новинкой сам по себе не считается.
+  return items.map((i) => ({
+    ...i,
+    is_new: Boolean(i.new_manual) || (!i.initial_import && now - new Date(i.created_at).getTime() < NEW_DAYS * 86400 * 1000),
+  }))
 }
 
 export async function getTaxonomy(): Promise<Taxonomy> {
