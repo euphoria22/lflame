@@ -96,7 +96,7 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error, refresh
                     value={value.address ?? ""} onChange={(e) => set({ address: e.target.value, city: "Омск" })} />
                 ) : (
                   <CityInput value={value.city ?? ""}
-                    onSelect={(c) => set({ city: c.city, city_code: c.code, pvz_code: undefined, pvz_address: undefined, ...(o.kind === "pochta" ? { postal_code: undefined, address: undefined } : {}) })} />
+                    onSelect={(c) => set({ city: c.city, city_code: c.code, region: c.full_name.split(",")[1]?.trim() || undefined, pvz_code: undefined, pvz_address: undefined, ...(o.kind === "pochta" ? { postal_code: undefined, address: undefined } : {}) })} />
                 )}
                 {o.kind === "cdek-pvz" && value.city_code && (
                   <CdekPoints cityCode={value.city_code} selected={value.pvz_code}

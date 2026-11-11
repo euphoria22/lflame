@@ -7,9 +7,13 @@ import type { CatalogItem } from "./types"
 
 type Season = { name: string; up: string[]; down: string[] }
 
-/** Сезоны с поправкой на климат Омска: зима длинная. Категории — адреса разделов. */
+/**
+ * Сезоны по средней полосе России (основные покупатели — по всей стране, не только Омск).
+ * Ноябрь и март — переходные: тёплое уже/ещё наверху, летнее не опускаем. Категории — адреса разделов.
+ */
 const SEASONS: { months: number[]; season: Season }[] = [
-  { months: [11, 12, 1, 2, 3], season: { name: "зима", up: ["kurtki", "svitery-i-kardigany", "hudi-i-svitshoty", "golovnye-ubory", "obuv", "bryuki"], down: ["shorty", "futbolki-i-longslivy", "rubashki-i-polo"] } },
+  { months: [12, 1, 2], season: { name: "зима", up: ["kurtki", "svitery-i-kardigany", "hudi-i-svitshoty", "golovnye-ubory", "obuv", "bryuki"], down: ["shorty", "futbolki-i-longslivy", "rubashki-i-polo"] } },
+  { months: [11, 3], season: { name: "межсезонье", up: ["kurtki", "svitery-i-kardigany", "hudi-i-svitshoty", "golovnye-ubory"], down: [] } },
   { months: [4, 5], season: { name: "весна", up: ["hudi-i-svitshoty", "kurtki", "bryuki", "dzhinsy", "obuv"], down: [] } },
   { months: [6, 7, 8], season: { name: "лето", up: ["futbolki-i-longslivy", "shorty", "rubashki-i-polo", "golovnye-ubory", "sumki-i-ryukzaki"], down: ["kurtki", "svitery-i-kardigany"] } },
   { months: [9, 10], season: { name: "осень", up: ["kurtki", "hudi-i-svitshoty", "svitery-i-kardigany", "bryuki", "dzhinsy", "obuv"], down: ["shorty"] } },

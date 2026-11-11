@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
   const d = input.delivery as DeliveryChoice
   const clean = (s: string | undefined, n = 200) => (s ?? "").trim().slice(0, n)
   const place =
-    d.kind === "pickup" ? { address_1: `Самовывоз: ${PICKUP.address}`, city: "Омск" }
-      : d.kind === "omsk-courier" ? { address_1: clean(d.address), city: "Омск" }
+    d.kind === "pickup" ? { address_1: `Самовывоз: ${PICKUP.address}`, city: "Омск", province: "Омская обл." }
+      : d.kind === "omsk-courier" ? { address_1: clean(d.address), city: "Омск", province: "Омская обл." }
       : d.kind === "cdek-pvz" ? { address_1: `ПВЗ СДЭК ${clean(d.pvz_code, 20)}: ${clean(d.pvz_address)}`, city: clean(d.city, 100), postal_code: clean(d.postal_code, 6) || undefined }
         : d.kind === "cdek-door" ? { address_1: clean(d.address), city: clean(d.city, 100) }
           : { address_1: clean(d.address), city: clean(d.city, 100), postal_code: clean(d.postal_code, 6) }
@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     phone,
     country_code: "ru",
     ...place,
+    // Регион — для статистики и службы доставки (из справочника СДЭК при выборе города)
+    ...(d.region && !("province" in place) ? { province: clean(d.region, 100) } : {}),
   }
   const methodData =
     d.kind === "pickup" || d.kind === "omsk-courier" ? {}

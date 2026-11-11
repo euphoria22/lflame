@@ -11,6 +11,8 @@ export type DeliveryChoice = {
   kind: DeliveryKind
   city?: string
   city_code?: number
+  /** Регион из справочника СДЭК («Новосибирская обл.») — для адреса и статистики */
+  region?: string
   pvz_code?: string
   pvz_address?: string
   postal_code?: string
