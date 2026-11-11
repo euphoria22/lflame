@@ -28,10 +28,17 @@ type Props = { params: Promise<{ handle: string }> }
 // Полный HTML сразу: карточка товара — главная SEO-страница (ТЗ, п. 7.1)
 export const instant = false
 
+/**
+ * Заранее при сборке — только самые популярные товары: сборка всех ~1000 карточек сразу перегружает Medusa.
+ * Остальные карточки создаются при первом заходе (доли секунды) и дальше отдаются готовыми из кэша.
+ */
+const PRERENDER_PRODUCTS = 200
+
 export async function generateStaticParams() {
   const items = await getCatalog()
   // Пустой каталог (первый запуск сервера): Next.js требует хотя бы один адрес — заглушка отдаёт 404
-  return items.length ? items.map((i) => ({ handle: i.handle })) : [{ handle: "_" }]
+  if (!items.length) return [{ handle: "_" }]
+  return [...items].sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0)).slice(0, PRERENDER_PRODUCTS).map((i) => ({ handle: i.handle }))
 }
 
 /** Раздел для крошек и ссылок: унисекс показываем в мужском (ассортимент в основном мужской). */

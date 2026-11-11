@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
   // "use cache" + cacheTag: страницы каталога обновляются по событию из Medusa и CMS (ТЗ, п. 7.1)
   cacheComponents: true,
   partialPrefetching: true,
+  // Сборка на сервере магазина: меньше параллельных запросов к Medusa (иначе она не выдерживает пика),
+  // упавшую страницу — пересобрать ещё раз
+  experimental: {
+    cpus: 2,
+    staticGenerationMaxConcurrency: 4,
+    staticGenerationRetryCount: 2,
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     // Фото товаров: бэкенд Medusa (локально) и S3/CDN (production) — адреса из переменных
