@@ -2,7 +2,8 @@ import nodemailer, { Transporter } from "nodemailer"
 
 /**
  * Отправка писем через SMTP (Яндекс 360, Unisender, Mail.ru для бизнеса и т.п.).
- * SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM — в .env.
+ * SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM — в .env. Beget: smtp.beget.com, порт 2525
+ * (с сервера в Docker порт 465 у Beget зависает, 2525 со STARTTLS работает).
  * Без SMTP_HOST письма не отправляются, а печатаются в журнал сервера (для разработки).
  */
 let transporter: Transporter | null = null
@@ -18,6 +19,8 @@ function getTransport(): Transporter {
     host: process.env.SMTP_HOST,
     port,
     secure: port === 465,
+    // На других портах (587, 2525) — обязательный STARTTLS: пароль и письма не уходят открытым текстом
+    requireTLS: port !== 465,
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined,
   })
   return transporter
