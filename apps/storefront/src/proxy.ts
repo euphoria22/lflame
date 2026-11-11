@@ -22,8 +22,18 @@ export function proxy(req: NextRequest) {
   // Личный кабинет не трогаем: в номерах заказов есть заглавные буквы (order_01M6Y…)
   if (path !== path.toLowerCase() && !/\.[a-z0-9]+$/i.test(path) && !path.startsWith("/account/")) { path = path.toLowerCase(); changed = true }
 
-  // Адреса прежнего сайта, на которые ссылаются оферта и политика
-  const OLD: Record<string, string> = { "/policy": "/privacy" }
+  // Адреса прежнего сайта (Битрикс): служебные страницы. Каталог /catalog/… — app/catalog/[...path]
+  const OLD: Record<string, string> = {
+    "/policy": "/privacy",
+    "/catalog": "/men",
+    "/dostavka": "/delivery",
+    "/oplata": "/payment",
+    "/vozvrat-i-obmen": "/returns",
+    "/o-nas": "/about",
+    "/politika-konfidenczialnosti": "/privacy",
+    "/publichnaya-oferta": "/offer",
+    "/blog/zimnyaya-rasprodazha-v-laflamme": "/blog",
+  }
   if (OLD[path]) { path = OLD[path]; changed = true }
   // Раздел Sale переименован в Outlet
   if (path === "/sale" || path.startsWith("/sale/")) { path = path.replace(/^\/sale/, "/outlet"); changed = true }
