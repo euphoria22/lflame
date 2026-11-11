@@ -50,7 +50,7 @@ export default async function LoyaltyPage() {
       </div>
 
       <div className="mt-10">
-        <Link href="/account" className="inline-block rounded-full bg-foreground px-6 py-3 text-[14px] text-background">Мой уровень</Link>
+        <Link href="/account/login?next=/account/club" className="inline-block rounded-full bg-foreground px-6 py-3 text-[14px] text-background">Мой уровень</Link>
       </div>
     </InfoPage>
   )
