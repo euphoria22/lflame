@@ -157,9 +157,9 @@ export default async function ProductPage({ params }: Props) {
                   {product.color_name && <><dt>Цвет</dt><dd className="text-foreground">{product.color_name}</dd></>}
                   <dt>Для кого</dt><dd className="text-foreground">{product.gender === "women" ? "Женское" : product.gender === "unisex" ? "Унисекс" : "Мужское"}</dd>
                   {product.variants[0]?.sku && <><dt>Артикул</dt><dd className="text-foreground">{product.variants[0].sku}</dd></>}
-                  {specRows(product.specs).map((r, i) => r.key
-                    ? <Fragment key={i}><dt>{r.key}</dt><dd className="text-foreground">{r.value}</dd></Fragment>
-                    : <dd key={i} className="col-span-2 text-foreground">{r.value}</dd>)}
+                  {specRows(product.specs).map((r, i) => (
+                    <Fragment key={i}><dt>{r.key}</dt><dd className="text-foreground">{r.value}</dd></Fragment>
+                  ))}
                 </dl>
               </Accordion>
               <Accordion title="Доставка и оплата">
@@ -237,10 +237,14 @@ function productJsonLd(p: CatalogProduct, inStock: boolean) {
   }
 }
 
-/** «Состав: 100% хлопок» → ключ и значение; строка без двоеточия — целиком. */
-function specRows(specs: string | null | undefined): { key: string | null; value: string }[] {
+/**
+ * «Состав: 100% хлопок» → ключ и значение. Строка без подписи: с процентами — это состав,
+ * остальное — «Особенности» (на старом сайте подпись была не везде).
+ */
+function specRows(specs: string | null | undefined): { key: string; value: string }[] {
   return (specs ?? "").split(/\n+/).map((l) => l.trim()).filter(Boolean).map((l) => {
     const m = /^([^:]{1,40}):\s*(.+)$/.exec(l)
-    return m ? { key: m[1].trim(), value: m[2].trim() } : { key: null, value: l }
+    if (m) return { key: m[1].trim(), value: m[2].trim() }
+    return { key: /\d\s*%/.test(l) ? "Состав" : "Особенности", value: l }
   })
 }
