@@ -64,7 +64,8 @@ export function FilterPanel({ basePath, filters, facets, names, total, showBrand
   }, [open])
 
   const brandsShown = showBrands && facets.brands.length > 1
-  // fill — колонка на десктопе растянута до низа экрана, блок брендов занимает остаток высоты
+  // fill — колонка на десктопе растянута до низа экрана, блок брендов занимает остаток высоты,
+  // но не меньше ~7 строк: если выбрано много фильтров, колонка прокручивается, а не сжимает бренды
   const body = (fill: boolean) => (
     <div className={`flex flex-col gap-8 ${fill ? "h-full" : ""} ${pending ? "opacity-60" : ""}`}>
       {!!genderLinks?.length && (
@@ -260,7 +261,7 @@ function BrandFilter({ facets, selected, onToggle, fill }: { facets: ListingResu
   const [open, setOpen] = useState(true)
   const shown = useMemo(() => facets.filter((b) => b.label.toLowerCase().includes(q.toLowerCase())), [facets, q])
   return (
-    <div className={fill && open ? "flex min-h-[160px] flex-1 flex-col" : ""}>
+    <div className={fill && open ? "flex min-h-[300px] flex-1 flex-col" : ""}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="mb-3 flex w-full items-center justify-between text-left text-[13px] font-medium">
         Бренд
@@ -272,7 +273,7 @@ function BrandFilter({ facets, selected, onToggle, fill }: { facets: ListingResu
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск бренда"
               className="mb-3 w-full border-b border-line bg-transparent py-2 text-[13px] outline-none focus:border-foreground" />
           )}
-          <ul className={`scroll-subtle space-y-2 overflow-y-auto pr-1 ${fill ? "min-h-0 flex-1" : "max-h-44"}`}>
+          <ul className={`scroll-subtle space-y-2 overflow-y-auto pr-1 ${fill ? "min-h-[196px] flex-1" : "max-h-44"}`}>
             {shown.map((b) => (
               <li key={b.value}>
                 <Check checked={selected.includes(b.value)} onChange={() => onToggle(b.value)} label={b.label} count={b.count} />
