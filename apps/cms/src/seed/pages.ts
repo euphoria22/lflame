@@ -27,14 +27,14 @@ const PAGES: { slug: string; title: string; order: number; intro?: string; text:
     slug: "delivery",
     title: "Доставка",
     order: 10,
-    intro: "Стоимость и время доставки зависят от веса и объёма посылки и от вашего региона — точная цена считается при оформлении заказа.",
+    intro: "Стоимость и время доставки зависят от веса и объёма посылки и от вашего региона — точную цену и сроки покажем при оформлении заказа.",
     text: `
 ## Самовывоз — Омск
 Ул. Партизанская, 5а/8. Ежедневно с 12:00 до 21:00. Бесплатно.
 
 ## Курьер по Омску
 - Примерно 1–3 часа, время доставки заранее согласуем с вами.
-- От 100 ₽.
+- От 250 ₽.
 
 ## СДЭК
 Отправление можно отслеживать на сайте СДЭК по номеру, который мы пришлём после оплаты заказа.
@@ -200,9 +200,9 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 ]
 
 /** Увеличивается, когда меняются стартовые тексты. */
-const SEED_VERSION = 7
+const SEED_VERSION = 8
 /** В какой версии менялся стартовый текст страницы. */
-const CHANGED: Record<string, number> = { delivery: 2, payment: 3, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 7 }
+const CHANGED: Record<string, number> = { delivery: 8, payment: 3, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 7 }
 
 /** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
 const PREVIOUS: Record<string, string> = {
@@ -286,6 +286,36 @@ Telegram: [ссылка на канал или аккаунт]
 `,
 }
 
+/** Текст «Доставки» версии 7 (курьер «от 100 ₽») — если он не правился в CMS, заменяем на новый. */
+const DELIVERY_V7 = `
+## Самовывоз — Омск
+Ул. Партизанская, 5а/8. Ежедневно с 12:00 до 21:00. Бесплатно.
+
+## Курьер по Омску
+- Примерно 1–3 часа, время доставки заранее согласуем с вами.
+- От 100 ₽.
+
+## СДЭК
+Отправление можно отслеживать на сайте СДЭК по номеру, который мы пришлём после оплаты заказа.
+
+### Посылка до пункта выдачи
+- Примерные сроки — 1–6 рабочих дней.
+- От 300 ₽. **Бесплатно при заказе от 12 000 ₽.**
+
+### Посылка до двери
+- Примерные сроки — 1–6 рабочих дней.
+- От 350 ₽.
+
+## Почта России
+Отправление можно отслеживать на сайте Почты России по номеру, который мы пришлём после оплаты заказа.
+- Доставка в любой населённый пункт России, примерные сроки — 2–14 рабочих дней.
+- От 450 ₽. **Бесплатно при заказе от 12 000 ₽.**
+
+## Важно
+- Работаем только по полной предоплате, наложенным платежом не отправляем.
+- Доставляем по всему миру: для доставки за пределы России напишите нам.
+`
+
 const PREVIOUS_V4: Record<string, string> = { offer: OFFER_V4, privacy: PRIVACY_V4, contacts: CONTACTS_V4 }
 
 type Lex = { text?: string; children?: Lex[] }
@@ -302,7 +332,7 @@ export async function seedPages(payload: Payload): Promise<void> {
       // или в ней всё ещё стартовый текст прошлой версии
       const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
       const current = plain(doc.content?.root)
-      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
+      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "delivery" ? DELIVERY_V7 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
       if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,
