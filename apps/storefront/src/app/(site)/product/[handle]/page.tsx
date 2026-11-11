@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
 
 import { Breadcrumbs } from "@/components/breadcrumbs"
+import { AskUs } from "@/components/ask-us"
 import { BuyBox } from "@/components/buy-box"
 import { FavButton } from "@/components/fav-button"
 import { JsonLd } from "@/components/json-ld"
@@ -133,6 +134,7 @@ export default async function ProductPage({ params }: Props) {
               <li>Оплата картой, СБП или частями</li>
               <li>Обмен и возврат — 7 дней после получения</li>
             </ul>
+            <AskUs className="mt-6" message={`Здравствуйте! Вопрос по товару «${product.title}»: ${SITE_URL}${routes.product(product.handle)}`} />
 
             <div className="mt-8 divide-y divide-line border-y border-line">
               <Accordion title="Описание" open>

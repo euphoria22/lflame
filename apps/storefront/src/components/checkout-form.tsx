@@ -8,6 +8,7 @@ import { rememberPurchase } from "@/lib/analytics"
 import { CheckoutInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
 import { routes } from "@/lib/routes"
+import { AskUs } from "./ask-us"
 import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
 import { CartProgress } from "./cart-progress"
@@ -153,6 +154,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
           {sending ? "Оформляем…" : payment === "tbank" ? "Перейти к оплате" : "Подтвердить заказ"}
         </button>
         {cart && <CartProgress total={cart.goods_total} className="mt-5 border-t border-line pt-5" />}
+        <AskUs compact className="mt-4" message="Здравствуйте! Вопрос по оформлению заказа" />
       </aside>
     </form>
   )

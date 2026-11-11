@@ -16,6 +16,12 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8
 export const INDEXING_ENABLED = process.env.INDEXING === "on"
 
 /** Соцсети магазина: подвал, «Контакты», микроразметка. */
+/** Поддержка покупателей: вопросы по товару, размеру, заказу */
+export const SUPPORT = {
+  telegram: "https://t.me/laflammehelp",
+  vk: "https://vk.ru/im/convo/-173206643",
+} as const
+
 export const SOCIAL = [
   { id: "vk", name: "ВКонтакте", url: "https://vk.ru/laflammeru" },
   { id: "telegram", name: "Telegram", url: "https://t.me/laflammeru" },

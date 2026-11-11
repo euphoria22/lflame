@@ -4,6 +4,7 @@ import Link from "next/link"
 
 import { formatPrice } from "@/lib/format"
 import { routes } from "@/lib/routes"
+import { AskUs } from "./ask-us"
 import { useCart } from "./cart-context"
 import { CartProgress } from "./cart-progress"
 import { CartLines } from "./cart-lines"
@@ -21,6 +22,7 @@ export function CartPageView() {
           <aside className="h-fit rounded-[22px] bg-surface p-6 md:sticky md:top-[96px]">
             <p className="mb-5 text-[22px] tracking-tight">Ваш заказ</p>
             <OrderSummary cart={cart} />
+            <AskUs compact className="mt-4" message="Здравствуйте! Вопрос по заказу на сайте" />
             <Link href="/checkout" className="mt-6 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
             <CartProgress total={cart.goods_total} className="mt-5 border-t border-line pt-5" />
           </aside>

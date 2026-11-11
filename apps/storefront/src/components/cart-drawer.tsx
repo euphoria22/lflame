@@ -6,6 +6,7 @@ import { useEffect } from "react"
 
 import { formatPrice, plural } from "@/lib/format"
 import { routes } from "@/lib/routes"
+import { AskUs } from "./ask-us"
 import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
 import { CartProgress } from "./cart-progress"
@@ -52,6 +53,7 @@ export function CartDrawer() {
               <CartProgress total={cart.goods_total} className="mt-3" />
               <Link href="/checkout" onClick={() => setOpen(false)} className="mt-4 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
               <Link href={routes.cart()} onClick={() => setOpen(false)} className="mt-2 block text-center text-[13px] text-muted hover:text-foreground">Перейти в корзину</Link>
+              <AskUs compact className="mt-3" message="Здравствуйте! Вопрос по заказу на сайте" />
             </div>
           </>
         ) : (

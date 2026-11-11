@@ -2,7 +2,7 @@ import { cacheTag } from "next/cache"
 import Link from "next/link"
 
 import { GENDERS, routes } from "@/lib/routes"
-import { SITE_NAME, SOCIAL } from "@/lib/site"
+import { SITE_NAME, SOCIAL, SUPPORT } from "@/lib/site"
 import { TelegramIcon, VkIcon } from "./icons"
 import { NewsletterForm } from "./newsletter-form"
 import { getNav } from "./nav-data"
@@ -26,6 +26,7 @@ export async function Footer() {
           <p className="mt-4 max-w-xs text-[13px] leading-6 text-muted">Мультибрендовый магазин оригинальной одежды, обуви и аксессуаров.</p>
           <a href="tel:+79131446482" className="mt-4 block text-[13px] hover:opacity-60">+7 913 144-64-82</a>
           <a href="mailto:admin@laflamme.ru" className="block text-[13px] text-muted hover:text-foreground">admin@laflamme.ru</a>
+          <a href={SUPPORT.telegram} target="_blank" rel="noopener" className="block text-[13px] text-muted hover:text-foreground">Написать в Telegram</a>
           <ul className="mt-5 flex gap-2">
             {SOCIAL.map((s) => (
               <li key={s.id}>
