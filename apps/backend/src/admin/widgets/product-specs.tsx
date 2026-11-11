@@ -85,6 +85,6 @@ const ProductSpecsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
   )
 }
 
-export const config = defineWidgetConfig({ zone: "product.details.after" })
+export const config = defineWidgetConfig({ zone: "product.details" })
 
 export default ProductSpecsWidget
