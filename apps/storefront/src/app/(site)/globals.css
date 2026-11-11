@@ -146,9 +146,10 @@ body {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
+/* После клика фокус остаётся внутри панели — раньше из-за этого полоса не исчезала; теперь — только при Tab */
 .scroll-subtle:hover,
-.scroll-subtle:focus-within {
-  scrollbar-color: var(--subtle) transparent;
+html[data-kbd] .scroll-subtle:focus-within {
+  scrollbar-color: color-mix(in srgb, var(--subtle) 45%, transparent) transparent;
 }
 .scroll-subtle::-webkit-scrollbar {
   width: 4px;
@@ -158,7 +159,7 @@ body {
   border-radius: 4px;
 }
 .scroll-subtle:hover::-webkit-scrollbar-thumb {
-  background: var(--subtle);
+  background: color-mix(in srgb, var(--subtle) 45%, transparent);
 }
 
 details > summary {
