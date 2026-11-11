@@ -63,9 +63,11 @@ export function ProfileCard({ customer }: { customer: AccountCustomer }) {
           <input className={field} placeholder="Имя" autoComplete="given-name" value={v.first_name} onChange={(e) => setV({ ...v, first_name: e.target.value })} />
           <input className={field} placeholder="Фамилия" autoComplete="family-name" value={v.last_name} onChange={(e) => setV({ ...v, last_name: e.target.value })} />
           <input className={field} placeholder="Телефон" type="tel" autoComplete="tel" value={v.phone} onChange={(e) => setV({ ...v, phone: e.target.value })} />
-          <label className="block">
-            <span className="sr-only">Дата рождения</span>
-            <input className={field} type="date" aria-label="Дата рождения" value={v.birth_date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setV({ ...v, birth_date: e.target.value })} />
+          {/* Safari на iPhone рисует поле даты шире контейнера и без подсказки: ограничиваем ширину и подписываем */}
+          <label className="block min-w-0 md:col-span-2 md:max-w-[calc(50%-6px)]">
+            <span className="mb-1 block text-[12px] text-muted">Дата рождения (необязательно)</span>
+            <input className={`${field} block min-w-0 max-w-full appearance-none text-left [&::-webkit-date-and-time-value]:text-left`} type="date"
+              value={v.birth_date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setV({ ...v, birth_date: e.target.value })} />
           </label>
           <p className="text-[12px] text-muted md:col-span-2">Email — адрес входа: {customer.email}. Телефон нужен для Laflamme Club — по нему мы находим покупки в магазине.</p>
           {error && <p className="text-[12px] text-sale md:col-span-2" role="alert">{error}</p>}
