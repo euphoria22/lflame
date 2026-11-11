@@ -27,7 +27,7 @@ const SORTS: Record<string, { label: string; cmp: (a: Row, b: Row) => number }> 
   brand: { label: "По бренду", cmp: (a, b) => (a.brand ?? "яяя").localeCompare(b.brand ?? "яяя", "ru") || a.title.localeCompare(b.title, "ru") },
 }
 
-/** Массовая правка флажков сайта: фильтры, выбор товаров чекбоксами, включить или выключить флажок у всех выбранных. */
+/** «Продажа на сайте» для многих товаров: массовая правка переключателей: фильтры, выбор товаров чекбоксами, включить или выключить флажок у всех выбранных. */
 const SiteProductsPage = () => {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,6 +36,7 @@ const SiteProductsPage = () => {
   const [brand, setBrand] = useState(ALL)
   const [category, setCategory] = useState(ALL)
   const [status, setStatus] = useState(ALL)
+  const [card, setCard] = useState(ALL) // заполненность карточки: без описания, мало фото, без фото
   const [sort, setSort] = useState("new")
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -56,10 +57,11 @@ const SiteProductsPage = () => {
     return rows
       .filter((r) => {
         if (words.length && !words.every((w) => `${r.title} ${r.brand ?? ""} ${r.handle}`.toLowerCase().includes(w))) return false
-        if (flag === "no_description") { if (r.has_description) return false }
-        else if (flag === "few_photos") { if (r.images < 1 || r.images > 2) return false }
-        else if (flag === "no_photos") { if (r.images > 0) return false }
-        else if (flag !== ALL) {
+        if (card === "no_description" && r.has_description) return false
+        if (card === "few_photos" && (r.images < 1 || r.images > 2)) return false
+        if (card === "no_photos" && r.images > 0) return false
+        if (card === "incomplete" && r.has_description && r.images > 2) return false
+        if (flag !== ALL) {
           const off = flag.startsWith("-")
           if (r.flags[flag.replace("-", "") as Flag] === off) return false
         }
@@ -69,9 +71,9 @@ const SiteProductsPage = () => {
         return true
       })
       .sort(SORTS[sort].cmp)
-  }, [rows, q, flag, brand, category, status, sort])
+  }, [rows, q, flag, brand, category, status, sort, card])
 
-  useEffect(() => setPage(0), [q, flag, brand, category, status, sort])
+  useEffect(() => setPage(0), [q, flag, brand, category, status, sort, card])
   const pages = Math.max(1, Math.ceil(list.length / PAGE))
   const shown = list.slice(page * PAGE, page * PAGE + PAGE)
   const allShown = shown.length > 0 && shown.every((r) => selected.has(r.id))
@@ -114,19 +116,19 @@ const SiteProductsPage = () => {
   return (
     <div className="flex flex-col gap-y-3">
       <Container className="px-6 py-4">
-        <Heading level="h1">Флажки товаров</Heading>
+        <Heading level="h1">Продажа на сайте</Heading>
         <Text size="small" className="text-ui-fg-subtle">
-          Отметьте товары и включите или выключите у всех сразу: предзаказ, новинка, закрепить наверху, Outlet, без скидок Laflamme Club.
+          Те же переключатели, что в блоке «Продажа на сайте» в карточке товара, — сразу для многих товаров: отметьте товары и включите или выключите предзаказ, новинку, закрепление наверху, Outlet, скидки Laflamme Club.
           Описание дефекта для Outlet и дату предзаказа задайте в карточке товара.
-          Фильтры «Без описания» и «Мало фото» помогают найти карточки, которые стоит дополнить.
+          Фильтр «Карточка» находит товары без описания или с 1–2 фото — их стоит дополнить.
         </Text>
       </Container>
 
       <Container className="p-0">
         <div className="flex flex-wrap items-center gap-2 px-6 py-4">
           <div className="w-64"><Input size="small" type="search" placeholder="Название, бренд" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          {sel(flag, setFlag, "Флажок", [[ALL, "Все флажки"], ...FLAGS.flatMap((f): [string, string][] => [[f.key, `${f.label}: да`], [`-${f.key}`, `${f.label}: нет`]]),
-            ["no_description", "Без описания"], ["few_photos", "Мало фото (1–2)"], ["no_photos", "Без фото"]])}
+          {sel(flag, setFlag, "Переключатель", [[ALL, "Все переключатели"], ...FLAGS.flatMap((f): [string, string][] => [[f.key, `${f.label}: вкл`], [`-${f.key}`, `${f.label}: выкл`]])])}
+          {sel(card, setCard, "Карточка", [[ALL, "Любая карточка"], ["incomplete", "Нужно дополнить"], ["no_description", "Без описания"], ["few_photos", "Мало фото (1–2)"], ["no_photos", "Без фото"]])}
           {sel(brand === "" ? "__none" : brand, (v) => setBrand(v === "__none" ? "" : v), "Бренд", [[ALL, "Все бренды"], ["", "Без бренда"], ...brands.map((b): [string, string] => [b, b])])}
           {sel(category, setCategory, "Категория", [[ALL, "Все категории"], ...categories.map((c): [string, string] => [c, c])])}
           {sel(status, setStatus, "Статус", [[ALL, "Любой статус"], ["published", "Опубликован"], ["draft", "Черновик"]])}
@@ -161,7 +163,7 @@ const SiteProductsPage = () => {
                 <th className="py-2.5 pr-3 font-medium">Товар</th>
                 <th className="py-2.5 pr-3 font-medium">Бренд</th>
                 <th className="py-2.5 pr-3 font-medium">Категория</th>
-                <th className="py-2.5 pr-6 font-medium">Флажки и пометки</th>
+                <th className="py-2.5 pr-6 font-medium">Включено</th>
               </tr>
             </thead>
             <tbody>
@@ -210,6 +212,6 @@ const SiteProductsPage = () => {
   )
 }
 
-export const config = defineRouteConfig({ label: "Флажки товаров", icon: CheckCircle })
+export const config = defineRouteConfig({ label: "Продажа на сайте", icon: CheckCircle })
 
 export default SiteProductsPage
