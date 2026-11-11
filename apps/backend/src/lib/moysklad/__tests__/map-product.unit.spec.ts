@@ -108,3 +108,12 @@ describe("mapProduct: поля-справочники", () => {
     expect(m.brand?.name).toBe("Stone Island")
   })
 })
+
+describe("бренд из поля МС", () => {
+  it("Cactus Jack — отдельный бренд, не Travis Scott", () => {
+    const matchers = [...seedMatchers(), { key: "cactus-jack", name: "Cactus Jack", aliases: [] }]
+    const p = { id: "p-cj", name: "Худи Cactus Jack Logo", archived: false, updated: "", pathName: "Худи и свитшоты",
+      attributes: [{ id: "a", name: "Бренд", type: "string", value: "Cactus Jack" }] } as unknown as MsProduct
+    expect(mapProduct(p, [], new Map(), matchers, undefined as never).brand?.name).toBe("Cactus Jack")
+  })
+})

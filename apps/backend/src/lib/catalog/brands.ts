@@ -25,7 +25,8 @@ export const BRAND_SEED: BrandSeed[] = [
   { name: "MISBHV", handle: "misbhv" },
   { name: "Diesel" },
   { name: "Stone Island" },
-  { name: "Travis Scott", aliases: ["Cactus Jack", "Travis Scott Cactus Jack", "Cactus Jack Travis Scott"] },
+  // Cactus Jack — отдельный бренд (как в МоёмСкладе), не написание Travis Scott
+  { name: "Travis Scott" },
   { name: "Polo Ralph Lauren" },
   { name: "Lauren Ralph Lauren" },
   { name: "Stussy", aliases: ["Stüssy"] },
