@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -156,6 +157,9 @@ export default async function ProductPage({ params }: Props) {
                   {product.color_name && <><dt>Цвет</dt><dd className="text-foreground">{product.color_name}</dd></>}
                   <dt>Для кого</dt><dd className="text-foreground">{product.gender === "women" ? "Женское" : product.gender === "unisex" ? "Унисекс" : "Мужское"}</dd>
                   {product.variants[0]?.sku && <><dt>Артикул</dt><dd className="text-foreground">{product.variants[0].sku}</dd></>}
+                  {specRows(product.specs).map((r, i) => r.key
+                    ? <Fragment key={i}><dt>{r.key}</dt><dd className="text-foreground">{r.value}</dd></Fragment>
+                    : <dd key={i} className="col-span-2 text-foreground">{r.value}</dd>)}
                 </dl>
               </Accordion>
               <Accordion title="Доставка и оплата">
@@ -231,4 +235,12 @@ function productJsonLd(p: CatalogProduct, inStock: boolean) {
       seller: { "@type": "Organization", name: SITE_NAME },
     },
   }
+}
+
+/** «Состав: 100% хлопок» → ключ и значение; строка без двоеточия — целиком. */
+function specRows(specs: string | null | undefined): { key: string | null; value: string }[] {
+  return (specs ?? "").split(/\n+/).map((l) => l.trim()).filter(Boolean).map((l) => {
+    const m = /^([^:]{1,40}):\s*(.+)$/.exec(l)
+    return m ? { key: m[1].trim(), value: m[2].trim() } : { key: null, value: l }
+  })
 }

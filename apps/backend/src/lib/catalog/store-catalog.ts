@@ -68,6 +68,7 @@ export type CatalogProduct = CatalogItem & {
   images: string[]
   variants: CatalogVariant[]
   brand_description: string | null
+  specs: string | null
   status: "published" | "draft"
   discontinued: boolean
   updated_at: string
@@ -271,6 +272,8 @@ export async function loadCatalogProduct(container: MedusaContainer, handle: str
     images,
     variants,
     brand_description: row.brand?.is_active !== false ? row.brand?.description ?? null : null,
+    // Состав, крой, детали, уход — «Ключ: значение» по строкам (перенесены со старого сайта)
+    specs: typeof row.metadata?.old_site_specs === "string" ? row.metadata.old_site_specs : null,
     status: row.status === "published" ? "published" : "draft",
     discontinued,
     updated_at: new Date(row.updated_at).toISOString(),

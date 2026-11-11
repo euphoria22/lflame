@@ -2,6 +2,7 @@ import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { updateProductsWorkflow, uploadFilesWorkflow } from "@medusajs/medusa/core-flows"
 import { request as httpsRequest } from "https"
+import { revalidateCatalog } from "../lib/brands/admin"
 
 /**
  * Перенос описаний и фото со старого сайта (Битрикс, laflamme.ru) в товары нового.
@@ -9,6 +10,7 @@ import { request as httpsRequest } from "https"
  *   npx medusa exec ./src/scripts/import-old-site.js          # пробный прогон: только отчёт, ничего не меняет
  *   npx medusa exec ./src/scripts/import-old-site.js apply    # записать описания и фото
  *   npx medusa exec ./src/scripts/import-old-site.js apply force  # и для уже перенесённых товаров
+ *   npx medusa exec ./src/scripts/import-old-site.js apply text   # только тексты (описание + характеристики), без фото
  *   … insecure — если у старого сайта истёк SSL-сертификат (только для старого сайта)
  *
  * Товар сопоставляется по названию (без учёта регистра, знаков и ё/е); запасной вариант — адрес страницы.
@@ -20,7 +22,7 @@ const OLD_SITE = (process.env.OLD_SITE_URL || "https://laflamme.ru").replace(/\/
 const MAX_IMAGES = 12
 
 type Product = { id: string; title: string; handle: string; description: string | null; metadata: Record<string, unknown> | null; images?: { id: string; url: string }[] }
-type OldPage = { url: string; title: string; description: string; images: string[] }
+type OldPage = { url: string; title: string; description: string; specs: string; images: string[] }
 
 export function titleKey(s: string): string {
   return s.toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]/g, "")
@@ -35,6 +37,19 @@ const decode = (s: string) =>
 /** Разбор страницы товара старого сайта. */
 export function parseOldPage(url: string, html: string): OldPage {
   const title = decode((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? "").replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim()
+  // Описание товара — блок <div class="mb-6"> над кнопкой «Таблица размеров».
+  // Строки «Предзаказ! …» не переносим: на новом сайте предзаказ — отдельная плашка с датой из админки
+  let intro = ""
+  const sizeBtn = html.indexOf("Таблица размеров")
+  const introAt = html.lastIndexOf('<div class="mb-6">', sizeBtn > 0 ? sizeBtn : html.length)
+  if (introAt >= 0) {
+    const close = html.indexOf("</div>", introAt)
+    const body = html.slice(introAt + '<div class="mb-6">'.length, close > 0 ? close : introAt)
+    intro = decode(body.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, ""))
+      .split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter((l) => !/^предзаказ/i.test(l)).join("\n")
+      .replace(/\n{3,}/g, "\n\n").trim()
+  }
+
   // «Характеристики»: <spoiler-component id="FEATURETEXT"> … </spoiler-component>. Берём всё содержимое блока
   // и вычищаем служебное: в исходном коде страницы текст лежит прямо в блоке, а браузер при сохранении
   // добавляет свою обёртку <template>…</template> — поиск работает в обоих случаях.
@@ -58,7 +73,8 @@ export function parseOldPage(url: string, html: string): OldPage {
     const abs = src.startsWith("http") ? src : `${OLD_SITE}${src.startsWith("/") ? "" : "/"}${src}`
     if (!images.includes(abs)) images.push(abs)
   }
-  return { url, title, description, images: images.slice(0, MAX_IMAGES) }
+  // description — текст описания; specs — состав, крой, детали (в «Характеристики» на новом сайте)
+  return { url, title, description: intro, specs: description, images: images.slice(0, MAX_IMAGES) }
 }
 
 /**
@@ -168,6 +184,8 @@ export default async function importOldSite({ container, args }: ExecArgs) {
   const apply = args.includes("apply")
   INSECURE_OLD_SITE = args.includes("insecure")
   const force = args.includes("force")
+  // text — только тексты (описание и характеристики) для уже перенесённых товаров, фото не трогаем
+  const textOnly = args.includes("text")
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const files = container.resolve(Modules.FILE)
@@ -181,7 +199,7 @@ export default async function importOldSite({ container, args }: ExecArgs) {
   logger.info(`Старый сайт: режим ${apply ? "ЗАПИСЬ" : "пробный (ничего не меняется)"}`)
   const urls = await productUrls(logger)
 
-  const rows: string[] = ["статус;старый адрес;название на старом сайте;товар на новом сайте;символов описания;фото"]
+  const rows: string[] = ["статус;старый адрес;название на старом сайте;товар на новом сайте;символов описания;фото;символов характеристик"]
   const stats = { matched: 0, by_url: 0, not_found: 0, ambiguous: 0, duplicates: 0, failed: 0, already: 0, updated: 0 }
   const used = new Set<string>()
   const fileBase = (process.env.S3_FILE_URL || `${(process.env.MEDUSA_BACKEND_URL || "").replace(/\/+$/, "")}/static`).replace(/\/+$/, "")
@@ -226,18 +244,18 @@ export default async function importOldSite({ container, args }: ExecArgs) {
     }
     used.add(product.id)
     how === "адрес" ? stats.by_url++ : stats.matched++
-    if (product.metadata?.old_site_import && !force) {
+    if (product.metadata?.old_site_import && !force && !textOnly) {
       stats.already++
       rows.push(`уже перенесён;${url};${page.title};${product.handle};${page.description.length};${page.images.length}`)
       return
     }
-    rows.push(`${how === "адрес" ? "найден по адресу" : "найден"};${url};${page.title};${product.handle};${page.description.length};${page.images.length}`)
+    rows.push(`${how === "адрес" ? "найден по адресу" : "найден"};${url};${page.title};${product.handle};${page.description.length};${page.images.length};${page.specs.length}`)
     if (!apply) return
 
     try {
       // Фото: скачиваем со старого сайта и кладём в хранилище сайта (S3); нет фото — оставляем прежние
       let urlsNew: string[] = []
-      if (page.images.length) {
+      if (page.images.length && !textOnly) {
         const downloaded = await Promise.all(page.images.map(async (src, i) => {
           const res = await get(src)
           const type = res.headers.get("content-type") || "image/jpeg"
@@ -252,11 +270,16 @@ export default async function importOldSite({ container, args }: ExecArgs) {
         input: {
           products: [{
             id: product.id,
-            ...(page.description ? { description: page.description } : {}),
+            // Описание — текст старого сайта. Если его там нет, а в описании стоят характеристики
+            // из прошлого переноса — убираем их оттуда: теперь они в «Характеристиках»
+            ...(page.description ? { description: page.description }
+              : product.description && page.specs && product.description.trim() === page.specs.trim() ? { description: null } : {}),
             ...(urlsNew.length ? { images: urlsNew.map((u) => ({ url: u })), thumbnail: urlsNew[0] } : {}),
             metadata: {
               ...(product.metadata ?? {}),
               old_site_import: new Date().toISOString(),
+              // Состав, крой, детали — в «Характеристики» карточки
+              ...(page.specs ? { old_site_specs: page.specs } : {}),
               ...(product.metadata?.old_site_url ? {} : { old_site_url: url }),
             },
           }],
@@ -276,6 +299,8 @@ export default async function importOldSite({ container, args }: ExecArgs) {
 
   // Итог — первым и коротко; отчёт — с ожиданием записи: Medusa завершает процесс сразу после скрипта,
   // и большой вывод без ожидания обрезается на середине (так терялись итог и часть строк)
+  // Сбросить кэш витрины: иначе страницы ссылаются на старые (уже удалённые) фото — картинки битые
+  if (apply) await revalidateCatalog()
   const write = (text: string) => new Promise<void>((resolve) => process.stdout.write(text, () => resolve()))
   await write(`\n===ИТОГ===\n${JSON.stringify(stats)}\n`)
   await write(`===ОТЧЁТ===\n${rows.join("\n")}\n===КОНЕЦ===\n`)

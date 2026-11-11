@@ -56,6 +56,8 @@ export type CatalogProduct = CatalogItem & {
   images: string[]
   variants: CatalogVariant[]
   brand_description: string | null
+  /** Состав, крой, детали — строки «Ключ: значение» */
+  specs?: string | null
   status: "published" | "draft"
   discontinued: boolean
   updated_at: string
