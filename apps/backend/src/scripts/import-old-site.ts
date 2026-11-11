@@ -35,13 +35,18 @@ const decode = (s: string) =>
 /** Разбор страницы товара старого сайта. */
 export function parseOldPage(url: string, html: string): OldPage {
   const title = decode((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? "").replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim()
-  // «Характеристики»: <spoiler-component id="FEATURETEXT"> … </template> <div class="pt-5">текст</div>
+  // «Характеристики»: <spoiler-component id="FEATURETEXT"> … </spoiler-component>. Берём всё содержимое блока
+  // и вычищаем служебное: в исходном коде страницы текст лежит прямо в блоке, а браузер при сохранении
+  // добавляет свою обёртку <template>…</template> — поиск работает в обоих случаях.
   let description = ""
-  const at = html.indexOf('id="FEATURETEXT"')
+  const at = html.search(/<spoiler-component[^>]*id="FEATURETEXT"[^>]*>/)
   if (at >= 0) {
-    const after = html.slice(html.indexOf("</template>", at) + "</template>".length)
-    const body = after.match(/<div[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? ""
-    description = decode(body.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, ""))
+    const open = html.indexOf(">", at) + 1
+    const close = html.indexOf("</spoiler-component>", open)
+    const body = html.slice(open, close > 0 ? close : open + 20000)
+      .replace(/<template[\s\S]*?<\/template>/gi, "")
+      .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+    description = decode(body.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li)>/gi, "\n\n").replace(/<[^>]+>/g, ""))
       .split("\n").map((l) => l.replace(/\s+/g, " ").trim()).join("\n")
       .replace(/\n{3,}/g, "\n\n").trim()
   }
