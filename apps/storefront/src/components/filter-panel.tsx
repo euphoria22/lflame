@@ -35,6 +35,9 @@ const SWATCH: Record<string, string> = {
   multi: "conic-gradient(#f43f5e, #f59e0b, #22c55e, #3b82f6, #a855f7, #f43f5e)",
 }
 
+/** Светлые цвета — галочка на них тёмная. */
+const LIGHT = new Set(["white", "light-blue", "beige", "pink", "yellow", "silver", "gold"])
+
 /**
  * Фильтры и сортировка (ТЗ, п. 6.2). Десктоп — колонка слева, телефон — стеклянная панель снизу.
  * Изменение фильтра меняет адрес: параметры не индексируются, canonical — на страницу без них (п. 7.3).
@@ -110,8 +113,14 @@ export function FilterPanel({ basePath, filters, facets, names, total, showBrand
               return (
                 <li key={c.value}>
                   <button type="button" onClick={() => toggle("colors", c.value)} aria-pressed={on} className="flex w-full items-center gap-3 text-left text-[13px]">
-                    <span className={`size-5 rounded-full border ${on ? "ring-2 ring-foreground ring-offset-2" : "border-line"}`} style={{ background: SWATCH[c.value] ?? "#ccc" }} />
-                    <span className="flex-1">{c.label}</span>
+                    <span className="grid size-5 shrink-0 place-items-center rounded-full border border-line" style={{ background: SWATCH[c.value] ?? "#ccc" }}>
+                      {on && (
+                        <svg viewBox="0 0 12 12" className={`size-3 ${LIGHT.has(c.value) ? "text-[#111]" : "text-white"}`} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M2.5 6.2 5 8.5l4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={`flex-1 ${on ? "font-medium" : ""}`}>{c.label}</span>
                     <span className="text-subtle">{c.count}</span>
                   </button>
                 </li>
