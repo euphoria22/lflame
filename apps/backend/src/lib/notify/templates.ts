@@ -18,7 +18,7 @@ export function layout(opts: { preheader: string; title: string; body: string; b
 <span style="display:none;max-height:0;overflow:hidden">${esc(opts.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f3f2;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:20px;padding:32px">
-<tr><td style="font-size:20px;letter-spacing:0.5px;padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none">la:flamme</a></td></tr>
+<tr><td style="padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none;font-size:20px"><img src="${site()}/email-logo.png" width="138" height="24" alt="la:flamme" style="display:block;border:0;outline:none;width:138px;height:24px"></a></td></tr>
 <tr><td style="font-size:24px;line-height:1.25;padding-bottom:16px">${esc(opts.title)}</td></tr>
 <tr><td style="font-size:14px;line-height:1.6;color:#3a3a3a;padding-bottom:16px">${opts.body}</td></tr>
 ${btn}
