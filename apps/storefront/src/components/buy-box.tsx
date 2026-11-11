@@ -20,6 +20,8 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
   })
   const [message, setMessage] = useState<string | null>(null)
   const [barVisible, setBarVisible] = useState(false)
+  // Нажали «Выберите размер» без размера — сетка размеров коротко подсвечивается
+  const [nudge, setNudge] = useState(false)
   const cart = useCart()
   const box = useRef<HTMLDivElement>(null)
 
@@ -31,6 +33,10 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
   const picked = variants.find((v) => v.id === selected)
   const chosen = picked && picked.available > 0 ? picked : undefined
   const restock = picked && picked.available <= 0 ? picked : onlyOneSize && !anyAvailable ? variants[0] : undefined
+  const lastOnes = allSingles ? [] : availableSizes.filter((v) => v.available === 1)
+  const anyOut = variants.some((v) => v.available <= 0)
+  // Кнопка ждёт выбора размера — светлая, чтобы не выглядеть активной
+  const needSize = anyAvailable && !chosen && !onlyOneSize
 
   // Размер из ссылки ?size=… (кнопки размеров в карточке каталога)
   useEffect(() => {
@@ -53,7 +59,8 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
   const add = async () => {
     const target = chosen ?? (onlyOneSize ? variants[0] : undefined)
     if (!target) {
-      setMessage("Выберите размер")
+      setNudge(true)
+      setTimeout(() => setNudge(false), 700)
       box.current?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
     }
@@ -67,7 +74,7 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
   const button = (
     // Пока товар добавляется, кнопка остаётся чёрной и пишет «Добавляем…» — без резкого серого мигания
     <button type="button" onClick={() => { if (!adding && !cart.busy) add() }} disabled={!anyAvailable} aria-busy={adding}
-      className="h-12 w-full rounded-full bg-foreground text-[14px] text-background transition-opacity hover:opacity-85 disabled:bg-surface-2 disabled:text-muted aria-busy:opacity-70">
+      className={`h-12 w-full rounded-full text-[14px] transition-colors disabled:bg-surface-2 disabled:text-muted aria-busy:opacity-70 ${needSize ? "bg-surface-2 text-muted" : "bg-foreground text-background hover:opacity-85"}`}>
       {!anyAvailable ? "Нет в наличии" : adding ? "Добавляем…" : chosen || onlyOneSize ? (preorder ? "Оформить предзаказ" : "В корзину") : "Выберите размер"}
     </button>
   )
@@ -86,16 +93,29 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
               const on = v.id === selected
               return (
                 // Закончившийся размер можно выбрать — появится «Сообщить о поступлении»
-                <button key={v.id} type="button" aria-pressed={on} title={out ? "Нет в наличии — сообщим о поступлении" : undefined}
+                <button key={v.id} type="button" aria-pressed={on}
+                  title={out ? "Нет в наличии — сообщим, когда появится" : v.available === 1 && !allSingles ? "Последний экземпляр" : undefined}
+                  aria-label={out ? `${v.size} — нет в наличии, сообщить о поступлении` : v.available === 1 && !allSingles ? `${v.size} — последний экземпляр` : undefined}
                   onClick={() => { setSelected(v.id); setMessage(null) }}
-                  className={`relative flex h-12 flex-col items-center justify-center rounded-xl border text-[13px] transition-colors ${on ? (out ? "border-foreground bg-surface text-muted line-through" : "border-foreground bg-foreground text-background") : out ? "border-line text-subtle line-through hover:border-muted" : "border-line hover:border-foreground"}`}>
+                  className={`relative flex h-12 items-center justify-center rounded-xl border text-[13px] transition-colors duration-300 ${on ? (out ? "border-foreground bg-surface text-muted" : "border-foreground bg-foreground text-background") : out ? "border-line text-subtle hover:border-muted" : nudge ? "border-foreground" : "border-line hover:border-foreground"}`}>
                   {v.size}
-                  {v.available === 1 && !allSingles && <span className={`eyebrow text-[9px] ${on ? "text-background/70" : "text-muted"}`}>последний</span>}
+                  {/* Последний экземпляр — точка; закончился — колокольчик (нажать — подписка на поступление) */}
+                  {v.available === 1 && !allSingles && <span aria-hidden className="absolute right-2 top-2 size-1.5 rounded-full bg-sale" />}
+                  {out && <BellIcon className="absolute right-1.5 top-1.5 size-3 opacity-70" />}
                 </button>
               )
             })}
           </div>
           {allSingles && <p className="mt-2 text-[12px] text-muted">Каждый размер — в единственном экземпляре</p>}
+          {lastOnes.length > 0 && (
+            <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted">
+              <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-sale" />
+              {chosen && chosen.available === 1 ? `Остался последний — ${chosen.size}` : `Последний экземпляр: ${lastOnes.map((v) => v.size).join(", ")}`}
+            </p>
+          )}
+          {anyOut && anyAvailable && !restock && (
+            <p className="mt-1 text-[12px] text-muted">Нет размера? Нажмите на него — сообщим о поступлении</p>
+          )}
         </fieldset>
       )}
       {/* Выбран закончившийся размер (или единственный размер закончился) — подписка вместо кнопки */}
@@ -108,5 +128,14 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
         <div className="w-44">{button}</div>
       </div>
     </div>
+  )
+}
+
+function BellIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
+      <path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3L4 11Z" strokeLinejoin="round" />
+      <path d="M6.5 14a1.6 1.6 0 0 0 3 0" strokeLinecap="round" />
+    </svg>
   )
 }
