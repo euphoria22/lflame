@@ -54,7 +54,7 @@ export function HomeHeroBlock({ hero, picks }: { hero: HomeHero | null; picks: R
           // eslint-disable-next-line @next/next/no-img-element -- анимированный GIF без пережатия
           <img src={hero.video.url} alt="" className={`absolute inset-0 h-full w-full object-cover ${pos}`} />
         ) : (
-          <video className={`absolute inset-0 h-full w-full object-cover motion-reduce:hidden ${pos}`} autoPlay muted loop playsInline preload="metadata"
+          <video className={`absolute inset-0 h-full w-full object-cover ${pos}`} autoPlay muted loop playsInline preload="metadata"
             poster={hero.image.url} aria-hidden>
             <source src={hero.video.url} type={hero.video.type} />
           </video>

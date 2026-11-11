@@ -14,7 +14,7 @@ import BrandModuleService from "../../modules/brand/service"
 import { BRAND_SEED, BrandMatcher, brandHandle, matchBrand } from "../catalog/brands"
 import { fixLatinLookalikes, slugify } from "../catalog/translit"
 import { SyncContext, fetchFreeStock, moyskladTime } from "./context"
-import { DEFAULT_MAP_OPTIONS, MapOptions, MappedProduct, mapProduct } from "./map-product"
+import { DEFAULT_MAP_OPTIONS, MapOptions, MappedProduct, attrValue, mapProduct } from "./map-product"
 import { syncStockLevels } from "./sync-stock"
 import { MsFolder, MsImage, MsProduct, MsVariant, idFromHref } from "./types"
 
@@ -330,8 +330,8 @@ async function ensureBrands(
   const handles = new Set(list.map((b) => b.handle))
   const fieldValues = new Set<string>()
   for (const p of products) {
-    const v = p.attributes?.find((a) => a.name === opts.attrBrand)?.value
-    if (typeof v === "string" && v.trim()) fieldValues.add(v.trim())
+    const v = attrValue(p.attributes?.find((a) => a.name === opts.attrBrand)?.value)
+    if (v) fieldValues.add(v)
   }
   const fresh = [...fieldValues].filter((v) => !matchBrand(v, matchers))
   if (fresh.length) {

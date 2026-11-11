@@ -1,5 +1,5 @@
 import { seedMatchers } from "../../catalog/brands"
-import { mapProduct } from "../map-product"
+import { attrValue, mapProduct } from "../map-product"
 import { MsProduct, MsVariant } from "../types"
 
 const prices = (sale: number, old = 0) => [
@@ -78,5 +78,33 @@ describe("mapProduct", () => {
     expect(single.variants).toHaveLength(1)
     expect(single.variants[0].size).toBe("One Size")
     expect(single.totalStock).toBe(1)
+  })
+})
+
+describe("attrValue: доп. поля МС разных типов", () => {
+  it("текст, справочник, список, флажок, пусто", () => {
+    expect(attrValue("Stone Island")).toBe("Stone Island")
+    expect(attrValue({ name: "Женское", meta: { href: "x" } })).toBe("Женское")
+    expect(attrValue({ name: "  Чёрный " })).toBe("Чёрный")
+    expect(attrValue(true)).toBe("true")
+    expect(attrValue("")).toBeNull()
+    expect(attrValue(null)).toBeNull()
+    expect(attrValue({ meta: {} })).toBeNull()
+  })
+})
+
+describe("mapProduct: поля-справочники", () => {
+  it("пол, бренд и цвет из справочников МС", () => {
+    const p = {
+      id: "p-ref", name: "Худи Stone Island", archived: false, updated: "", pathName: "Худи и свитшоты",
+      attributes: [
+        { id: "a1", name: "Для кого", type: "customentity", value: { name: "Женское", meta: {} } },
+        { id: "a2", name: "Цвет", type: "customentity", value: { name: "Чёрный", meta: {} } },
+        { id: "a3", name: "Бренд", type: "customentity", value: { name: "Stone Island", meta: {} } },
+      ],
+    } as unknown as MsProduct
+    const m = mapProduct(p, [], new Map(), seedMatchers(), undefined as never)
+    expect(m.gender).toBe("women")
+    expect(m.brand?.name).toBe("Stone Island")
   })
 })

@@ -19,7 +19,7 @@ export const Home: GlobalConfig = {
         { name: "image", type: "upload", relationTo: "media", label: "Фото для компьютера", admin: { description: "Широкое, примерно 21:9 или 16:9, от 2400 px по ширине. Главное — по центру" } },
         {
           name: "video", type: "upload", relationTo: "media", label: "Видео или GIF (необязательно)",
-          admin: { description: "MP4 или WebM, 5–15 секунд, без звука, до 15 МБ (или GIF). Играет по кругу; фото выше — обложка, пока видео грузится" },
+          admin: { description: "MP4 (H.264) или WebM, до 60 секунд, без звука, лучше до 20 МБ (или GIF). Видео с iPhone (HEVC) Chrome не показывает — сохраните в H.264. Играет по кругу; фото выше — обложка, пока видео грузится" },
         },
         { name: "imageMobile", type: "upload", relationTo: "media", label: "Фото для телефона (необязательно)", admin: { description: "Вертикальное 4:5. Пусто — обрежем фото для компьютера" } },
         {

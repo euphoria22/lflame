@@ -62,10 +62,22 @@ export type MappedProduct = {
   problems: string[]
 }
 
+/**
+ * Значение доп. поля МС как текст. Поле-справочник или список («Бренд», «Цвет», «Для кого»)
+ * МС отдаёт объектом { name, meta } — берём его название; флажок — true/false.
+ */
+export function attrValue(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === "object") {
+    const name = (value as { name?: unknown }).name
+    return typeof name === "string" && name.trim() ? name.trim() : null
+  }
+  const s = String(value).trim()
+  return s ? s : null
+}
+
 function attr(p: MsProduct, name: string): string | null {
-  const a = p.attributes?.find((x) => x.name === name)
-  if (!a || a.value === undefined || a.value === null || a.value === "") return null
-  return String(a.value)
+  return attrValue(p.attributes?.find((x) => x.name === name)?.value)
 }
 
 /** Цена в рублях: МС хранит копейки. */
