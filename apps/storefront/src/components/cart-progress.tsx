@@ -91,11 +91,14 @@ export function CartProgress({ total, className = "" }: { total: number; classNa
               : <>До уровня {gTarget.name} (−{gTarget.discount}%) — ещё <span className="text-foreground">{formatPrice(gTarget.threshold - total)}</span>{tag}</>}
           </p>
           <Bar tone="club" pct={gReached ? 100 : (total / gTarget.threshold) * 100} />
-          <p className="mt-2 text-[12px] text-muted">
-            {!loy?.logged
-              ? <><Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Авторизуйтесь</Link>, чтобы заказ засчитался в Laflamme Club</>
-              : <>Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы заказ засчитался в Laflamme Club</>}
-          </p>
+          {/* Телефон в профиле уже есть — заказ засчитается по нему, подсказка не нужна */}
+          {(!loy?.logged || !loy.loyalty?.phone) && (
+            <p className="mt-2 text-[12px] text-muted">
+              {!loy?.logged
+                ? <><Link href="/account/login?next=/cart" className="text-foreground underline underline-offset-4">Авторизуйтесь</Link>, чтобы заказ засчитался в Laflamme Club</>
+                : <>Укажите телефон в <Link href="/account" className="text-foreground underline underline-offset-4">профиле</Link>, чтобы заказ засчитался в Laflamme Club</>}
+            </p>
+          )}
         </div>
       )}
       {l?.enabled && l.confirmed && (
