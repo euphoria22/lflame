@@ -169,7 +169,12 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
+/* Обводка фокуса — только при управлении с клавиатуры (Tab); после клика мышью или пальцем её нет */
+:focus,
 :focus-visible {
+  outline: none;
+}
+html[data-kbd] :focus-visible {
   outline: 2px solid var(--foreground);
   outline-offset: 2px;
 }

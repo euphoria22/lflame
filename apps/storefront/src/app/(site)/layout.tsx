@@ -44,6 +44,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ru" data-scroll-behavior="smooth" className={`${inter.variable} antialiased`} style={{ "--bar": bar ? "34px" : "0px" } as React.CSSProperties}>
       <body className="flex min-h-screen flex-col">
+        {/* Клавиатура (Tab) включает обводку фокуса, клик или касание — выключает */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(d){var h=d.documentElement;d.addEventListener("keydown",function(e){if(e.key==="Tab")h.setAttribute("data-kbd","")},true);d.addEventListener("pointerdown",function(){h.removeAttribute("data-kbd")},true)})(document)` }} />
         <CartProvider>
           <FavoritesProvider>
           {bar && <AnnouncementBar data={bar} />}
