@@ -7,6 +7,7 @@ type Flag = "preorder" | "is_new" | "pinned" | "outlet" | "no_loyalty"
 type Row = {
   id: string; title: string; handle: string; thumbnail: string | null; status: string
   brand: string | null; category: string | null; created_at: string; flags: Record<Flag, boolean>
+  has_description: boolean; images: number
 }
 
 const FLAGS: { key: Flag; label: string; color: "orange" | "green" | "blue" | "red" | "purple" }[] = [
@@ -55,7 +56,10 @@ const SiteProductsPage = () => {
     return rows
       .filter((r) => {
         if (words.length && !words.every((w) => `${r.title} ${r.brand ?? ""} ${r.handle}`.toLowerCase().includes(w))) return false
-        if (flag !== ALL) {
+        if (flag === "no_description") { if (r.has_description) return false }
+        else if (flag === "few_photos") { if (r.images < 1 || r.images > 2) return false }
+        else if (flag === "no_photos") { if (r.images > 0) return false }
+        else if (flag !== ALL) {
           const off = flag.startsWith("-")
           if (r.flags[flag.replace("-", "") as Flag] === off) return false
         }
@@ -114,13 +118,15 @@ const SiteProductsPage = () => {
         <Text size="small" className="text-ui-fg-subtle">
           Отметьте товары и включите или выключите у всех сразу: предзаказ, новинка, закрепить наверху, Outlet, без скидок Laflamme Club.
           Описание дефекта для Outlet и дату предзаказа задайте в карточке товара.
+          Фильтры «Без описания» и «Мало фото» помогают найти карточки, которые стоит дополнить.
         </Text>
       </Container>
 
       <Container className="p-0">
         <div className="flex flex-wrap items-center gap-2 px-6 py-4">
           <div className="w-64"><Input size="small" type="search" placeholder="Название, бренд" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          {sel(flag, setFlag, "Флажок", [[ALL, "Все флажки"], ...FLAGS.flatMap((f): [string, string][] => [[f.key, `${f.label}: да`], [`-${f.key}`, `${f.label}: нет`]])])}
+          {sel(flag, setFlag, "Флажок", [[ALL, "Все флажки"], ...FLAGS.flatMap((f): [string, string][] => [[f.key, `${f.label}: да`], [`-${f.key}`, `${f.label}: нет`]]),
+            ["no_description", "Без описания"], ["few_photos", "Мало фото (1–2)"], ["no_photos", "Без фото"]])}
           {sel(brand === "" ? "__none" : brand, (v) => setBrand(v === "__none" ? "" : v), "Бренд", [[ALL, "Все бренды"], ["", "Без бренда"], ...brands.map((b): [string, string] => [b, b])])}
           {sel(category, setCategory, "Категория", [[ALL, "Все категории"], ...categories.map((c): [string, string] => [c, c])])}
           {sel(status, setStatus, "Статус", [[ALL, "Любой статус"], ["published", "Опубликован"], ["draft", "Черновик"]])}
@@ -155,7 +161,7 @@ const SiteProductsPage = () => {
                 <th className="py-2.5 pr-3 font-medium">Товар</th>
                 <th className="py-2.5 pr-3 font-medium">Бренд</th>
                 <th className="py-2.5 pr-3 font-medium">Категория</th>
-                <th className="py-2.5 pr-6 font-medium">Флажки</th>
+                <th className="py-2.5 pr-6 font-medium">Флажки и пометки</th>
               </tr>
             </thead>
             <tbody>
@@ -178,6 +184,9 @@ const SiteProductsPage = () => {
                   <td className="py-2 pr-6">
                     <div className="flex flex-wrap gap-1">
                       {FLAGS.filter((f) => r.flags[f.key]).map((f) => <Badge key={f.key} size="2xsmall" color={f.color}>{f.label}</Badge>)}
+                      {!r.has_description && <Badge size="2xsmall" color="grey">Без описания</Badge>}
+                      {r.images === 0 ? <Badge size="2xsmall" color="grey">Без фото</Badge>
+                        : r.images <= 2 && <Badge size="2xsmall" color="grey">Фото: {r.images}</Badge>}
                     </div>
                   </td>
                 </tr>
