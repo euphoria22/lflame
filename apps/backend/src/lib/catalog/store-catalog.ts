@@ -86,7 +86,7 @@ type Row = {
   metadata?: Record<string, unknown> | null
   images?: { url: string; rank?: number }[]
   categories?: { handle: string; name: string }[]
-  brand?: { handle: string; name: string; description?: string | null } | null
+  brand?: { handle: string; name: string; description?: string | null; is_active?: boolean } | null
   sales_channels?: { id: string }[]
   variants?: {
     id: string
@@ -102,7 +102,7 @@ const FIELDS = [
   "id", "handle", "title", "description", "status", "thumbnail", "created_at", "updated_at", "metadata", "external_id",
   "images.url", "images.rank",
   "categories.handle", "categories.name",
-  "brand.handle", "brand.name",
+  "brand.handle", "brand.name", "brand.is_active",
   "sales_channels.id",
   "variants.id", "variants.title", "variants.sku", "variants.variant_rank", "variants.metadata",
   "variants.prices.amount", "variants.prices.currency_code",
@@ -161,7 +161,8 @@ function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0):
     id: row.id,
     handle: row.handle,
     title: row.title,
-    brand: row.brand ? { handle: row.brand.handle, name: row.brand.name } : null,
+    // Скрытый в админке бренд не показывается на сайте (товары остаются)
+    brand: row.brand && row.brand.is_active !== false ? { handle: row.brand.handle, name: row.brand.name } : null,
     category: row.categories?.[0] ? { handle: row.categories[0].handle, name: row.categories[0].name } : null,
     gender: (meta.gender as string) ?? "men",
     color: (meta.color as string | null) ?? null,
@@ -269,7 +270,7 @@ export async function loadCatalogProduct(container: MedusaContainer, handle: str
     description: row.description ?? null,
     images,
     variants,
-    brand_description: row.brand?.description ?? null,
+    brand_description: row.brand?.is_active !== false ? row.brand?.description ?? null : null,
     status: row.status === "published" ? "published" : "draft",
     discontinued,
     updated_at: new Date(row.updated_at).toISOString(),

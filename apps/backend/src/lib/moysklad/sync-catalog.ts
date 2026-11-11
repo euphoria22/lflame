@@ -322,8 +322,8 @@ async function ensureBrands(
   }
 
   const toMatchers = (rows: typeof list): BrandMatcher[] =>
+    // Скрытые на сайте бренды тоже сопоставляются: иначе их товары остались бы без бренда
     rows
-      .filter((b) => b.is_active)
       .map((b) => ({ key: b.id, name: b.name, aliases: (b.aliases as unknown as string[] | null) ?? [] }))
 
   let matchers = toMatchers(list)
