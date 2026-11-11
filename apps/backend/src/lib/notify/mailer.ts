@@ -21,6 +21,10 @@ function getTransport(): Transporter {
     secure: port === 465,
     // На других портах (587, 2525) — обязательный STARTTLS: пароль и письма не уходят открытым текстом
     requireTLS: port !== 465,
+    // Почтовый сервер не отвечает — не держим покупателя 2 минуты (значение библиотеки по умолчанию)
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined,
   })
   return transporter
