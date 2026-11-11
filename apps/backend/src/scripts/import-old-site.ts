@@ -1,6 +1,7 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { updateProductsWorkflow, uploadFilesWorkflow } from "@medusajs/medusa/core-flows"
+import { request as httpsRequest } from "https"
 
 /**
  * Перенос описаний и фото со старого сайта (Битрикс, laflamme.ru) в товары нового.
@@ -8,6 +9,7 @@ import { updateProductsWorkflow, uploadFilesWorkflow } from "@medusajs/medusa/co
  *   npx medusa exec ./src/scripts/import-old-site.js          # пробный прогон: только отчёт, ничего не меняет
  *   npx medusa exec ./src/scripts/import-old-site.js apply    # записать описания и фото
  *   npx medusa exec ./src/scripts/import-old-site.js apply force  # и для уже перенесённых товаров
+ *   … insecure — если у старого сайта истёк SSL-сертификат (только для старого сайта)
  *
  * Товар сопоставляется по названию (без учёта регистра, знаков и ё/е); запасной вариант — адрес страницы.
  * Если под название подходит несколько товаров — товар пропускается и попадает в отчёт.
@@ -54,9 +56,40 @@ export function parseOldPage(url: string, html: string): OldPage {
   return { url, title, description, images: images.slice(0, MAX_IMAGES) }
 }
 
+/**
+ * Запасной режим (аргумент insecure): у старого сайта истёк SSL-сертификат — читаем ТОЛЬКО его без проверки
+ * сертификата. Данные открытые (описания и фото), остальные соединения (хранилище, база) проверяются как обычно.
+ */
+let INSECURE_OLD_SITE = false
+
+function insecureGet(url: string, redirects = 3): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(url, { rejectUnauthorized: false, headers: { "user-agent": "LaflammeMigration/1.0" }, timeout: 30_000 }, (res) => {
+      const loc = res.headers.location
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && loc && redirects > 0) {
+        res.resume()
+        resolve(insecureGet(new URL(loc, url).toString(), redirects - 1))
+        return
+      }
+      const chunks: Buffer[] = []
+      res.on("data", (c: Buffer) => chunks.push(c))
+      res.on("end", () => resolve(new Response(Buffer.concat(chunks), {
+        status: res.statusCode ?? 500,
+        headers: { "content-type": String(res.headers["content-type"] ?? "") },
+      })))
+    })
+    req.on("timeout", () => req.destroy(new Error("timeout")))
+    req.on("error", reject)
+    req.end()
+  })
+}
+
 async function get(url: string, attempt = 1): Promise<Response> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "user-agent": "LaflammeMigration/1.0" } })
+    const oldSite = new URL(url).host === new URL(OLD_SITE).host
+    const res = INSECURE_OLD_SITE && oldSite && url.startsWith("https:")
+      ? await insecureGet(url)
+      : await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "user-agent": "LaflammeMigration/1.0" } })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return res
   } catch (e) {
@@ -128,6 +161,7 @@ async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) {
 
 export default async function importOldSite({ container, args }: ExecArgs) {
   const apply = args.includes("apply")
+  INSECURE_OLD_SITE = args.includes("insecure")
   const force = args.includes("force")
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
