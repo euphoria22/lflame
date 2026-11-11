@@ -137,10 +137,11 @@ export default async function ProductPage({ params }: Props) {
               <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />
             </div>
 
+            {/* Коротко об условиях — подробности на страницах «Доставка», «Оплата», «Обмен и возврат» */}
             <ul className="mt-6 space-y-1.5 text-[13px] text-muted">
-              <li>Доставка по России: СДЭК, Почта России, Яндекс Доставка</li>
-              <li>Оплата картой, СБП или частями</li>
-              <li>Обмен и возврат — 7 дней после получения</li>
+              <li><Link href="/delivery" className="hover:text-foreground">Доставка по России СДЭК и Почтой, в Омске — курьер и самовывоз</Link></li>
+              <li><Link href="/payment" className="hover:text-foreground">Оплата картой, СБП, T-Pay или частями</Link></li>
+              <li><Link href="/returns" className="hover:text-foreground">Обмен и возврат — 7 дней после получения</Link></li>
             </ul>
             <AskUs className="mt-6" message={`Здравствуйте! Вопрос по товару «${product.title}»: ${SITE_URL}${routes.product(product.handle)}`} />
 
@@ -161,13 +162,6 @@ export default async function ProductPage({ params }: Props) {
                     <Fragment key={i}><dt>{r.key}</dt><dd className="text-foreground">{r.value}</dd></Fragment>
                   ))}
                 </dl>
-              </Accordion>
-              <Accordion title="Доставка и оплата">
-                <p>Доставляем по всей России службами СДЭК, Почта России и Яндекс Доставка. Стоимость и сроки рассчитываются при оформлении заказа.</p>
-                <p>Оплата картой, через СБП, T-Pay или частями с Яндекс Сплит.</p>
-              </Accordion>
-              <Accordion title="Обмен и возврат">
-                <p>Вернуть или обменять товар надлежащего качества можно в течение 7 дней после получения, если сохранены товарный вид и бирки.</p>
               </Accordion>
             </div>
           </div>
