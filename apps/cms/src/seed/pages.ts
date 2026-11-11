@@ -63,11 +63,9 @@ const PAGES: { slug: string; title: string; order: number; intro?: string; text:
     order: 20,
     intro: "Мы работаем только по полной предоплате.",
     text: `
-Принимаем платежи в соответствии с 54-ФЗ через защищённый платёжный модуль Т-Банка или Яндекс Сплит.
+Принимаем платежи в соответствии с 54-ФЗ через защищённый платёжный модуль Т-Банка или Яндекс Сплит. Оплатить заказ можно любой кредитной или дебетовой картой (Visa, Mastercard, МИР), через СБП или T-Pay.
 
-Оплатить заказ можно картой (Visa, Mastercard, МИР), через СБП или T-Pay. Данные карты передаются напрямую в банк и не попадают к нам.
-
-Наложенным платежом не работаем.
+С наложенным платежом не работаем.
 
 Электронный чек приходит на почту или телефон, указанные в заказе.
 `,
@@ -202,7 +200,7 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 /** Увеличивается, когда меняются стартовые тексты. */
 const SEED_VERSION = 8
 /** В какой версии менялся стартовый текст страницы. */
-const CHANGED: Record<string, number> = { delivery: 8, payment: 3, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 7 }
+const CHANGED: Record<string, number> = { delivery: 8, payment: 8, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 7 }
 
 /** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
 const PREVIOUS: Record<string, string> = {
@@ -316,6 +314,17 @@ const DELIVERY_V7 = `
 - Доставляем по всему миру: для доставки за пределы России напишите нам.
 `
 
+/** Текст «Оплаты» версии 7 — если он не правился в CMS, заменяем на новый. */
+const PAYMENT_V7 = `
+Принимаем платежи в соответствии с 54-ФЗ через защищённый платёжный модуль Т-Банка или Яндекс Сплит.
+
+Оплатить заказ можно картой (Visa, Mastercard, МИР), через СБП или T-Pay. Данные карты передаются напрямую в банк и не попадают к нам.
+
+Наложенным платежом не работаем.
+
+Электронный чек приходит на почту или телефон, указанные в заказе.
+`
+
 const PREVIOUS_V4: Record<string, string> = { offer: OFFER_V4, privacy: PRIVACY_V4, contacts: CONTACTS_V4 }
 
 type Lex = { text?: string; children?: Lex[] }
@@ -332,7 +341,7 @@ export async function seedPages(payload: Payload): Promise<void> {
       // или в ней всё ещё стартовый текст прошлой версии
       const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
       const current = plain(doc.content?.root)
-      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "delivery" ? DELIVERY_V7 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
+      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "delivery" ? DELIVERY_V7 : undefined, p.slug === "payment" ? PAYMENT_V7 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
       if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,
