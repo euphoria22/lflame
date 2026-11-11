@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { rememberPurchase } from "@/lib/analytics"
-import { CheckoutInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
+import { CheckoutInput, formatPhoneInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
 import { DeliveryChoice, Quote, validateDelivery } from "@/lib/delivery"
 import { routes } from "@/lib/routes"
 import { AskUs } from "./ask-us"
@@ -100,7 +100,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
           <div className="grid gap-3 sm:grid-cols-2">
             <div><input className={field} placeholder="Имя" autoComplete="given-name" value={v.first_name ?? ""} onChange={set("first_name")} aria-invalid={!!errors.first_name} />{err("first_name")}</div>
             <div><input className={field} placeholder="Фамилия" autoComplete="family-name" value={v.last_name ?? ""} onChange={set("last_name")} aria-invalid={!!errors.last_name} />{err("last_name")}</div>
-            <div><input className={field} placeholder="Телефон" type="tel" inputMode="tel" autoComplete="tel" value={v.phone ?? ""} onChange={set("phone")} aria-invalid={!!errors.phone} />{err("phone")}</div>
+            <div><input className={field} placeholder="+7 (9__) ___-__-__" aria-label="Телефон" type="tel" inputMode="tel" autoComplete="tel" value={v.phone ?? ""} onChange={(e) => { setV((x) => ({ ...x, phone: formatPhoneInput(e.target.value, x.phone ?? "") })); setErrors((x) => ({ ...x, phone: "" })) }} aria-invalid={!!errors.phone} />{err("phone")}</div>
             <div><input className={field} placeholder="Email" type="email" autoComplete="email" value={v.email ?? ""} onChange={set("email")} aria-invalid={!!errors.email} />{err("email")}</div>
           </div>
         </section>

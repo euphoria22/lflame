@@ -43,6 +43,10 @@ export async function Footer() {
           <ul className={col}>
             <li><Link href={routes.newIn()}>Новинки</Link></li>
             {GENDERS.map((g) => <li key={g.slug}><Link href={routes.gender(g.slug)}>{g.name}</Link></li>)}
+            {/* Главные категории (аудит ITB: «нет ссылок на общие категории») — в порядке меню мужского раздела */}
+            {nav.genders.find((g) => g.slug === "men")?.categories.slice(0, 6).map((c) => (
+              <li key={c.handle}><Link href={routes.category("men", c.handle)}>{c.name}</Link></li>
+            ))}
             <li><Link href={routes.brands()}>Бренды</Link></li>
             <li><Link href={routes.outlet()}>Outlet</Link></li>
           </ul>
