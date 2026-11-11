@@ -33,6 +33,9 @@ export type CatalogItem = {
   preorder: boolean
   /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
   preorder_date: string | null
+  /** Outlet: вещь с небольшим дефектом (флажок в админке) и описание дефекта */
+  outlet: boolean
+  outlet_note: string | null
   /** Скидка программы лояльности не действует */
   no_loyalty: boolean
   created_at: string
@@ -160,6 +163,8 @@ function toItem(row: Row, variants: CatalogVariant[]): CatalogItem {
     in_stock: inStock.length > 0,
     preorder: Boolean(meta.preorder),
     preorder_date: meta.preorder && typeof meta.preorder_date === "string" ? meta.preorder_date : null,
+    outlet: Boolean(meta.outlet),
+    outlet_note: meta.outlet && typeof meta.outlet_note === "string" ? meta.outlet_note : null,
     no_loyalty: Boolean(meta.no_loyalty),
     created_at: new Date(row.created_at).toISOString(),
     old_path: oldPath(meta.old_site_url),

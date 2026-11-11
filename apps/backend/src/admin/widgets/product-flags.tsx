@@ -1,18 +1,21 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import type { AdminProduct, DetailWidgetProps } from "@medusajs/framework/types"
-import { Button, Container, Heading, Input, Label, Switch, Text, toast } from "@medusajs/ui"
+import { Button, Container, Heading, Input, Label, Switch, Text, Textarea, toast } from "@medusajs/ui"
 import { useState } from "react"
 
-type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null }
+type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null }
 type Patch = Partial<Flags>
 
-/** Флажки товара для сайта: предзаказ (с ожидаемой датой поступления) и исключение из программы лояльности. */
+/** Флажки товара для сайта: предзаказ (с ожидаемой датой поступления), Outlet (с описанием дефекта) и исключение из программы лояльности. */
 const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) => {
   const m = product.metadata ?? {}
   const [preorder, setPreorder] = useState(Boolean(m.preorder))
   const [noLoyalty, setNoLoyalty] = useState(Boolean(m.no_loyalty))
   const [date, setDate] = useState(typeof m.preorder_date === "string" ? m.preorder_date : "")
   const [savedDate, setSavedDate] = useState(date)
+  const [outlet, setOutlet] = useState(Boolean(m.outlet))
+  const [note, setNote] = useState(typeof m.outlet_note === "string" ? m.outlet_note : "")
+  const [savedNote, setSavedNote] = useState(note)
   const [busy, setBusy] = useState(false)
 
   const save = async (patch: Patch) => {
@@ -27,6 +30,9 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
       setNoLoyalty(d.no_loyalty)
       setDate(d.preorder_date ?? "")
       setSavedDate(d.preorder_date ?? "")
+      setOutlet(d.outlet)
+      setNote(d.outlet_note ?? "")
+      setSavedNote(d.outlet_note ?? "")
       toast.success("Сохранено — на сайте обновится в течение минуты")
     } catch (e) {
       toast.error((e as Error).message)
@@ -53,6 +59,21 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
                   {date && date === savedDate && <Button size="small" variant="transparent" disabled={busy} onClick={() => save({ preorder_date: null })}>Убрать</Button>}
                 </div>
                 <Text size="xsmall" className="mt-1 text-ui-fg-muted">На сайте: «Предзаказ · 15 декабря». Пусто — без даты.</Text>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <Switch id="lf-outlet" className="mt-0.5 shrink-0" checked={outlet} disabled={busy} onCheckedChange={(v) => save({ outlet: v })} />
+          <div className="min-w-0 flex-1">
+            <Label htmlFor="lf-outlet" weight="plus">Outlet</Label>
+            <Text size="small" className="text-ui-fg-subtle">Вещь с небольшим дефектом: попадает в раздел Outlet, на сайте — пометка и описание дефекта. Цену со скидкой задайте в МоёмСкладе, как обычно.</Text>
+            {outlet && (
+              <div className="mt-3">
+                <Label htmlFor="lf-outlet-note" size="small">Что за дефект</Label>
+                <Textarea id="lf-outlet-note" className="mt-1" rows={2} maxLength={300} value={note} disabled={busy}
+                  placeholder="Например: затяжка на рукаве, не влияет на носку" onChange={(e) => setNote(e.target.value)} />
+                {note !== savedNote && <Button size="small" variant="secondary" className="mt-2" isLoading={busy} onClick={() => save({ outlet_note: note.trim() || null })}>Сохранить</Button>}
               </div>
             )}
           </div>

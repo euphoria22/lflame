@@ -159,23 +159,25 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       }
     }
     case "new":
-    case "sale": {
-      const isSale = kind === "sale"
-      const scope = { gender: g?.slug, onlyNew: !isSale, onlySale: isSale }
+    case "outlet": {
+      const isOutlet = kind === "outlet"
+      const scope = { gender: g?.slug, onlyNew: !isOutlet, onlyOutlet: isOutlet }
       const scoped = scopeItems(items, scope)
-      const base = isSale ? "Распродажа" : "Новинки"
+      const base = isOutlet ? "Outlet" : "Новинки"
+      const link = (x?: GenderSlug) => (isOutlet ? routes.outlet(x) : routes.newIn(x))
       const h1 = g ? `${base}: ${g.name.toLowerCase()}` : base
       return {
-        scope, basePath: isSale ? routes.sale(g?.slug) : routes.newIn(g?.slug), h1,
-        title: `${h1} — ${isSale ? "скидки на оригинальную одежду" : "новые поступления"}`,
+        scope, basePath: link(g?.slug), h1,
+        title: `${h1} — ${isOutlet ? "оригинальные вещи с небольшими дефектами по сниженной цене" : "новые поступления"}`,
         description: describe(h1, scoped),
+        ...(isOutlet ? { intro: "Оригинальные вещи с небольшими дефектами — затяжкой, следами примерки, повреждённой упаковкой — по сниженной цене. Что именно с вещью, написано в её карточке." } : {}),
         crumbs: [
-          { name: base, href: isSale ? routes.sale() : routes.newIn() },
-          ...(g ? [{ name: g.name, href: isSale ? routes.sale(g.slug) : routes.newIn(g.slug) }] : []),
+          { name: base, href: link() },
+          ...(g ? [{ name: g.name, href: link(g.slug) }] : []),
         ],
         genderLinks: [
-          { label: "Все", href: isSale ? routes.sale() : routes.newIn(), active: !g },
-          ...GENDERS.map((x) => ({ label: x.name, href: isSale ? routes.sale(x.slug) : routes.newIn(x.slug), active: x.slug === g?.slug })),
+          { label: "Все", href: link(), active: !g },
+          ...GENDERS.map((x) => ({ label: x.name, href: link(x.slug), active: x.slug === g?.slug })),
         ],
       }
     }
@@ -183,7 +185,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
   return null
 }
 
-export type ListingKind = "gender" | "category" | "categoryBrand" | "brand" | "brandGender" | "new" | "sale"
+export type ListingKind = "gender" | "category" | "categoryBrand" | "brand" | "brandGender" | "new" | "outlet"
 
 type RouteProps = { params: Promise<Record<string, string>>; searchParams: Promise<SearchParams> }
 
@@ -225,7 +227,7 @@ export async function listingPaths(): Promise<{ path: string; count: number }[]>
   for (const g of GENDERS) {
     add(routes.gender(g.slug), { gender: g.slug })
     add(routes.newIn(g.slug), { gender: g.slug, onlyNew: true })
-    add(routes.sale(g.slug), { gender: g.slug, onlySale: true })
+    add(routes.outlet(g.slug), { gender: g.slug, onlyOutlet: true })
     for (const c of taxonomy.categories) {
       add(routes.category(g.slug, c.handle), { gender: g.slug, category: c.handle })
       for (const b of taxonomy.brands) {
@@ -236,7 +238,7 @@ export async function listingPaths(): Promise<{ path: string; count: number }[]>
   }
   for (const b of taxonomy.brands) add(routes.brand(b.handle), { brand: b.handle })
   add(routes.newIn(), { onlyNew: true })
-  add(routes.sale(), { onlySale: true })
+  add(routes.outlet(), { onlyOutlet: true })
   return out.filter((x) => x.count > 0)
 }
 

@@ -25,6 +25,8 @@ export function proxy(req: NextRequest) {
   // Адреса прежнего сайта, на которые ссылаются оферта и политика
   const OLD: Record<string, string> = { "/policy": "/privacy" }
   if (OLD[path]) { path = OLD[path]; changed = true }
+  // Раздел Sale переименован в Outlet
+  if (path === "/sale" || path.startsWith("/sale/")) { path = path.replace(/^\/sale/, "/outlet"); changed = true }
 
   if (url.searchParams.get("page") === "1") { url.searchParams.delete("page"); changed = true }
 

@@ -43,8 +43,8 @@ export default async function HomePage() {
   const [items, hero] = await Promise.all([getCatalog(), safeHomeHero()])
   const all = scopeItems(items, {})
   const fresh = scopeItems(items, { onlyNew: true }).sort((a, b) => b.created_at.localeCompare(a.created_at))
-  const sale = scopeItems(items, { onlySale: true })
-  const maxOff = Math.max(0, ...sale.map((i) => discountPercent(i.price, i.compare_at) ?? 0))
+  const outlet = scopeItems(items, { onlyOutlet: true })
+  const maxOff = Math.max(0, ...outlet.map((i) => discountPercent(i.price, i.compare_at) ?? 0))
 
   const brandCounts = new Map<string, { name: string; count: number }>()
   for (const i of all) {
@@ -86,12 +86,12 @@ export default async function HomePage() {
         <HomeBlog />
       </Suspense>
 
-      {/* Распродажа */}
-      {sale.length > 0 && (
+      {/* Outlet: вещи с небольшими дефектами */}
+      {outlet.length > 0 && (
         <section className="mt-20 px-2 md:px-4">
-          <Link href={routes.sale()} className="group relative flex min-h-[320px] flex-col justify-between overflow-hidden rounded-[28px] bg-foreground p-8 text-background md:min-h-[420px] md:p-14">
-            <p className="eyebrow text-background/60">{sale.length} {plural(sale.length, ["товар", "товара", "товаров"])} со скидкой</p>
-            <p className="text-[64px] font-medium leading-none tracking-tighter md:text-[160px]">Sale{maxOff ? <span className="text-background/40"> −{maxOff}%</span> : null}</p>
+          <Link href={routes.outlet()} className="group relative flex min-h-[320px] flex-col justify-between overflow-hidden rounded-[28px] bg-foreground p-8 text-background md:min-h-[420px] md:p-14">
+            <p className="eyebrow text-background/60">{outlet.length} {plural(outlet.length, ["вещь", "вещи", "вещей"])} с небольшими дефектами</p>
+            <p className="text-[64px] font-medium leading-none tracking-tighter md:text-[160px]">Outlet{maxOff ? <span className="text-background/40"> −{maxOff}%</span> : null}</p>
             <span className="glass-dark inline-flex w-fit items-center gap-3 rounded-full px-6 py-3 text-[15px]">
               Смотреть <ArrowIcon className="size-5 transition-transform group-hover:translate-x-1" />
             </span>

@@ -27,7 +27,7 @@ function photo(list: CatalogItem[], used: Set<string>): string | null {
 }
 
 /** Данные меню: категории и топ-бренды для каждого раздела, только где есть товары. */
-export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand[]; brandTiles: NavTile[]; saleCount: number }> {
+export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand[]; brandTiles: NavTile[]; outletCount: number }> {
   const [items, taxonomy, menu] = await Promise.all([getCatalog(), getTaxonomy(), safeMenuSettings()])
   const rank = new Map(taxonomy.categories.map((c) => [c.handle, c.rank]))
   const used = new Set<string>()
@@ -78,6 +78,6 @@ export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand
     // Все бренды по алфавиту; две плитки — самые большие бренды
     brands: [...byCount].sort((a, b) => a.name.localeCompare(b.name)),
     brandTiles: byCount.slice(0, 2).map((b) => ({ label: b.name, href: routes.brand(b.handle), image: photo(items.filter((i) => i.brand?.handle === b.handle), used) })),
-    saleCount: scopeItems(items, { onlySale: true }).length,
+    outletCount: scopeItems(items, { onlyOutlet: true }).length,
   }
 }

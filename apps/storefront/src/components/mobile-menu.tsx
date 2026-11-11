@@ -10,7 +10,7 @@ import type { NavBrand, NavGender } from "./nav-data"
 import { usePresence } from "./use-presence"
 
 /** Мобильное меню: стеклянная панель на весь экран. */
-export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBrand[]; saleCount: number } }) {
+export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBrand[]; outletCount: number } }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState(nav.genders[0]?.slug)
   const { mounted, state } = usePresence(open, 200)
@@ -51,7 +51,7 @@ export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBr
                 {g.categories.map((c) => (
                   <li key={c.handle}><Link onClick={close} href={routes.category(g.slug, c.handle)} className="block py-1.5">{c.name}</Link></li>
                 ))}
-                <li><Link onClick={close} href={routes.sale(g.slug)} className="block py-1.5 text-sale">Sale</Link></li>
+                {nav.outletCount > 0 && <li><Link onClick={close} href={routes.outlet(g.slug)} className="block py-1.5 text-sale">Outlet</Link></li>}
               </ul>
             )}
             <p className="eyebrow mb-3 mt-8 text-muted">Бренды</p>

@@ -82,7 +82,7 @@ export async function Header() {
                   </div>
               </MegaItem>
             ))}
-            {nav.saleCount > 0 && <MegaLink><Link href={routes.sale()} className={`${link} text-sale`}>Sale</Link></MegaLink>}
+            {nav.outletCount > 0 && <MegaLink><Link href={routes.outlet()} className={`${link} text-sale`}>Outlet</Link></MegaLink>}
           </MegaMenu>
         </nav>
 

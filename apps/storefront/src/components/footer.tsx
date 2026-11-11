@@ -43,7 +43,7 @@ export async function Footer() {
             <li><Link href={routes.newIn()}>Новинки</Link></li>
             {GENDERS.map((g) => <li key={g.slug}><Link href={routes.gender(g.slug)}>{g.name}</Link></li>)}
             <li><Link href={routes.brands()}>Бренды</Link></li>
-            <li><Link href={routes.sale()}>Sale</Link></li>
+            <li><Link href={routes.outlet()}>Outlet</Link></li>
           </ul>
         </div>
         <div>

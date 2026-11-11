@@ -11,7 +11,8 @@ export type ListingScope = {
   category?: string
   brand?: string
   onlyNew?: boolean
-  onlySale?: boolean
+  /** Только Outlet: вещи с небольшим дефектом (флажок в админке) */
+  onlyOutlet?: boolean
   q?: string
 }
 
@@ -112,7 +113,7 @@ export function scopeItems(items: CatalogItem[], scope: ListingScope): CatalogIt
     if (scope.gender && i.gender !== scope.gender && i.gender !== "unisex") return false
     if (scope.category && i.category?.handle !== scope.category) return false
     if (scope.brand && i.brand?.handle !== scope.brand) return false
-    if (scope.onlySale && !i.compare_at) return false
+    if (scope.onlyOutlet && !i.outlet) return false
     if (terms.length) {
       const hay = normalizeText(`${i.title} ${i.brand?.name ?? ""} ${i.category?.name ?? ""} ${i.color_name ?? ""}`)
       if (!terms.every((t) => hay.includes(t))) return false
@@ -252,7 +253,7 @@ export function scopeToQuery(scope: ListingScope): string {
   if (scope.category) p.set("s_category", scope.category)
   if (scope.brand) p.set("s_brand", scope.brand)
   if (scope.onlyNew) p.set("s_new", "1")
-  if (scope.onlySale) p.set("s_sale", "1")
+  if (scope.onlyOutlet) p.set("s_outlet", "1")
   if (scope.q) p.set("s_q", scope.q)
   return p.toString()
 }
@@ -264,7 +265,7 @@ export function scopeFromQuery(p: URLSearchParams): ListingScope {
     category: p.get("s_category") ?? undefined,
     brand: p.get("s_brand") ?? undefined,
     onlyNew: p.get("s_new") === "1",
-    onlySale: p.get("s_sale") === "1",
+    onlyOutlet: p.get("s_outlet") === "1",
     q: p.get("s_q") ?? undefined,
   }
 }

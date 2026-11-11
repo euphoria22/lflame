@@ -42,6 +42,7 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
         </Link>
         <div className={`pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-1.5 ${compact ? "hidden" : ""}`}>
           {item.preorder && <span className="eyebrow rounded-full bg-foreground px-2 py-1 text-background">Предзаказ{arrivalDate(item.preorder_date) ? ` · ${arrivalDate(item.preorder_date)}` : ""}</span>}
+          {item.outlet && <span className="eyebrow rounded-full bg-sale px-2 py-1 text-white">Outlet</span>}
           {isNew(item) && <span className="eyebrow glass rounded-full px-2 py-1">New</span>}
           {lastSize && !item.preorder && <span className="eyebrow glass rounded-full px-2 py-1">Последний размер</span>}
         </div>

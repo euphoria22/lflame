@@ -2,11 +2,11 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 
-type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null }
+type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null }
 
 /**
  * Флажки товара: «Предзаказ» (+ ожидаемая дата поступления) (пометка: товар в пути, продаётся по остатку из МС, как обычно)
- * и «Не действуют скидки лояльности». Хранятся в metadata товара; синхронизация с МС их не трогает.
+ * «Не действуют скидки лояльности» и «Outlet» (вещь с небольшим дефектом; + описание дефекта). Хранятся в metadata товара; синхронизация с МС их не трогает.
  */
 export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
@@ -28,6 +28,18 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
     }
     meta.preorder_date = d || null
   }
+  if (typeof b.outlet === "boolean") meta.outlet = b.outlet
+  if (b.outlet_note !== undefined) {
+    const n = String(b.outlet_note ?? "").trim()
+    if (n.length > 300) {
+      res.status(400).json({ message: "Описание дефекта — не длиннее 300 символов" })
+      return
+    }
+    meta.outlet_note = n || null
+  }
   await updateProductsWorkflow(req.scope).run({ input: { products: [{ id: p.id, metadata: meta }] } })
-  res.json({ preorder: Boolean(meta.preorder), no_loyalty: Boolean(meta.no_loyalty), preorder_date: (meta.preorder_date as string | null) ?? null })
+  res.json({
+    preorder: Boolean(meta.preorder), no_loyalty: Boolean(meta.no_loyalty), preorder_date: (meta.preorder_date as string | null) ?? null,
+    outlet: Boolean(meta.outlet), outlet_note: (meta.outlet_note as string | null) ?? null,
+  })
 }

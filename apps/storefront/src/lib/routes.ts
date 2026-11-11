@@ -20,7 +20,7 @@ export const routes = {
   brand: (brand: string) => `/brands/${brand}`,
   brandGender: (brand: string, g: GenderSlug) => `/brands/${brand}/${g}`,
   newIn: (g?: GenderSlug) => (g ? `/new/${g}` : "/new"),
-  sale: (g?: GenderSlug) => (g ? `/sale/${g}` : "/sale"),
+  outlet: (g?: GenderSlug) => (g ? `/outlet/${g}` : "/outlet"),
   product: (handle: string) => `/product/${handle}`,
   search: (q?: string) => (q ? `/search?q=${encodeURIComponent(q)}` : "/search"),
   cart: () => "/cart",

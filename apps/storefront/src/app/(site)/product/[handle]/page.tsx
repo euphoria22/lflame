@@ -115,6 +115,12 @@ export default async function ProductPage({ params }: Props) {
                 Товар ещё едет к нам{arrivalDate(product.preorder_date) ? <>, ожидаем <b className="font-medium">{arrivalDate(product.preorder_date)}</b></> : null}. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
               </p>
             )}
+            {product.outlet && (
+              <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-[13px] leading-relaxed">
+                <span className="eyebrow mr-2 rounded-full bg-sale px-2 py-0.5 text-white">Outlet</span>
+                {product.outlet_note ? <>Небольшой дефект: {product.outlet_note}.</> : "Вещь с небольшим дефектом, поэтому дешевле."} Оригинальный товар.
+              </p>
+            )}
             {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка Laflamme Club на этот товар не действует</p>}
 
             <div className="mt-8">

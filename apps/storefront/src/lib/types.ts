@@ -20,6 +20,9 @@ export type CatalogItem = {
   preorder?: boolean
   /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
   preorder_date?: string | null
+  /** Outlet: вещь с небольшим дефектом и его описание */
+  outlet?: boolean
+  outlet_note?: string | null
   /** Скидка программы лояльности не действует */
   no_loyalty?: boolean
   created_at: string
