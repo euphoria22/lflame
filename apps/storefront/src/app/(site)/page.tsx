@@ -13,6 +13,7 @@ import { scopeItems } from "@/lib/listing"
 import { routes } from "@/lib/routes"
 import { pageMeta } from "@/lib/seo"
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site"
+import { diversify } from "@/lib/ranking"
 import type { CatalogItem } from "@/lib/types"
 
 export const metadata: Metadata = pageMeta({
@@ -32,8 +33,8 @@ function heroPick(items: CatalogItem[], gender: "men" | "women"): CatalogItem | 
   return popular(own)[0]
 }
 
-const popular = (items: CatalogItem[]) =>
-  [...items].sort((a, b) => b.sizes.filter((s) => s.in_stock).length - a.sizes.filter((s) => s.in_stock).length)
+/** Как сортировка «Популярные» в каталоге: балл (продажи, размеры, сезон…) и разнесение моделей и брендов */
+const popular = (items: CatalogItem[]) => diversify([...items].sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0)))
 
 /**
  * Главная (ТЗ, п. 6.1). Структура: баннер-кампания (или разделы), новинки, бренды, блог, распродажа, популярное.

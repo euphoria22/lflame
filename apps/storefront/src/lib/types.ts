@@ -30,6 +30,12 @@ export type CatalogItem = {
   old_path?: string | null
   /** Вычисляется витриной при загрузке каталога */
   is_new?: boolean
+  /** Сортировка «Популярные»: продажи за 60 дней, фото, описание, закрепление, итоговый балл */
+  sales?: number
+  images_count?: number
+  has_description?: boolean
+  pinned?: boolean
+  rank?: number
   /** Флажок «Новинка» в админке */
   new_manual?: boolean
   /** Пришёл с первой загрузкой каталога — новинкой сам по себе не считается */

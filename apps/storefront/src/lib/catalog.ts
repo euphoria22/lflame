@@ -1,6 +1,7 @@
 import "server-only"
 import { cacheLife, cacheTag } from "next/cache"
 
+import { rankItems } from "./ranking"
 import type { CatalogItem, CatalogProduct, Taxonomy } from "./types"
 
 /** Сколько дней товар считается новинкой. */
@@ -38,10 +39,11 @@ export async function getCatalog(): Promise<CatalogItem[]> {
   const now = Date.now()
   // Новинка: отмечена вручную в админке или поступила после запуска сайта и не старше 45 дней.
   // Стартовый ассортимент (первая загрузка из МоегоСклада) новинкой сам по себе не считается.
-  return items.map((i) => ({
+  const withNew = items.map((i) => ({
     ...i,
     is_new: Boolean(i.new_manual) || (!i.initial_import && now - new Date(i.created_at).getTime() < NEW_DAYS * 86400 * 1000),
   }))
+  return rankItems(withNew, new Date(now))
 }
 
 export async function getTaxonomy(): Promise<Taxonomy> {

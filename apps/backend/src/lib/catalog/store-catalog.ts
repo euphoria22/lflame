@@ -1,6 +1,7 @@
 import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, getVariantAvailability } from "@medusajs/framework/utils"
 import { sortSizes } from "./sizes"
+import { salesByMoyskladId } from "../moysklad/sales"
 
 /**
  * Данные каталога для витрины (ТЗ, п. 6.2, 6.3).
@@ -33,6 +34,11 @@ export type CatalogItem = {
   preorder: boolean
   /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
   preorder_date: string | null
+  /** Для сортировки «Популярные»: продажи за 60 дней (магазин + сайт), фото, описание, закрепление */
+  sales: number
+  images_count: number
+  has_description: boolean
+  pinned: boolean
   /** Флажок «Новинка» в админке: товар в новинках независимо от даты */
   new_manual: boolean
   /** Пришёл с первой загрузкой каталога (запуск сайта) — не новинка, если не отмечен вручную */
@@ -71,6 +77,7 @@ type Row = {
   id: string
   handle: string
   title: string
+  external_id?: string | null
   description?: string | null
   status: string
   thumbnail?: string | null
@@ -92,7 +99,7 @@ type Row = {
 }
 
 const FIELDS = [
-  "id", "handle", "title", "status", "thumbnail", "created_at", "updated_at", "metadata",
+  "id", "handle", "title", "description", "status", "thumbnail", "created_at", "updated_at", "metadata", "external_id",
   "images.url", "images.rank",
   "categories.handle", "categories.name",
   "brand.handle", "brand.name",
@@ -144,7 +151,7 @@ function toVariants(row: Row, stock: Map<string, number>): CatalogVariant[] {
     .map(({ rank: _rank, ...v }) => v)
 }
 
-function toItem(row: Row, variants: CatalogVariant[], start: number): CatalogItem {
+function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0): CatalogItem {
   const images = [...(row.images ?? [])].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((i) => i.url)
   const inStock = variants.filter((v) => v.available > 0)
   const pool = (inStock.length ? inStock : variants).filter((v) => v.price > 0)
@@ -167,6 +174,10 @@ function toItem(row: Row, variants: CatalogVariant[], start: number): CatalogIte
     in_stock: inStock.length > 0,
     preorder: Boolean(meta.preorder),
     preorder_date: meta.preorder && typeof meta.preorder_date === "string" ? meta.preorder_date : null,
+    sales,
+    images_count: images.length,
+    has_description: Boolean(row.description && row.description.trim() && !/^Оригинальный товар/i.test(row.description.trim())),
+    pinned: meta.pinned === true,
     new_manual: meta.is_new === true,
     initial_import: new Date(row.created_at).getTime() < start + INITIAL_IMPORT_WINDOW,
     outlet: Boolean(meta.outlet),
@@ -229,8 +240,8 @@ export async function loadCatalogItems(container: MedusaContainer): Promise<Cata
   }
   const visible = rows.filter((r) => r.sales_channels?.some((s) => s.id === channel))
   const stock = await availability(container, visible.flatMap((r) => (r.variants ?? []).map((v) => v.id)), channel)
-  const start = await catalogStart(container)
-  return visible.map((r) => toItem(r, toVariants(r, stock), start)).filter((i) => i.price > 0)
+  const [start, sales] = await Promise.all([catalogStart(container), salesByMoyskladId(container)])
+  return visible.map((r) => toItem(r, toVariants(r, stock), start, sales.get(r.external_id ?? "") ?? 0)).filter((i) => i.price > 0)
 }
 
 /**

@@ -1,5 +1,6 @@
 import { MedusaService } from "@medusajs/framework/utils"
 import { MoyskladClient } from "./client"
+import MoyskladProductSales from "./models/product-sales"
 import MoyskladSyncRun from "./models/sync-run"
 
 export type MoyskladModuleOptions = {
@@ -18,6 +19,7 @@ export type MoyskladModuleOptions = {
 
 class MoyskladModuleService extends MedusaService({
   MoyskladSyncRun,
+  MoyskladProductSales,
 }) {
   readonly api: MoyskladClient
   readonly options: Required<Omit<MoyskladModuleOptions, "token" | "baseUrl" | "webhookSecret">> & {

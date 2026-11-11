@@ -3,7 +3,7 @@ import type { AdminProduct, DetailWidgetProps } from "@medusajs/framework/types"
 import { Button, Container, Heading, Input, Label, Switch, Text, Textarea, toast } from "@medusajs/ui"
 import { useState } from "react"
 
-type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean }
+type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean; pinned: boolean }
 type Patch = Partial<Flags>
 
 /** Флажки товара для сайта: предзаказ (с ожидаемой датой поступления), Outlet (с описанием дефекта) и исключение из программы лояльности. */
@@ -14,6 +14,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
   const [date, setDate] = useState(typeof m.preorder_date === "string" ? m.preorder_date : "")
   const [savedDate, setSavedDate] = useState(date)
   const [isNew, setIsNew] = useState(m.is_new === true)
+  const [pinned, setPinned] = useState(m.pinned === true)
   const [outlet, setOutlet] = useState(Boolean(m.outlet))
   const [note, setNote] = useState(typeof m.outlet_note === "string" ? m.outlet_note : "")
   const [savedNote, setSavedNote] = useState(note)
@@ -32,6 +33,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
       setDate(d.preorder_date ?? "")
       setSavedDate(d.preorder_date ?? "")
       setIsNew(d.is_new)
+      setPinned(d.pinned)
       setOutlet(d.outlet)
       setNote(d.outlet_note ?? "")
       setSavedNote(d.outlet_note ?? "")
@@ -63,6 +65,13 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
                 <Text size="xsmall" className="mt-1 text-ui-fg-muted">На сайте: «Предзаказ · 15 декабря». Пусто — без даты.</Text>
               </div>
             )}
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <Switch id="lf-pinned" className="mt-0.5 shrink-0" checked={pinned} disabled={busy} onCheckedChange={(v) => save({ pinned: v })} />
+          <div className="min-w-0 flex-1">
+            <Label htmlFor="lf-pinned" weight="plus">Закрепить наверху</Label>
+            <Text size="small" className="text-ui-fg-subtle">В каталоге при сортировке «Популярные» товар показывается в первых рядах своих разделов.</Text>
           </div>
         </div>
         <div className="flex items-start gap-3">

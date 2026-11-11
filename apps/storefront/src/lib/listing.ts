@@ -1,3 +1,4 @@
+import { diversify } from "./ranking"
 import { sizeKeyRank, sizeKeys, sizeLabel } from "./size-groups"
 import type { CatalogItem } from "./types"
 import type { GenderSlug } from "./routes"
@@ -144,11 +145,10 @@ function sortItems(items: CatalogItem[], sort: SortKey): CatalogItem[] {
       const d = (i: CatalogItem) => (i.compare_at ? 1 - i.price / i.compare_at : 0)
       return arr.sort((a, b) => d(b) - d(a))
     }
-    default: {
-      // Пока нет статистики продаж: больше размеров в наличии и новее — выше
-      const sizes = (i: CatalogItem) => i.sizes.filter((s) => s.in_stock).length
-      return arr.sort((a, b) => sizes(b) - sizes(a) || byNew(a, b))
-    }
+    default:
+      // «Популярные»: балл (продажи, размеры, свежесть, карточка, скидка, сезон, закрепление — lib/ranking.ts),
+      // затем раскладка: одна модель разных цветов не рядом, бренды в первых рядах чередуются
+      return diversify(arr.sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0) || byNew(a, b)))
   }
 }
 
