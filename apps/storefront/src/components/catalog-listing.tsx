@@ -25,6 +25,8 @@ export type CatalogListingProps = {
   /** Быстрые ссылки над сеткой: посадочные «категория + бренд» и т.п. (ТЗ, п. 7.12) */
   chips?: { label: string; href: string; active?: boolean }[]
   genderLinks?: { label: string; href: string; active?: boolean }[]
+  /** Ссылки на посадочные страницы по цвету (внизу страницы категории) */
+  related?: { title: string; links: { label: string; href: string }[] }
   showBrandFilter?: boolean
   searchParams: Promise<SearchParams>
 }
@@ -63,7 +65,7 @@ export async function CatalogListing(props: CatalogListingProps) {
   )
 }
 
-async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, filters, h1, genderLinks }: CatalogListingProps & { filters: ListingFilters }) {
+async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, filters, h1, genderLinks, related }: CatalogListingProps & { filters: ListingFilters }) {
   const items = await getCatalog()
   const scoped = scopeItems(items, scope)
   const result = runListing(scoped, filters)
@@ -94,6 +96,18 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
             scope={scope} gridClass={`${GRID} border-t-0`} cellClass={CELL} />
         </div>
       </div>
+
+      {/* Перелинковка: посадочные по цвету — для покупателя и поисковиков */}
+      {!!related?.links.length && result.page === 1 && (
+        <nav className="mx-auto mt-16 max-w-[1680px] px-4 md:px-8" aria-label={related.title}>
+          <p className="eyebrow mb-3 text-muted">{related.title}</p>
+          <ul className="flex flex-wrap gap-2">
+            {related.links.map((l) => (
+              <li key={l.href}><Link href={l.href} className="inline-block rounded-full border border-line px-4 py-2 text-[13px] transition-colors hover:border-foreground">{l.label}</Link></li>
+            ))}
+          </ul>
+        </nav>
+      )}
 
       {/* SEO-текст только на первой странице (ТЗ, п. 7.4, 7.11) */}
       {seoText && result.page === 1 && (

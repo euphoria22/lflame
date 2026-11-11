@@ -11,6 +11,8 @@ export type ListingScope = {
   gender?: GenderSlug
   category?: string
   brand?: string
+  /** Код цвета (black, beige…) — посадочные страницы по цвету */
+  color?: string
   onlyNew?: boolean
   /** Только Outlet: вещи с небольшим дефектом (флажок в админке) */
   onlyOutlet?: boolean
@@ -114,6 +116,7 @@ export function scopeItems(items: CatalogItem[], scope: ListingScope): CatalogIt
     if (scope.gender && i.gender !== scope.gender && i.gender !== "unisex") return false
     if (scope.category && i.category?.handle !== scope.category) return false
     if (scope.brand && i.brand?.handle !== scope.brand) return false
+    if (scope.color && i.color !== scope.color) return false
     if (scope.onlyOutlet && !i.outlet) return false
     if (terms.length) {
       const hay = normalizeText(`${i.title} ${i.brand?.name ?? ""} ${i.category?.name ?? ""} ${i.color_name ?? ""}`)

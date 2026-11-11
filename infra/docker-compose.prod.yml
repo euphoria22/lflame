@@ -48,6 +48,8 @@ services:
       COOKIE_SECRET: ${COOKIE_SECRET}
       STOREFRONT_URL: https://${SITE_DOMAIN}
       STOREFRONT_REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      # IndexNow (Яндекс) — только при включённой индексации
+      INDEXING: ${INDEXING}
       # Сертификаты Минцифры в дополнение к обычным (оплата Т-Банка) — infra/scripts/ru-ca.sh
       NODE_EXTRA_CA_CERTS: /certs/russian-trusted-ca.pem
     env_file: [.env.backend]

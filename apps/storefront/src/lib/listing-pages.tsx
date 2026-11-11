@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 
 import { CatalogListing, SearchParams } from "@/components/catalog-listing"
 import { getCatalog, getTaxonomy } from "./catalog"
+import { COLOR_LANDINGS, colorBySlug, colorLinkLabel, colorTitle } from "./color-landing"
 import { formatPrice, plural } from "./format"
 import { hasFilterParams, LANDING_MIN_ITEMS, parseFilters, scopeItems, ListingScope } from "./listing"
 import { GENDERS, GenderSlug, genderInfo, routes } from "./routes"
@@ -29,6 +30,7 @@ type Ctx = {
   intro?: string | null
   seoText?: string | null
   showBrandFilter?: boolean
+  related?: { title: string; links: { label: string; href: string }[] }
 }
 
 function describe(h1: string, items: CatalogItem[]): string {
@@ -63,6 +65,17 @@ function categoryChips(items: CatalogItem[], href: (cat: string) => string, acti
   return [...counts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .map(([handle, v]) => ({ label: v.name, href: href(handle), active: handle === active }))
+}
+
+/** Ссылки на цвета категории, где товаров достаточно для отдельной страницы. */
+function colorLinks(items: CatalogItem[], g: GenderSlug, category: string, active?: string): Ctx["related"] {
+  const counts = new Map<string, number>()
+  for (const i of items) if (i.color) counts.set(i.color, (counts.get(i.color) ?? 0) + 1)
+  const links = COLOR_LANDINGS
+    .filter((c) => (counts.get(c.code) ?? 0) >= LANDING_MIN_ITEMS && c.slug !== active)
+    .sort((a, b) => (counts.get(b.code) ?? 0) - (counts.get(a.code) ?? 0))
+    .map((c) => ({ label: colorLinkLabel(c, category), href: routes.categoryColor(g, category, c.slug) }))
+  return { title: "По цвету", links }
 }
 
 async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | null> {
@@ -100,6 +113,30 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
         chips: brandChips(scoped, (b) => routes.categoryBrand(g!.slug, cat!.handle, b)),
         genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.category(x.slug, cat!.handle), active: x.slug === g!.slug })),
         intro: cat!.description, seoText: cat!.seo_text,
+        related: colorLinks(scoped, g!.slug, cat!.handle),
+      }
+    }
+    case "categoryColor": {
+      const color = colorBySlug(p.color ?? "")
+      if (!color) return null
+      const scope = { gender: g!.slug, category: cat!.handle, color: color.code }
+      const scoped = scopeItems(items, scope)
+      // Нет товаров этого цвета — страницы нет (пустая посадочная хуже 404)
+      if (!scoped.length) return null
+      const h1 = colorTitle(color, cat!.handle, cat!.name, g!.adjective)
+      const parent = scopeItems(items, { gender: g!.slug, category: cat!.handle })
+      return {
+        scope, basePath: routes.categoryColor(g!.slug, cat!.handle, color.slug), h1,
+        title: `${h1} — купить оригинал`,
+        description: describe(h1, scoped),
+        crumbs: [
+          { name: g!.name, href: routes.gender(g!.slug) },
+          { name: cat!.name, href: routes.category(g!.slug, cat!.handle) },
+          { name: colorLinkLabel(color, cat!.handle), href: routes.categoryColor(g!.slug, cat!.handle, color.slug) },
+        ],
+        chips: brandChips(scoped, (b) => routes.categoryBrand(g!.slug, cat!.handle, b)),
+        genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.categoryColor(x.slug, cat!.handle, color.slug), active: x.slug === g!.slug })),
+        related: colorLinks(parent, g!.slug, cat!.handle, color.slug),
       }
     }
     case "categoryBrand": {
@@ -185,7 +222,7 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
   return null
 }
 
-export type ListingKind = "gender" | "category" | "categoryBrand" | "brand" | "brandGender" | "new" | "outlet"
+export type ListingKind = "gender" | "category" | "categoryColor" | "categoryBrand" | "brand" | "brandGender" | "new" | "outlet"
 
 type RouteProps = { params: Promise<Record<string, string>>; searchParams: Promise<SearchParams> }
 
@@ -232,6 +269,9 @@ export async function listingPaths(): Promise<{ path: string; count: number }[]>
       add(routes.category(g.slug, c.handle), { gender: g.slug, category: c.handle })
       for (const b of taxonomy.brands) {
         add(routes.categoryBrand(g.slug, c.handle, b.handle), { gender: g.slug, category: c.handle, brand: b.handle })
+      }
+      for (const col of COLOR_LANDINGS) {
+        add(routes.categoryColor(g.slug, c.handle, col.slug), { gender: g.slug, category: c.handle, color: col.code })
       }
     }
     for (const b of taxonomy.brands) add(routes.brandGender(b.handle, g.slug), { gender: g.slug, brand: b.handle })

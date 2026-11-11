@@ -16,6 +16,7 @@ export const routes = {
   gender: (g: GenderSlug) => `/${g}`,
   category: (g: GenderSlug, category: string) => `/${g}/${category}`,
   categoryBrand: (g: GenderSlug, category: string, brand: string) => `/${g}/${category}/${brand}`,
+  categoryColor: (g: GenderSlug, category: string, color: string) => `/${g}/${category}/color/${color}`,
   brands: () => "/brands",
   brand: (brand: string) => `/brands/${brand}`,
   brandGender: (brand: string, g: GenderSlug) => `/brands/${brand}/${g}`,

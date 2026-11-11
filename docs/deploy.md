@@ -100,3 +100,12 @@ crontab -e                    # вставить строки из infra/scripts
 
 | Дата | Бэкап | Результат | Кто |
 |---|---|---|---|
+
+## Поисковики и товарные фиды (после включения INDEXING=on)
+
+- **Яндекс Вебмастер**: подтвердить сайт, отправить `https://laflamme.ru/sitemap.xml`, регион сайта — Россия.
+- **Товары в Яндексе**: Вебмастер → «Товары и цены» (или Яндекс Бизнес → «Товары») → фид `https://laflamme.ru/feed/yandex.xml`.
+- **Google Merchant Center**: фид `https://laflamme.ru/feed/google.xml`.
+- **IndexNow** включается сам вместе с индексацией: раз в 15 минут Medusa сообщает Яндексу об изменённых товарах
+  (ключ — `https://laflamme.ru/indexnow-key.txt`, выводится из REVALIDATE_SECRET).
+
