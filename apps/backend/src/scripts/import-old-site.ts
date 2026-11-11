@@ -274,9 +274,9 @@ export default async function importOldSite({ container, args }: ExecArgs) {
     }
   })
 
-  console.log("\n===ОТЧЁТ===")
-  console.log(rows.join("\n"))
-  console.log("===ИТОГ===")
-  console.log(JSON.stringify(stats))
-  logger.info(`Старый сайт: ${JSON.stringify(stats)}`)
+  // Итог — первым и коротко; отчёт — с ожиданием записи: Medusa завершает процесс сразу после скрипта,
+  // и большой вывод без ожидания обрезается на середине (так терялись итог и часть строк)
+  const write = (text: string) => new Promise<void>((resolve) => process.stdout.write(text, () => resolve()))
+  await write(`\n===ИТОГ===\n${JSON.stringify(stats)}\n`)
+  await write(`===ОТЧЁТ===\n${rows.join("\n")}\n===КОНЕЦ===\n`)
 }
