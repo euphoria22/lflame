@@ -133,3 +133,10 @@ volumes:
   cmsmedia:
   caddydata:
   caddyconfig:
+
+# Размер пакета внутренней сети = как у сетевой карты сервера (в облаке REG.RU — 1450, у Docker по умолчанию 1500).
+# Иначе крупные пакеты (сертификаты при установке TLS) теряются: почта, оплата, СДЭК то работают, то зависают.
+networks:
+  default:
+    driver_opts:
+      com.docker.network.driver.mtu: ${DOCKER_MTU:-1450}

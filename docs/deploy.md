@@ -109,3 +109,10 @@ crontab -e                    # вставить строки из infra/scripts
 - **IndexNow** включается сам вместе с индексацией: раз в 15 минут Medusa сообщает Яндексу об изменённых товарах
   (ключ — `https://laflamme.ru/indexnow-key.txt`, выводится из REVALIDATE_SECRET).
 
+## Сеть Docker (MTU)
+
+В облаке размер сетевого пакета часто меньше стандартного (REG.RU Cloud — 1450). Внутренняя сеть Docker
+настроена на него (`DOCKER_MTU` в infra/.env, по умолчанию 1450). Если на новом сервере `ip link` показывает
+другой mtu у основной сетевой карты — укажите его в DOCKER_MTU и пересоздайте сеть:
+`docker compose … down && docker compose … up -d` (данные в томах сохраняются).
+
