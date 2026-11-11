@@ -146,8 +146,8 @@ export default async function ProductPage({ params }: Props) {
 
             <div className="mt-8 divide-y divide-line border-y border-line">
               <Accordion title="Описание" open>
-                {product.description
-                  ? product.description.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)
+                {productText(product.description, product.specs).length
+                  ? productText(product.description, product.specs).map((p, i) => <p key={i}>{p}</p>)
                   : <p>{product.title}. Оригинальный товар{product.brand ? ` бренда ${product.brand.name}` : ""}.</p>}
               </Accordion>
               <Accordion title="Характеристики">
@@ -216,7 +216,7 @@ function productJsonLd(p: CatalogProduct, inStock: boolean) {
     "@context": "https://schema.org",
     "@type": "Product",
     name: p.title,
-    description: clip(p.description ?? p.title, 500),
+    description: clip(productText(p.description, p.specs).join(" ") || p.title, 500),
     image: p.images.length ? p.images : p.thumbnail ? [p.thumbnail] : [],
     sku: p.variants[0]?.sku ?? p.id,
     ...(p.brand ? { brand: { "@type": "Brand", name: p.brand.name } } : {}),
@@ -237,14 +237,26 @@ function productJsonLd(p: CatalogProduct, inStock: boolean) {
   }
 }
 
+const specLines = (specs: string | null | undefined) => (specs ?? "").split(/\n+/).map((l) => l.trim()).filter(Boolean)
+const SPEC_LINE = /^([^:]{1,40}):\s*(.+)$/
+const isComposition = (l: string) => /\d\s*%/.test(l)
+
 /**
- * «Состав: 100% хлопок» → ключ и значение. Строка без подписи: с процентами — это состав,
- * остальное — «Особенности» (на старом сайте подпись была не везде).
+ * «Состав: 100% хлопок» → ключ и значение; строка без подписи с процентами — «Состав».
+ * Остальные строки без подписи — это текст о товаре (на старом сайте он бывал внутри характеристик), он идёт в «Описание».
  */
 function specRows(specs: string | null | undefined): { key: string; value: string }[] {
-  return (specs ?? "").split(/\n+/).map((l) => l.trim()).filter(Boolean).map((l) => {
-    const m = /^([^:]{1,40}):\s*(.+)$/.exec(l)
-    if (m) return { key: m[1].trim(), value: m[2].trim() }
-    return { key: /\d\s*%/.test(l) ? "Состав" : "Особенности", value: l }
+  return specLines(specs).flatMap((l) => {
+    const m = SPEC_LINE.exec(l)
+    if (m) return [{ key: m[1].trim(), value: m[2].trim() }]
+    return isComposition(l) ? [{ key: "Состав", value: l }] : []
   })
+}
+
+/** Абзацы «Описания»: описание товара плюс текст из характеристик без подписи (если его ещё нет в описании). */
+function productText(description: string | null | undefined, specs: string | null | undefined): string[] {
+  const paras = (description ?? "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+  const all = paras.join(" ")
+  const extra = specLines(specs).filter((l) => !SPEC_LINE.test(l) && !isComposition(l) && !all.includes(l))
+  return [...paras, ...extra]
 }

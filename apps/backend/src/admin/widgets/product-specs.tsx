@@ -4,11 +4,11 @@ import type { AdminProduct, DetailWidgetProps } from "@medusajs/framework/types"
 import { Button, Container, Drawer, DropdownMenu, Heading, IconButton, Label, Text, Textarea, toast } from "@medusajs/ui"
 import { useState } from "react"
 
-/** «Состав: 100% хлопок» → подпись и значение; строка без подписи — как на сайте: с процентами «Состав», иначе «Особенности». */
+/** «Состав: 100% хлопок» → подпись и значение; строка без подписи — как на сайте: с процентами — «Состав», иначе — текст, он показывается в «Описании». */
 const rows = (specs: string) =>
   specs.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
     const m = /^([^:]{1,40}):\s*(.+)$/.exec(l)
-    return m ? { key: m[1].trim(), value: m[2].trim() } : { key: /\d\s*%/.test(l) ? "Состав" : "Особенности", value: l }
+    return m ? { key: m[1].trim(), value: m[2].trim() } : { key: /\d\s*%/.test(l) ? "Состав" : "Текст (в «Описании» на сайте)", value: l }
   })
 
 /** Характеристики товара на сайте: Состав, Крой, Детали, Уход… Бренд, категория, цвет и артикул добавляются на сайте сами. */
