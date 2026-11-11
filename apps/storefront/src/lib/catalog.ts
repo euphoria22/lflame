@@ -10,8 +10,22 @@ const NEW_DAYS = 45
 const BACKEND = (process.env.MEDUSA_BACKEND_URL || "http://localhost:9000").replace(/\/+$/, "")
 const KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
 
+/** Короткий перезапуск Medusa (обновление, нехватка памяти) не должен валить сборку и страницы: 3 попытки. */
+async function fetchRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  for (let i = 1; ; i++) {
+    try {
+      const res = await fetch(url, init)
+      if ((res.status === 502 || res.status === 503) && i < attempts) throw new Error(`Medusa ${res.status}`)
+      return res
+    } catch (e) {
+      if (i >= attempts) throw e
+      await new Promise((r) => setTimeout(r, 2000 * i))
+    }
+  }
+}
+
 async function store<T>(path: string): Promise<T> {
-  const res = await fetch(`${BACKEND}${path}`, {
+  const res = await fetchRetry(`${BACKEND}${path}`, {
     headers: { "x-publishable-api-key": KEY, accept: "application/json" },
   })
   if (res.status === 404) {

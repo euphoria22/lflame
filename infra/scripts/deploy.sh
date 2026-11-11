@@ -47,6 +47,9 @@ $COMPOSE up -d cms
 wait_for http://127.0.0.1:3001/cms "CMS" cms
 
 echo "== Витрина"
+# Сборка берёт каталог у Medusa и CMS — убеждаемся, что обе отвечают (могли перезапуститься)
+wait_for http://127.0.0.1:9000/health "Medusa" backend
+wait_for http://127.0.0.1:3001/cms "CMS" cms
 $COMPOSE build --build-arg BUILD_ID="$(date +%s)" storefront
 $COMPOSE up -d storefront caddy
 
