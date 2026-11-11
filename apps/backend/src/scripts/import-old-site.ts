@@ -65,12 +65,60 @@ async function get(url: string, attempt = 1): Promise<Response> {
   }
 }
 
-async function productUrls(): Promise<string[]> {
+const MAX_LISTING_PAGES = 2500
+
+/** Адрес на старом сайте без хоста и мусора: /catalog/…/ (+ только параметр листания PAGEN_N). */
+function oldUrl(href: string): string | null {
+  let u: URL
+  try { u = new URL(href.replace(/&amp;/g, "&"), `${OLD_SITE}/`) } catch { return null }
+  if (!u.pathname.startsWith("/catalog/")) return null
+  const page = [...u.searchParams].find(([k]) => /^PAGEN_\d+$/.test(k))
+  const path = u.pathname.endsWith("/") ? u.pathname : `${u.pathname}/`
+  return `${OLD_SITE}${path}${page ? `?${page[0]}=${page[1]}` : ""}`
+}
+
+/**
+ * Все товары старого сайта: карта сайта (в ней Битрикс показывает не всё) + обход разделов каталога
+ * и страниц брендов с постраничной навигацией (?PAGEN_1=2…), пока появляются новые товары.
+ */
+async function productUrls(logger: { info: (m: string) => void }): Promise<string[]> {
+  const products = new Set<string>()
+  const listings = new Set<string>([`${OLD_SITE}/catalog/`])
+  const addLink = (href: string) => {
+    const u = oldUrl(href)
+    if (!u) return
+    if (u.includes("/product/")) products.add(u.replace(/\?.*$/, ""))
+    else listings.add(u)
+  }
+
   const index = await (await get(`${OLD_SITE}/sitemap.xml`)).text()
-  const locs = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].replace(/^https?:\/\/[^/]+/, OLD_SITE))
-  // Битрикс: sitemap.xml — оглавление из нескольких карт; товары — адреса с /product/
-  const xmls = index.includes("<sitemapindex") ? await Promise.all(locs(index).map(async (u) => (await get(u)).text())) : [index]
-  return [...new Set(xmls.flatMap(locs).filter((u) => u.includes("/product/")))]
+  const locs = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
+  const xmls = index.includes("<sitemapindex") ? await Promise.all(locs(index).map(async (u) => (await get(oldUrl(u) ?? u.replace(/^https?:\/\/[^/]+/, OLD_SITE))).text().catch(() => ""))) : [index]
+  xmls.flatMap(locs).forEach(addLink)
+  const fromSitemap = products.size
+
+  // Обход разделов: ссылки на товары, подразделы и страницы листания
+  const visited = new Set<string>()
+  while (visited.size < MAX_LISTING_PAGES) {
+    const next = [...listings].filter((u) => !visited.has(u)).slice(0, 3)
+    if (!next.length) break
+    await Promise.all(next.map(async (url) => {
+      visited.add(url)
+      const before = products.size
+      let html = ""
+      try { html = await (await get(url)).text() } catch { return }
+      for (const m of html.matchAll(/(?:href|data-href|data-url)="([^"]*\/catalog\/[^"]*)"/g)) addLink(m[1])
+      // Листание без ссылок (кнопка «Показать ещё»): пробуем следующую страницу, пока она приносит новые товары
+      if (products.size > before) {
+        const u = new URL(url)
+        const key = [...u.searchParams.keys()].find((k) => /^PAGEN_\d+$/.test(k)) ?? (html.match(/PAGEN_(\d+)=/)?.[0].slice(0, -1) || "PAGEN_1")
+        const page = Number(u.searchParams.get(key) || "1")
+        addLink(`${u.pathname}?${key}=${page + 1}`)
+      }
+    }))
+  }
+  logger.info(`Старый сайт: товаров в карте сайта ${fromSitemap}, всего после обхода каталога ${products.size} (просмотрено страниц разделов: ${visited.size})`)
+  return [...products]
 }
 
 async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) {
@@ -91,11 +139,11 @@ export default async function importOldSite({ container, args }: ExecArgs) {
   for (const p of products) byTitle.set(titleKey(p.title), [...(byTitle.get(titleKey(p.title)) ?? []), p])
   const bySlug = new Map(products.map((p) => [slugKey(p.handle), p]))
 
-  const urls = await productUrls()
-  logger.info(`Старый сайт: товаров в карте сайта ${urls.length}. Режим: ${apply ? "ЗАПИСЬ" : "пробный (ничего не меняется)"}`)
+  logger.info(`Старый сайт: режим ${apply ? "ЗАПИСЬ" : "пробный (ничего не меняется)"}`)
+  const urls = await productUrls(logger)
 
   const rows: string[] = ["статус;старый адрес;название на старом сайте;товар на новом сайте;символов описания;фото"]
-  const stats = { matched: 0, by_url: 0, not_found: 0, ambiguous: 0, failed: 0, already: 0, updated: 0 }
+  const stats = { matched: 0, by_url: 0, not_found: 0, ambiguous: 0, duplicates: 0, failed: 0, already: 0, updated: 0 }
   const used = new Set<string>()
   const fileBase = (process.env.S3_FILE_URL || `${(process.env.MEDUSA_BACKEND_URL || "").replace(/\/+$/, "")}/static`).replace(/\/+$/, "")
 
@@ -107,6 +155,12 @@ export default async function importOldSite({ container, args }: ExecArgs) {
     } catch (e) {
       stats.failed++
       rows.push(`ошибка загрузки;${url};${(e as Error).message};;;`)
+      return
+    }
+    // Нет названия — это не страница товара (ошибка, заглушка хостинга): пропускаем, не занимая товар
+    if (!page.title) {
+      stats.failed++
+      rows.push(`не страница товара;${url};;;;`)
       return
     }
     const cands = byTitle.get(titleKey(page.title)) ?? []
@@ -126,9 +180,9 @@ export default async function importOldSite({ container, args }: ExecArgs) {
       rows.push(`нет на новом сайте;${url};${page.title};;${page.description.length};${page.images.length}`)
       return
     }
+    // Тот же товар в другом разделе старого сайта — повтор, обрабатывается один раз
     if (used.has(product.id)) {
-      stats.ambiguous++
-      rows.push(`товар уже сопоставлен с другой страницей;${url};${page.title};${product.handle};;`)
+      stats.duplicates++
       return
     }
     used.add(product.id)
