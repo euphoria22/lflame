@@ -2,7 +2,7 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 
-type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null; is_new?: boolean; pinned?: boolean }
+type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null; is_new?: boolean; pinned?: boolean; specs?: string | null }
 
 /**
  * Флажки товара: «Предзаказ» (+ ожидаемая дата поступления) (пометка: товар в пути, продаётся по остатку из МС, как обычно)
@@ -39,9 +39,19 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
     }
     meta.outlet_note = n || null
   }
+  // Характеристики карточки (Состав, Крой, Детали…) — строки «Ключ: значение»
+  if (b.specs !== undefined) {
+    const t = String(b.specs ?? "").replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean).join("\n")
+    if (t.length > 3000) {
+      res.status(400).json({ message: "Характеристики — не длиннее 3000 символов" })
+      return
+    }
+    meta.old_site_specs = t || null
+  }
   await updateProductsWorkflow(req.scope).run({ input: { products: [{ id: p.id, metadata: meta }] } })
   res.json({
     preorder: Boolean(meta.preorder), no_loyalty: Boolean(meta.no_loyalty), preorder_date: (meta.preorder_date as string | null) ?? null,
     outlet: Boolean(meta.outlet), outlet_note: (meta.outlet_note as string | null) ?? null, is_new: meta.is_new === true, pinned: meta.pinned === true,
+    specs: (meta.old_site_specs as string | null) ?? null,
   })
 }
