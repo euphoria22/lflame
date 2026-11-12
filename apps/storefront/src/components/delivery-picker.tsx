@@ -31,11 +31,11 @@ const ICONS: Record<DeliveryKind, (p: { className?: string }) => React.ReactElem
 }
 
 const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
+  { kind: "cdek-pvz", title: "СДЭК — пункт выдачи", hint: "Доставка до пункта выдачи СДЭК" },
+  { kind: "pochta", title: "Почта России", hint: "Посылка до почтового отделения" },
+  { kind: "cdek-door", title: "СДЭК — курьер", hint: "Курьер привезёт заказ по адресу" },
   { kind: "pickup", title: "Самовывоз из магазина", hint: `${PICKUP.address}, ${PICKUP.hours}` },
   { kind: "omsk-courier", title: "Курьер по Омску", hint: "1–3 часа, время согласуем по телефону" },
-  { kind: "cdek-pvz", title: "СДЭК — пункт выдачи", hint: "Доставка до пункта выдачи СДЭК" },
-  { kind: "cdek-door", title: "СДЭК — курьер", hint: "Курьер привезёт заказ по адресу" },
-  { kind: "pochta", title: "Почта России", hint: "Посылка до почтового отделения" },
 ]
 
 /**

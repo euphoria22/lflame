@@ -36,7 +36,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
   const [error, setError] = useState<string | null>(notice ?? null)
   const [chosenPayment, setPayment] = useState<PaymentMethod | null>(null)
   const [sending, setSending] = useState(false)
-  const [delivery, setDelivery] = useState<DeliveryChoice>({ kind: "pickup" })
+  const [delivery, setDelivery] = useState<DeliveryChoice>({ kind: "cdek-pvz" })
   // Доступные способы оплаты зависят от способа получения (оплата при получении — не везде)
   const available: PaymentMethod[] = [
     ...(options.online_payment ? ["tbank" as const] : []),
@@ -45,7 +45,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
     ...(options.cod_methods.includes(delivery.kind) ? ["cod" as const] : []),
   ]
   const payment: PaymentMethod | null = chosenPayment && available.includes(chosenPayment) ? chosenPayment : available[0] ?? null
-  const [quote, setQuote] = useState<Quote | null>({ amount: 0, days_min: 0, days_max: 0 })
+  const [quote, setQuote] = useState<Quote | null>(null)
   // Логотип Сплита — тот, что загружен для подвала («Доставка и оплата» → логотипы оплаты)
   const splitLogo = options.payment_logos?.find((p) => /сплит|split/i.test(p.name))?.logo ?? null
 
