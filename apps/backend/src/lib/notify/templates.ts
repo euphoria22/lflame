@@ -83,7 +83,7 @@ ${line("Итого", rub(o.total), true)}</table>
 export function orderMail(kind: OrderMailKind, o: MailOrder): Mail {
   const n = `№ ${o.display_id}`
   const account = { label: "Мои заказы", url: `${site()}/account` }
-  const paidOnline = o.payment_method === "tbank"
+  const paidOnline = o.payment_method === "tbank" || o.payment_method === "split"
   const variants: Record<OrderMailKind, { subject: string; title: string; text: string; withItems: boolean; button?: { label: string; url: string } }> = {
     placed: {
       subject: `Заказ ${n} оформлен`,
@@ -142,7 +142,7 @@ export function shopOrderMessage(o: MailOrder, adminUrl: string): string {
     `${t(o.customer_name)} · ${t(o.email)}`,
     `${t(o.shipping_name)}${o.address ? `: ${t(o.address)}` : ""}`,
     ...(o.promo_code && o.discount_total ? [`Промокод: ${t(o.promo_code)} (−${rub(o.discount_total)})`] : []),
-    `Оплата: ${o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
+    `Оплата: ${o.payment_method === "split" ? "Яндекс Сплит (оплачен)" : o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
     "",
     ...o.items.map((i) => `• ${i.preorder ? `⏳ ПРЕДЗАКАЗ${arrival(i.preorder_date) ? ` (~${arrival(i.preorder_date)})` : ""} · ` : ""}${t(i.title)} — ${t(i.variant)} × ${i.quantity}`),
     "",

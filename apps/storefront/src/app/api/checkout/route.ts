@@ -9,7 +9,7 @@ import { cartRequest, getAuthToken, retrieveCart, setCartId, storeFetch, syncLoy
  * Оформление заказа (ТЗ, п. 6.4): контакты → способ получения → оплата → заказ.
  * Получение: самовывоз в Омске, СДЭК (пункт выдачи, курьер), Почта России.
  * Оплата: при получении (pp_system_default) — заказ создаётся сразу;
- * онлайн через Т-Кассу (pp_tbank_tbank) — возвращаем ссылку на платёжную форму,
+ * онлайн через Т-Кассу (pp_tbank_tbank) или частями — Яндекс Сплит (pp_yandex_split) — возвращаем ссылку на платёжную форму,
  * заказ создаётся после оплаты (/checkout/paid или уведомление Т-Кассы в Medusa).
  */
 export async function POST(req: NextRequest) {
@@ -26,10 +26,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Способ оплаты проверяется по настройкам магазина (админка «Доставка и оплата»)
-  const opts = await storeFetch<{ online_payment: boolean; manual_payment: boolean; cod_methods: string[] }>("/store/checkout/options")
-    .catch(() => ({ online_payment: false, manual_payment: true, cod_methods: [] as string[] }))
+  const opts = await storeFetch<{ online_payment: boolean; split_payment?: boolean; manual_payment: boolean; cod_methods: string[] }>("/store/checkout/options")
+    .catch(() => ({ online_payment: false, split_payment: false, manual_payment: true, cod_methods: [] as string[] }))
   const payment = input.payment as PaymentMethod
-  const allowed = (payment === "tbank" && opts.online_payment) || (payment === "manual" && opts.manual_payment)
+  const allowed = (payment === "tbank" && opts.online_payment) || (payment === "split" && opts.split_payment) || (payment === "manual" && opts.manual_payment)
     || (payment === "cod" && opts.cod_methods.includes(String(input.delivery?.kind)))
   if (!allowed) return NextResponse.json({ error: "Выберите способ оплаты" }, { status: 400 })
   const phone = normalizePhone(input.phone!)!
@@ -99,7 +99,9 @@ export async function POST(req: NextRequest) {
       body: { cart_id: cart.id },
     })
 
-    if (payment === "tbank") {
+    if (payment === "tbank" || payment === "split") {
+      // Т-Касса и Яндекс Сплит: одинаковые данные сессии, разные провайдеры и поле ссылки на оплату
+      const provider = payment === "split" ? "pp_yandex_split" : "pp_tbank_tbank"
       // Чек 54-ФЗ: позиции заказа и доставка (используется, если касса подключена в Т-Кассе)
       const fresh = await retrieveCart()
       // Цена позиции — с учётом промокода (сумма строки / количество), копейки сводим к итогу корзины
@@ -110,12 +112,12 @@ export async function POST(req: NextRequest) {
       const diff = Math.round((Number(fresh?.total ?? 0) - receipt.reduce((s, l) => s + l.price * l.quantity, 0)) * 100) / 100
       const fix = receipt.find((l) => l.quantity === 1)
       if (diff && fix) fix.price = Math.round((fix.price + diff) * 100) / 100
-      const { payment_collection: pc } = await storeFetch<{ payment_collection: { payment_sessions?: { provider_id: string; data?: { PaymentURL?: string } }[] } }>(
+      const { payment_collection: pc } = await storeFetch<{ payment_collection: { payment_sessions?: { provider_id: string; data?: { PaymentURL?: string; paymentUrl?: string } }[] } }>(
         `/store/payment-collections/${payment_collection.id}/payment-sessions`,
         {
           method: "POST",
           body: {
-            provider_id: "pp_tbank_tbank",
+            provider_id: provider,
             data: {
               success_url: `${SITE_URL}/checkout/paid`,
               fail_url: `${SITE_URL}/checkout?payment=failed`,
@@ -127,8 +129,9 @@ export async function POST(req: NextRequest) {
           },
         }
       )
-      const url = pc.payment_sessions?.find((s) => s.provider_id === "pp_tbank_tbank")?.data?.PaymentURL
-      if (!url) throw new Error("Т-Касса: нет ссылки на оплату")
+      const session = pc.payment_sessions?.find((s) => s.provider_id === provider)?.data
+      const url = session?.PaymentURL ?? session?.paymentUrl
+      if (!url) throw new Error("Онлайн-оплата: нет ссылки на оплату")
       return NextResponse.json({ redirect: url })
     }
 
@@ -150,8 +153,8 @@ export async function POST(req: NextRequest) {
     const msg = e instanceof Error ? e.message : ""
     const human = /inventory|stock|insufficient/i.test(msg)
       ? "Пока вы оформляли заказ, часть товаров закончилась. Проверьте корзину."
-      : /Т-Касса|оплат/i.test(msg)
-        ? "Онлайн-оплата сейчас недоступна. Выберите оплату при получении или попробуйте позже."
+      : /Т-Касса|оплат|Сплит|Яндекс/i.test(msg)
+        ? "Онлайн-оплата сейчас недоступна. Выберите другой способ оплаты или попробуйте позже."
       : /СДЭК|Почта|город|пункт|индекс/i.test(msg)
         ? "Не получилось рассчитать доставку. Проверьте адрес или выберите другой способ."
         : "Не получилось оформить заказ. Попробуйте ещё раз или позвоните нам."

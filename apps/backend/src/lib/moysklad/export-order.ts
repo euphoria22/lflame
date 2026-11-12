@@ -99,7 +99,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       `Заказ с сайта № ${order.display_id}`,
       `Получатель: ${[a?.first_name, a?.last_name].filter(Boolean).join(" ")}, ${a?.phone ?? ""}, ${order.email ?? ""}`,
       shipping ? `Получение: ${shipping.name}${Number(shipping.amount) ? `, ${shipping.amount} ₽` : ""}` : null,
-      `Оплата: ${order.metadata?.payment_method === "tbank" ? "онлайн (Т-Касса), оплачен" : order.metadata?.payment_method === "cod" ? "при получении" : "предоплата по ссылке — ждёт оплаты"}`,
+      `Оплата: ${order.metadata?.payment_method === "split" ? "Яндекс Сплит, оплачен" : order.metadata?.payment_method === "tbank" ? "онлайн (Т-Касса), оплачен" : order.metadata?.payment_method === "cod" ? "при получении" : "предоплата по ссылке — ждёт оплаты"}`,
       a?.address_1 && !a.address_1.startsWith("Самовывоз") ? `Адрес: ${a.city ?? ""}, ${a.address_1}` : null,
       order.metadata?.comment ? `Комментарий покупателя: ${order.metadata.comment}` : null,
       order.metadata?.promo_code && (order.items ?? []).some((i) => i.adjustments?.length) ? `Промокод: ${order.metadata.promo_code}` : null,

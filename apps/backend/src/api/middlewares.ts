@@ -16,6 +16,12 @@ export default defineMiddlewares({
       middlewares: [authenticate("customer", ["bearer"], { allowUnauthenticated: true })],
     },
     {
+      // Уведомления Яндекс Пэй: тело — JWT-строка (application/octet-stream), читаем его сами
+      method: ["POST"],
+      matcher: "/hooks/yandex-split/v1/webhook",
+      bodyParser: false,
+    },
+    {
       method: ["POST"],
       matcher: "/admin/moysklad/sync",
       middlewares: [validateAndTransformBody(MoyskladSyncBodySchema)],

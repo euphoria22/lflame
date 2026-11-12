@@ -80,3 +80,16 @@ export async function getProduct(handle: string): Promise<CatalogProduct | null>
     throw e
   }
 }
+
+/** Способы оплаты для витрины (показ «Сплит» в карточке); меняются редко, кэш на 10 минут. */
+export async function getPaymentOptions(): Promise<{ split_payment: boolean }> {
+  "use cache"
+  cacheTag("settings")
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 })
+  try {
+    const o = await store<{ split_payment?: boolean }>("/store/checkout/options")
+    return { split_payment: Boolean(o.split_payment) }
+  } catch {
+    return { split_payment: false }
+  }
+}

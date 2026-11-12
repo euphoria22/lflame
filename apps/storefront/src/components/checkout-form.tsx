@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPrice } from "@/lib/format"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -19,7 +21,7 @@ import { OrderSummary } from "./order-summary"
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
  * Без обязательной регистрации. Согласие на обработку ПД — отдельная галочка, не отмечена (п. 8.7).
  */
-export type PaymentOptions = { online_payment: boolean; manual_payment: boolean; cod_methods: string[] }
+export type PaymentOptions = { online_payment: boolean; split_payment?: boolean; manual_payment: boolean; cod_methods: string[] }
 
 export function CheckoutForm({ options, notice, defaults }: { options: PaymentOptions; notice?: string | null; defaults?: Partial<CheckoutInput> }) {
   const { cart, clear } = useCart()
@@ -33,6 +35,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
   // Доступные способы оплаты зависят от способа получения (оплата при получении — не везде)
   const available: PaymentMethod[] = [
     ...(options.online_payment ? ["tbank" as const] : []),
+    ...(options.split_payment ? ["split" as const] : []),
     ...(options.manual_payment ? ["manual" as const] : []),
     ...(options.cod_methods.includes(delivery.kind) ? ["cod" as const] : []),
   ]
@@ -118,6 +121,10 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
               <PayOption checked={payment === "tbank"} onSelect={() => setPayment("tbank")} title="Картой или СБП онлайн"
                 hint="Visa, Mastercard, МИР, СБП, T-Pay — безопасная оплата на странице Т-Банка" />
             )}
+            {available.includes("split") && (
+              <PayOption checked={payment === "split"} onSelect={() => setPayment("split")} title="Частями — Яндекс Сплит"
+                hint={`${cart ? `4 платежа по ${formatPrice(Math.ceil((cart.goods_total + (quote?.amount ?? 0)) / 4))} ` : "4 платежа "}раз в 2 недели, без переплаты. Первый — сейчас, одобрение за минуту на странице Яндекс Пэй`} />
+            )}
             {available.includes("manual") && (
               <PayOption checked={payment === "manual"} onSelect={() => setPayment("manual")} title="Предоплата по ссылке"
                 hint="Подтвердим наличие и пришлём ссылку на оплату. Отправим заказ после оплаты." />
@@ -151,7 +158,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         {cart && <div className="mt-5"><OrderSummary cart={cart} delivery={quote ? quote.amount : null} /></div>}
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
-          {sending ? "Оформляем…" : payment === "tbank" ? "Перейти к оплате" : "Подтвердить заказ"}
+          {sending ? "Оформляем…" : payment === "tbank" || payment === "split" ? "Перейти к оплате" : "Подтвердить заказ"}
         </button>
         {cart && <CartProgress total={cart.goods_total} className="mt-5 border-t border-line pt-5" />}
         <AskUs compact className="mt-4" message="Здравствуйте! Вопрос по оформлению заказа" />

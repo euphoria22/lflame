@@ -145,6 +145,15 @@ module.exports = defineConfig({
               notificationUrl: `${(process.env.MEDUSA_BACKEND_URL || "http://localhost:9000").replace(/\/+$/, "")}/hooks/payment/tbank_tbank`,
             },
           },
+          {
+            // Оплата частями — Яндекс Сплит; без ключа на витрине не предлагается
+            resolve: "./src/modules/yandex-split",
+            id: "split",
+            options: {
+              apiKey: process.env.YANDEX_PAY_API_KEY,
+              sandbox: process.env.YANDEX_PAY_SANDBOX === "true",
+            },
+          },
         ],
       },
     },

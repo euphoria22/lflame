@@ -1,5 +1,6 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { isPaidOnline } from "../../../../../lib/payments/yandex-pay-client"
 
 type OrderRow = {
   id: string
@@ -36,7 +37,7 @@ function humanStatusRaw(o: OrderRow): { code: string; label: string } {
   }
   if (f.length) return { code: "packed", label: "Собран, готовим к отправке" }
   // Предоплата по ссылке: заказ принят, но ещё не оплачен
-  const paid = ["captured", "partially_captured", "authorized"].includes(o.payment_status) || o.metadata?.payment_method === "tbank"
+  const paid = ["captured", "partially_captured", "authorized"].includes(o.payment_status) || isPaidOnline(o.metadata?.payment_method)
   if (!paid && o.metadata?.payment_method === "manual") return { code: "awaiting", label: "Принят, ожидается оплата" }
   return { code: "new", label: "Принят" }
 }
@@ -72,9 +73,9 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
         status: humanStatus(o),
         total: Number(o.total),
         shipping_total: Number(o.shipping_total),
-        paid_online: o.metadata?.payment_method === "tbank",
+        paid_online: isPaidOnline(o.metadata?.payment_method),
         payment_method: (o.metadata?.payment_method as string) ?? null,
-        paid: ["captured", "partially_captured", "authorized"].includes(o.payment_status) || o.metadata?.payment_method === "tbank",
+        paid: ["captured", "partially_captured", "authorized"].includes(o.payment_status) || isPaidOnline(o.metadata?.payment_method),
         goods: Number(o.item_subtotal ?? 0),
         discount: Number(o.discount_total ?? 0),
         promo_code: (o.metadata?.promo_code as string) ?? null,

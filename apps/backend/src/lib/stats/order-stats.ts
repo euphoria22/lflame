@@ -52,7 +52,7 @@ const num = (v: unknown) => {
   const n = Number(typeof v === "object" && v !== null && "numeric" in (v as object) ? (v as { numeric: unknown }).numeric : v)
   return Number.isFinite(n) ? n : 0
 }
-const PAYMENT: Record<string, string> = { tbank: "Онлайн (Т-Банк)", manual: "Предоплата по ссылке", cod: "При получении" }
+const PAYMENT: Record<string, string> = { tbank: "Онлайн (Т-Банк)", split: "Частями (Яндекс Сплит)", manual: "Предоплата по ссылке", cod: "При получении" }
 const mskDay = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" })
 
 function top(map: Map<string, Bucket>, limit: number, by: "revenue" | "qty" = "revenue"): Bucket[] {
@@ -123,7 +123,7 @@ export async function orderStats(container: MedusaContainer, from: Date, to: Dat
     const pm = String(o.metadata?.payment_method ?? "")
     add(payment, PAYMENT[pm] ?? (pm || "—"), total)
     // Оплачен онлайн: выбрана оплата Т-Банком и платёж прошёл (у «при получении» Medusa тоже ставит «авторизован»)
-    if (pm === "tbank" && o.payment_collections?.some((p) => p?.status === "completed" || p?.status === "authorized")) paid++
+    if ((pm === "tbank" || pm === "split") && o.payment_collections?.some((p) => p?.status === "completed" || p?.status === "authorized")) paid++
     const code = typeof o.metadata?.promo_code === "string" ? o.metadata.promo_code : null
     if (code) add(promo, code.toUpperCase(), num(o.discount_total))
 

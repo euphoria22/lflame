@@ -47,4 +47,4 @@ export function validateCheckout(v: Partial<CheckoutInput>): Record<string, stri
 }
 
 /** Способ оплаты: онлайн (Т-Касса), предоплата по ссылке от менеджера, при получении. */
-export type PaymentMethod = "tbank" | "manual" | "cod"
+export type PaymentMethod = "tbank" | "split" | "manual" | "cod"
