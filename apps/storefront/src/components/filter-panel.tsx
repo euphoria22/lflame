@@ -223,7 +223,7 @@ function SizeFilter({ facets, selected, onToggle }: { facets: ListingResult["fac
   const right = by(["waist"])
   const shoes = by(["shoe"])
   const item = (s: { value: string; label: string }) => (
-    <li key={s.value}><Check checked={selected.includes(s.value)} onChange={() => onToggle(s.value)} label={s.label} /></li>
+    <li key={s.value}><Check checked={selected.includes(s.value)} onChange={() => onToggle(s.value)} label={s.label} tag /></li>
   )
   const cols = left.length && right.length
   return (
@@ -365,12 +365,12 @@ function ActiveFilters({ filters, facets, names, onRemove, onReset }: {
 }
 
 /** Квадратная галочка в стиле сайта. */
-function Check({ checked, onChange, label, count }: { checked: boolean; onChange: () => void; label: string; count?: number }) {
+function Check({ checked, onChange, label, count, tag = false }: { checked: boolean; onChange: () => void; label: string; count?: number; tag?: boolean }) {
   return (
     <label className="flex cursor-pointer items-center gap-2.5 text-[13px]">
       <input type="checkbox" checked={checked} onChange={onChange}
         className="size-4 shrink-0 cursor-pointer appearance-none border border-subtle bg-background bg-center bg-no-repeat checked:border-foreground checked:bg-foreground checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><path d=%22M4 8.5l2.5 2.5L12 5.5%22 fill=%22none%22 stroke=%22white%22 stroke-width=%221.6%22/></svg>')]" />
-      <span className="flex-1">{label}</span>
+      <span className={`flex-1 ${tag ? "tag-font text-[12px]" : ""}`}>{label}</span>
       {count !== undefined && <span className="text-subtle">{count}</span>}
     </label>
   )

@@ -32,8 +32,8 @@ export default async function LoyaltyPage() {
         {tiers.map((t, i) => (
           <div key={t.code} className={`rounded-[22px] p-5 ${i === tiers.length - 1 ? "bg-foreground text-background" : "bg-surface"}`}>
             <p className="eyebrow opacity-60">{t.threshold ? `от ${formatPrice(t.threshold)}` : "старт"}</p>
-            <p className="mt-3 text-[20px] tracking-tight">{t.name}</p>
-            <p className="mt-1 text-[28px]">{t.discount ? `−${t.discount}%` : "0%"}</p>
+            <p className="tag-font mt-3 text-[17px] uppercase">{t.name}</p>
+            <p className="tag-font mt-1 text-[26px]">{t.discount ? `−${t.discount}%` : "0%"}</p>
             {t.code === "PRIVATE" && <p className="mt-2 text-[12px] opacity-70">+ закрытые распродажи и ранний доступ</p>}
           </div>
         ))}

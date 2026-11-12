@@ -61,7 +61,7 @@ export default async function ClubPage() {
             const next = tiers[i + 1]
             return (
               <div key={t.code} className={`rounded-[20px] border p-5 ${cur ? "border-foreground" : "border-line bg-surface/60"}`}>
-                <p className="text-[17px]">{t.name}</p>
+                <p className="tag-font text-[15px] uppercase">{t.name}</p>
                 <p className="mt-2 text-[30px] leading-none tracking-tight">{t.discount}%</p>
                 <p className="mt-3 text-[12px] text-muted">{t.threshold ? `от ${formatPrice(t.threshold)}` : next ? `до ${formatPrice(next.threshold - 1)}` : "старт"}</p>
                 {cur && <p className="eyebrow mt-3">Ваш уровень</p>}

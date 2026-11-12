@@ -30,7 +30,8 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-sale: var(--sale);
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-onest), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-martian), ui-monospace, "SF Mono", monospace;
 }
 
 html {
@@ -44,15 +45,29 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
 }
 
-/* Мелкие подписи капслоком: бренд, разделы, кнопки */
+/* Крупные заголовки чуть плотнее */
+h1 {
+  letter-spacing: -0.02em;
+}
+
+/* «Бирка»: моноширинный суженный шрифт — цены, размеры, уровни Club */
+.tag-font {
+  font-family: var(--font-mono);
+  font-stretch: 87.5%;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Мелкие подписи капслоком: бренд, разделы, кнопки — тем же шрифтом-«биркой» */
 .eyebrow {
-  font-size: 11px;
-  line-height: 1.3;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-stretch: 87.5%;
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 

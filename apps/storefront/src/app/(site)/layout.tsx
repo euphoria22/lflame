@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import { Martian_Mono, Onest } from "next/font/google"
 import { Suspense } from "react"
 
 import { AnnouncementBar } from "@/components/announcement-bar"
@@ -15,9 +15,16 @@ import { CookieConsent } from "@/components/cookie-consent"
 import "./globals.css"
 
 // Шрифт собирается при сборке и раздаётся с нашего сервера (ТЗ, п. 7.10)
-const inter = Inter({
-  variable: "--font-inter",
+// Основной шрифт — Onest; акцентный (бирки: бренд, цены, размеры, уровни Club) — Martian Mono, суженный
+const onest = Onest({
+  variable: "--font-onest",
   subsets: ["latin", "cyrillic"],
+  display: "swap",
+})
+const martian = Martian_Mono({
+  variable: "--font-martian",
+  subsets: ["latin", "cyrillic"],
+  axes: ["wdth"],
   display: "swap",
 })
 
@@ -42,7 +49,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   // Полоска с акциями: её высота сдвигает шапку и начало страницы (переменная --bar)
   const bar = await safeAnnouncement()
   return (
-    <html lang="ru" data-scroll-behavior="smooth" className={`${inter.variable} antialiased`} style={{ "--bar": bar ? "34px" : "0px" } as React.CSSProperties}>
+    <html lang="ru" data-scroll-behavior="smooth" className={`${onest.variable} ${martian.variable} antialiased`} style={{ "--bar": bar ? "34px" : "0px" } as React.CSSProperties}>
       <body className="flex min-h-screen flex-col">
         {/* Клавиатура (Tab) включает обводку фокуса, клик или касание — выключает */}
         <script dangerouslySetInnerHTML={{ __html: `(function(d){var h=d.documentElement;d.addEventListener("keydown",function(e){if(e.key==="Tab")h.setAttribute("data-kbd","")},true);d.addEventListener("pointerdown",function(){h.removeAttribute("data-kbd")},true)})(document)` }} />

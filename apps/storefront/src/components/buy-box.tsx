@@ -97,7 +97,7 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
                   title={out ? "Нет в наличии — сообщим, когда появится" : v.available === 1 && !allSingles ? "Последний экземпляр" : undefined}
                   aria-label={out ? `${v.size} — нет в наличии, сообщить о поступлении` : v.available === 1 && !allSingles ? `${v.size} — последний экземпляр` : undefined}
                   onClick={() => { setSelected(v.id); setMessage(null) }}
-                  className={`relative flex h-12 items-center justify-center rounded-xl border text-[13px] transition-colors duration-300 ${on ? (out ? "border-foreground bg-surface text-muted" : "border-foreground bg-foreground text-background") : out ? "border-line text-subtle hover:border-muted" : nudge ? "border-foreground" : "border-line hover:border-foreground"}`}>
+                  className={`tag-font relative flex h-12 items-center justify-center rounded-xl border text-[12px] transition-colors duration-300 ${on ? (out ? "border-foreground bg-surface text-muted" : "border-foreground bg-foreground text-background") : out ? "border-line text-subtle hover:border-muted" : nudge ? "border-foreground" : "border-line hover:border-foreground"}`}>
                   {v.size}
                   {/* Последний экземпляр — точка; закончился — колокольчик (нажать — подписка на поступление) */}
                   {v.available === 1 && !allSingles && <span aria-hidden className="absolute right-2 top-2 size-1.5 rounded-full bg-sale" />}
