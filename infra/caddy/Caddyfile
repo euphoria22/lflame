@@ -29,7 +29,7 @@ www.{$SITE_DOMAIN} {
 {$SITE_DOMAIN} {
 	import security
 	encode zstd gzip
-	header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://mc.yandex.ru https://yastatic.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://mc.yandex.ru https://mc.yandex.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https:"
+	header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://mc.yandex.ru https://yastatic.net https://pay.yandex.ru; style-src 'self' 'unsafe-inline' https://yastatic.net https://pay.yandex.ru; img-src 'self' data: blob: https:; media-src 'self' https:; font-src 'self' data: https://yastatic.net; connect-src 'self' https:; frame-src https://mc.yandex.ru https://mc.yandex.com https://pay.yandex.ru https://sandbox.pay.yandex.ru; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https:"
 	reverse_proxy storefront:8000
 }
 

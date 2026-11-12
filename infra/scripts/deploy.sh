@@ -52,6 +52,8 @@ wait_for http://127.0.0.1:9000/health "Medusa" backend
 wait_for http://127.0.0.1:3001/cms "CMS" cms
 $COMPOSE build --build-arg BUILD_ID="$(date +%s)" storefront
 $COMPOSE up -d storefront caddy
+# Правки Caddyfile (заголовки безопасности, домены) — без перезапуска Caddy не применяются
+$COMPOSE exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || $COMPOSE restart caddy
 
 docker image prune -f >/dev/null
 echo "== Готово: https://$(grep ^SITE_DOMAIN= infra/.env | cut -d= -f2)"
