@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { EmailHint } from "./email-hint"
 
 type Settings = { enabled: boolean; discount_pct: number }
 
@@ -57,6 +58,7 @@ export function NewsletterForm() {
               {state === "sending" ? "…" : "Подписаться"}
             </button>
           </div>
+          <EmailHint value={email} onFix={setEmail} className="px-4" />
           {error && <p className="mt-2 text-[12px] text-sale" role="alert">{error}</p>}
           <p className="mt-2 text-[11px] leading-snug text-subtle">
             Подписываясь, вы соглашаетесь получать рассылку и с <Link href="/privacy" className="underline underline-offset-2">политикой обработки данных</Link>. Отписаться можно в любой момент.

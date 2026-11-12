@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { EmailHint } from "./email-hint"
 
 let meReq: Promise<string> | null = null
 /** Email вошедшего покупателя — чтобы не вводить его заново. */
@@ -57,6 +58,7 @@ export function RestockForm({ variantId, size }: { variantId: string; size: stri
           {state === "sending" ? "Отправляем…" : "Сообщить"}
         </button>
       </div>
+      <EmailHint value={email} onFix={setEmail} className="px-5" />
       {error && <p className="mt-2 text-[12px] text-sale" role="alert">{error}</p>}
     </div>
   )

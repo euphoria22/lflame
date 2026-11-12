@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { useCart } from "./cart-context"
 import { resetCartProgress } from "./cart-progress"
 import { useFavorites } from "./favorites-context"
+import { EmailHint } from "./email-hint"
 
 /** Вход без пароля: email -> код из письма (ТЗ, п. 6.5). */
 export function LoginForm({ next }: { next: string }) {
@@ -64,6 +65,7 @@ export function LoginForm({ next }: { next: string }) {
         <form onSubmit={requestCode} className="mt-6 space-y-3" noValidate>
           <p className="text-[14px] text-muted">Пришлём код на почту — без пароля. Если вы ещё не покупали у нас, аккаунт создастся сам.</p>
           <input className={field} type="email" inputMode="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+          <EmailHint value={email} onFix={setEmail} />
           {error && <p className="text-[13px] text-sale" role="alert">{error}</p>}
           <button disabled={busy} className="h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">{busy ? "Отправляем…" : "Получить код"}</button>
         </form>
