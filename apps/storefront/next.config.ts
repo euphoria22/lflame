@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   poweredByHeader: false,
+  // Номер сборки (BUILD_ID из deploy.sh): открытая вкладка после обновления сайта сама перезагружается,
+  // а не падает на файлах, которых в новой сборке уже нет
+  deploymentId: process.env.BUILD_ID || undefined,
   // "use cache" + cacheTag: страницы каталога обновляются по событию из Medusa и CMS (ТЗ, п. 7.1)
   cacheComponents: true,
   partialPrefetching: true,
