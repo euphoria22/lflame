@@ -1,5 +1,3 @@
-import type { MedusaNextFunction, MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-
 type Label = { tracking_number?: string; tracking_url?: string; label_url?: string }
 
 /** Ссылка на отслеживание по номеру: Почта России (14 цифр или RA123456789RU) или СДЭК. */
@@ -19,19 +17,4 @@ export function cleanLabels(labels: Label[]): Required<Label>[] {
       const url = l.url || (l.num ? trackingUrl(l.num) : "")
       return { tracking_number: l.num || "—", tracking_url: url, label_url: l.label || url }
     })
-}
-
-/**
- * «Отметить отправленным» в админке Medusa требует заполнить строку трек-номера целиком
- * (ссылку на отслеживание и на этикетку), а пустая строка даёт ошибку «URL must use http: or https: scheme».
- * Здесь, до проверки Medusa: пустые строки удаляются (отправка без трек-номера — можно),
- * а по одному номеру ссылки на отслеживание и «этикетку» подставляются сами.
- */
-export function shipmentLabelsMiddleware(req: MedusaRequest, _res: MedusaResponse, next: MedusaNextFunction) {
-  const path = (req.originalUrl ?? req.url ?? "").split("?")[0]
-  const body = req.body as { labels?: Label[] } | undefined
-  if (req.method === "POST" && /\/admin\/orders\/[^/]+\/fulfillments\/[^/]+\/shipments$/.test(path) && Array.isArray(body?.labels)) {
-    body!.labels = cleanLabels(body!.labels)
-  }
-  next()
 }

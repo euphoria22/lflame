@@ -1,6 +1,5 @@
 import { authenticate, configureStoreSearch, defineMiddlewares, validateAndTransformBody } from "@medusajs/framework/http"
 import { MoyskladSyncBodySchema } from "./admin/moysklad/validators"
-import { shipmentLabelsMiddleware } from "../lib/delivery/shipment-labels"
 
 // The product index declares filterable `status` and `sales_channel_ids`, so
 // the route narrows it to published products in the key's sales channels.
@@ -15,13 +14,6 @@ export default defineMiddlewares({
       // Скидка уровня: вход не обязателен (без входа — обычные цены)
       matcher: "/store/loyalty/cart",
       middlewares: [authenticate("customer", ["bearer"], { allowUnauthenticated: true })],
-    },
-    {
-      // «Отметить отправленным»: пустая строка трек-номера не ломает форму, ссылки по номеру — сами.
-      // Шаблон с * срабатывает раньше проверки Medusa для /admin/orders/:id/fulfillments/:id/shipments
-      method: ["POST"],
-      matcher: "/admin/orders/*",
-      middlewares: [shipmentLabelsMiddleware],
     },
     {
       // Уведомления Яндекс Пэй: тело — JWT-строка (application/octet-stream), читаем его сами
