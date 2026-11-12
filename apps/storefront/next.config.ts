@@ -25,7 +25,9 @@ const nextConfig: NextConfig = {
   deploymentId: process.env.BUILD_ID || undefined,
   // "use cache" + cacheTag: страницы каталога обновляются по событию из Medusa и CMS (ТЗ, п. 7.1)
   cacheComponents: true,
-  partialPrefetching: true,
+  // partialPrefetching не включать: с ним Next.js 16.4 на первом переходе к товару вне 200 заранее собранных
+  // отдаёт общую заготовку страницы без содержимого — браузер падает на «This page couldn’t load»
+  // (React #412, Connection closed), а после обновления страница открывается.
   // Сборка на сервере магазина: меньше параллельных запросов к Medusa (иначе она не выдерживает пика),
   // упавшую страницу — пересобрать ещё раз
   experimental: {
