@@ -2,6 +2,7 @@ import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { BRAND_MODULE } from "../../modules/brand"
 import BrandModuleService from "../../modules/brand/service"
+import { applyPromoAttributes } from "../catalog/promo-attributes"
 
 /**
  * Бренды в админке: список с числом товаров, правка (название, тексты, видимость, написания) и объединение.
@@ -23,14 +24,14 @@ const aliasesOf = (b: { aliases?: unknown }) => (Array.isArray(b.aliases) ? (b.a
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /** Сбросить кэш витрины: бренды видны в меню, фильтрах и на страницах брендов. */
-export async function revalidateCatalog(): Promise<void> {
+export async function revalidateCatalog(tags: string[] = ["catalog"]): Promise<void> {
   const url = process.env.STOREFRONT_URL
   const secret = process.env.STOREFRONT_REVALIDATE_SECRET
   if (!url || !secret) return
   await fetch(`${url.replace(/\/+$/, "")}/api/revalidate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-revalidate-secret": secret },
-    body: JSON.stringify({ tags: ["catalog"] }),
+    body: JSON.stringify({ tags }),
     signal: AbortSignal.timeout(10_000),
   }).catch(() => null)
 }
@@ -88,6 +89,8 @@ export async function updateBrandRow(container: MedusaContainer, id: string, pat
     seo_description: text(patch.seo_description),
     seo_text: text(patch.seo_text),
   })
+  // Название коллекции-бренда для акций
+  await applyPromoAttributes(container).catch(() => null)
   await revalidateCatalog()
 }
 
@@ -113,6 +116,7 @@ export async function mergeBrands(container: MedusaContainer, fromId: string, in
   }
   if (Object.keys(fill).length) await svc.updateBrands({ id: intoId, ...fill })
   await svc.deleteBrands(fromId)
+  await applyPromoAttributes(container).catch(() => null)
   await revalidateCatalog()
   return { moved: products.length }
 }

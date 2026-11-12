@@ -11,12 +11,13 @@ import { JsonLd } from "@/components/json-ld"
 import { Price } from "@/components/price"
 import { TrackView } from "@/components/track"
 import { YourPrice } from "@/components/your-price"
+import { SplitBadge } from "@/components/split-badge"
 import { ProductGallery } from "@/components/product-gallery"
 import { ProductRail } from "@/components/product-rail"
 import { RecentlyViewed } from "@/components/recently-viewed"
 import { ChevronIcon } from "@/components/icons"
 import { sizeChartFor } from "@/lib/blog"
-import { getCatalog, getPaymentOptions, getProduct } from "@/lib/catalog"
+import { getCatalog, getProduct } from "@/lib/catalog"
 import { arrivalDate, formatPrice } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { GenderSlug, genderInfo, routes } from "@/lib/routes"
@@ -116,10 +117,8 @@ export default async function ProductPage({ params }: Props) {
             <div className="mt-4">
               <Price price={product.price} compareAt={product.compare_at} size="lg" />
               <YourPrice price={product.price} brand={product.brand?.name} noLoyalty={product.no_loyalty} size="lg" />
-              {/* Сплит: 4 платежа раз в 2 недели, без переплаты (показывается, когда Сплит подключён) */}
-              {(await getPaymentOptions()).split_payment && product.price >= 1000 && (
-                <p className="mt-2 text-[13px] text-muted">или <span className="tag-font text-foreground">4 × {formatPrice(Math.ceil(product.price / 4))}</span> частями со Сплитом</p>
-              )}
+              {/* Официальный бейдж Яндекс Сплита (показывается, когда Сплит подключён) */}
+              <SplitBadge amount={product.price} productId={product.variants[0]?.id} size="m" variant="detailed" className="mt-3" />
             </div>
             {product.color_name && <p className="mt-2 text-[13px] text-muted">Цвет: {product.color_name}</p>}
             {product.preorder && (

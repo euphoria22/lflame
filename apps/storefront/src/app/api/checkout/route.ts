@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       const fresh = await retrieveCart()
       // Цена позиции — с учётом промокода (сумма строки / количество), копейки сводим к итогу корзины
       const receipt = [
-        ...(fresh?.items ?? []).map((i) => ({ name: [i.product_title, i.variant_title].filter(Boolean).join(", "), price: Math.round((Number(i.total) / i.quantity) * 100) / 100, quantity: i.quantity })),
+        ...(fresh?.items ?? []).map((i) => ({ id: i.variant_id, name: [i.product_title, i.variant_title].filter(Boolean).join(", "), price: Math.round((Number(i.total) / i.quantity) * 100) / 100, quantity: i.quantity })),
         ...(fresh && Number(fresh.shipping_total) > 0 ? [{ name: "Доставка", price: Number(fresh.shipping_total), quantity: 1, kind: "service" }] : []),
       ]
       const diff = Math.round((Number(fresh?.total ?? 0) - receipt.reduce((s, l) => s + l.price * l.quantity, 0)) * 100) / 100

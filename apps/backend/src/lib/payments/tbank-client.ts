@@ -55,7 +55,7 @@ export function tbankVerify(payload: Record<string, unknown>, password: string):
 /** Рубли -> копейки. */
 export const kopecks = (rub: number) => Math.round(rub * 100)
 
-export type ReceiptLine = { name: string; price: number; quantity: number; kind?: "commodity" | "service" }
+export type ReceiptLine = { name: string; price: number; quantity: number; kind?: "commodity" | "service"; id?: string }
 
 /** Чек 54-ФЗ (если касса подключена в Т-Кассе). НДС — «без НДС» (УСН). */
 export function buildReceipt(lines: ReceiptLine[], contact: { email?: string | null; phone?: string | null }, taxation: string) {

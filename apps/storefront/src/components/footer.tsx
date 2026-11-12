@@ -6,13 +6,14 @@ import { SITE_NAME, SOCIAL, SUPPORT } from "@/lib/site"
 import { TelegramIcon, VkIcon } from "./icons"
 import { NewsletterForm } from "./newsletter-form"
 import { getNav } from "./nav-data"
+import { getShopOptions } from "@/lib/catalog"
 import { LogoWordmark } from "./logo"
 
 /** Подвал: разделы, топ-бренды, информационные страницы (ТЗ, п. 7.12), реквизиты (п. 8.7). */
 export async function Footer() {
   "use cache"
-  cacheTag("catalog")
-  const nav = await getNav()
+  cacheTag("catalog", "settings")
+  const [nav, pay] = await Promise.all([getNav(), getShopOptions()])
   const year = new Date().getFullYear()
   const col = "text-[13px] leading-7 text-muted"
   return (
@@ -79,7 +80,19 @@ export async function Footer() {
         </div>
       </div>
       <div className="mx-auto flex max-w-[1680px] flex-col gap-2 border-t border-line px-4 py-6 text-[12px] text-subtle md:flex-row md:justify-between md:px-8">
-        <p>© {year} {SITE_NAME}</p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+          <p>© {year} {SITE_NAME}</p>
+          {/* Способы оплаты: логотипы из админки («Доставка и оплата»), без картинки — название */}
+          {pay.payment_logos.length > 0 && (
+            <ul aria-label="Способы оплаты" className="flex flex-wrap items-center gap-2">
+              {pay.payment_logos.map((p) => (
+                <li key={p.name} className="flex h-7 items-center rounded-md border border-line bg-background px-2">
+                  {p.logo ? <img src={p.logo} alt={p.name} className="h-4 w-auto max-w-[64px] object-contain" loading="lazy" /> : <span className="tag-font text-[10px] uppercase text-muted">{p.name}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         {/* ТЗ, п. 8.7: реквизиты продавца — заполнить */}
         <p>ИП Парфенов Алексей Дмитриевич · ИНН 550117485296 · ОГРНИП 320554300044865</p>
       </div>

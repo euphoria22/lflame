@@ -6,6 +6,7 @@ import dynamic from "next/dynamic"
 
 import { CdekCity, CdekPoint, daysLabel, DeliveryChoice, DeliveryKind, PICKUP, PochtaOffice, Quote } from "@/lib/delivery"
 import { formatPrice } from "@/lib/format"
+import { CourierIcon, MailIcon, MethodLogo, PickupPointIcon, StoreIcon, TruckIcon } from "./method-icons"
 
 // Карта грузится только когда нужна (Leaflet работает лишь в браузере)
 const PickupMap = dynamic(() => import("./pickup-map").then((m) => m.PickupMap), {
@@ -21,6 +22,12 @@ type Props = {
   error?: string
   /** Меняется вместе с составом корзины — цена доставки пересчитывается */
   refreshKey?: string
+  /** Название, описание и логотип из админки («Доставка и оплата») */
+  texts?: Partial<Record<DeliveryKind, { title: string; hint: string; logo: string | null }>>
+}
+
+const ICONS: Record<DeliveryKind, (p: { className?: string }) => React.ReactElement> = {
+  "pickup": StoreIcon, "omsk-courier": CourierIcon, "cdek-pvz": PickupPointIcon, "cdek-door": TruckIcon, "pochta": MailIcon,
 }
 
 const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
@@ -35,7 +42,7 @@ const OPTIONS: { kind: DeliveryKind; title: string; hint: string }[] = [
  * Выбор способа получения (ТЗ, п. 5.2): город с подсказками СДЭК, пункты выдачи и отделения
  * Почты на карте и списком с поиском, адрес для курьера; цена и срок пересчитываются сразу.
  */
-export function DeliveryPicker({ value, onChange, quote, onQuote, error, refreshKey }: Props) {
+export function DeliveryPicker({ value, onChange, quote, onQuote, error, refreshKey, texts }: Props) {
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const set = (patch: Partial<DeliveryChoice>) => onChange({ ...value, ...patch })
@@ -74,15 +81,18 @@ export function DeliveryPicker({ value, onChange, quote, onQuote, error, refresh
 
   return (
     <div className="space-y-2">
-      {OPTIONS.map((o) => {
+      {OPTIONS.map((base) => {
+        const t = texts?.[base.kind]
+        const o = { ...base, title: t?.title || base.title, hint: t?.hint ?? base.hint, logo: t?.logo ?? null }
         const on = value.kind === o.kind
         return (
           <div key={o.kind} className={`rounded-xl border transition-colors ${on ? "border-foreground" : "border-line"}`}>
-            <label className="flex cursor-pointer items-start gap-3 p-4">
-              <input type="radio" name="delivery" checked={on} onChange={() => onChange({ kind: o.kind })} className="mt-1 accent-black" />
+            <label className="flex cursor-pointer items-center gap-3 p-4">
+              <input type="radio" name="delivery" checked={on} onChange={() => onChange({ kind: o.kind })} className="accent-black" />
+              <MethodLogo logo={o.logo} alt={o.title} Fallback={ICONS[o.kind]} />
               <span className="flex-1 text-[14px]">
                 {o.title}
-                <span className="mt-1 block text-[12px] text-muted">{o.hint}</span>
+                {o.hint && <span className="mt-1 block text-[12px] text-muted">{o.hint}</span>}
               </span>
               <span className="text-right text-[14px]">
                 {o.kind === "pickup" ? "0 ₽" : on && quote ? <>{quote.free ? <><s className="mr-1.5 text-muted">{formatPrice(quote.full_amount ?? 0)}</s>Бесплатно</> : formatPrice(quote.amount)}<span className="block text-[12px] text-muted">{daysLabel(quote)}</span></> : on && loading ? "…" : ""}

@@ -13,6 +13,7 @@ import { CartProgress } from "./cart-progress"
 import { CloseIcon } from "./icons"
 import { LoyaltyLine } from "./loyalty-line"
 import { usePresence } from "./use-presence"
+import { SplitBadge } from "./split-badge"
 
 /** Выезжающая панель корзины (Liquid Glass) — открывается после добавления товара. */
 export function CartDrawer() {
@@ -50,6 +51,7 @@ export function CartDrawer() {
             <div className="border-t border-line px-6 pb-5 pt-4">
               <LoyaltyLine cart={cart} className="mb-1" />
               <div className="flex justify-between text-[15px]"><span>Итого</span><span>{formatPrice(cart.item_total)}</span></div>
+              <SplitBadge amount={cart.item_total} cart={cart.lines.map((l) => ({ product_id: l.variant_id, total: l.total }))} size="s" className="mt-2" />
               <CartProgress total={cart.goods_total} className="mt-3" />
               <Link href="/checkout" onClick={() => setOpen(false)} className="mt-4 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
               <Link href={routes.cart()} onClick={() => setOpen(false)} className="mt-2 block text-center text-[13px] text-muted hover:text-foreground">Перейти в корзину</Link>

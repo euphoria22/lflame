@@ -32,6 +32,25 @@ export type ShopSettings = {
   parcel: ParcelConfig
   /** Подписка на новости: включена ли форма и скидка по одноразовому промокоду (0 — без промокода) */
   newsletter: { enabled: boolean; discount_pct: number }
+  /** Как способы получения выглядят на сайте при оформлении: название, описание, логотип (пусто — значок по умолчанию) */
+  delivery_texts: Record<DeliveryKind, DeliveryText>
+  /** Логотипы способов оплаты в подвале сайта (без картинки — название текстом) */
+  payment_logos: PaymentLogo[]
+}
+
+export type PaymentLogo = { name: string; logo: string | null }
+export const DEFAULT_PAYMENT_LOGOS: PaymentLogo[] = ["Visa", "Mastercard", "МИР", "СБП", "T-Pay", "Яндекс Сплит"].map((name) => ({ name, logo: null }))
+
+export const DELIVERY_KINDS = ["pickup", "omsk-courier", "cdek-pvz", "cdek-door", "pochta"] as const
+export type DeliveryKind = (typeof DELIVERY_KINDS)[number]
+export type DeliveryText = { title: string; hint: string; logo: string | null }
+
+export const DEFAULT_DELIVERY_TEXTS: Record<DeliveryKind, DeliveryText> = {
+  "pickup": { title: "Самовывоз из магазина", hint: "Омск, ул. Партизанская, 5а/8, ежедневно с 12:00 до 21:00", logo: null },
+  "omsk-courier": { title: "Курьер по Омску", hint: "1–3 часа, время согласуем по телефону", logo: null },
+  "cdek-pvz": { title: "СДЭК — пункт выдачи", hint: "Доставка до пункта выдачи СДЭК", logo: null },
+  "cdek-door": { title: "СДЭК — курьер", hint: "Курьер привезёт заказ по адресу", logo: null },
+  "pochta": { title: "Почта России", hint: "Посылка до почтового отделения", logo: null },
 }
 
 export function defaultSettings(): ShopSettings {
@@ -51,6 +70,8 @@ export function defaultSettings(): ShopSettings {
     // Только предоплата: наложенным платежом не работаем
     payments: { manual: true, cod_methods: [] },
     newsletter: { enabled: true, discount_pct: 10 },
+    delivery_texts: DEFAULT_DELIVERY_TEXTS,
+    payment_logos: DEFAULT_PAYMENT_LOGOS,
   }
 }
 
@@ -68,7 +89,8 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) } }
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) },
+      delivery_texts: Object.fromEntries(DELIVERY_KINDS.map((k) => [k, { ...defaults.delivery_texts[k], ...(saved.delivery_texts?.[k] ?? {}) }])) as Record<DeliveryKind, DeliveryText> }
     cache = { value, at: Date.now() }
     return value
   } catch {
@@ -122,6 +144,32 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
   if (input.free_shipping_methods !== undefined) {
     if (!Array.isArray(input.free_shipping_methods)) return { error: "Способы бесплатной доставки: неверный формат" }
     out.free_shipping_methods = [...new Set(input.free_shipping_methods.map(String).filter((k) => KINDS.includes(k)))]
+  }
+  if (input.delivery_texts !== undefined) {
+    const t = {} as Record<DeliveryKind, DeliveryText>
+    for (const k of DELIVERY_KINDS) {
+      const x = input.delivery_texts?.[k] ?? DEFAULT_DELIVERY_TEXTS[k]
+      const title = String(x.title ?? "").trim()
+      const hint = String(x.hint ?? "").trim()
+      const logo = String(x.logo ?? "").trim()
+      if (!title || title.length > 80) return { error: "Название способа получения: от 1 до 80 символов" }
+      if (hint.length > 200) return { error: "Описание способа получения: не длиннее 200 символов" }
+      if (logo && !/^(https:\/\/|\/)[^\s"'<>]+$/.test(logo)) return { error: "Логотип: загрузите картинку или укажите ссылку https://" }
+      t[k] = { title, hint, logo: logo || null }
+    }
+    out.delivery_texts = t
+  }
+  if (input.payment_logos !== undefined) {
+    if (!Array.isArray(input.payment_logos) || input.payment_logos.length > 12) return { error: "Логотипы оплаты: не больше 12" }
+    const list: PaymentLogo[] = []
+    for (const x of input.payment_logos) {
+      const name = String(x?.name ?? "").trim()
+      const logo = String(x?.logo ?? "").trim()
+      if (!name || name.length > 40) return { error: "Название способа оплаты: от 1 до 40 символов" }
+      if (logo && !/^(https:\/\/|\/)[^\s"'<>]+$/.test(logo)) return { error: "Логотип оплаты: загрузите картинку" }
+      list.push({ name, logo: logo || null })
+    }
+    out.payment_logos = list
   }
   if (input.newsletter !== undefined) {
     const n = input.newsletter ?? {}

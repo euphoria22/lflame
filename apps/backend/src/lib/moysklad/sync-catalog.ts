@@ -17,6 +17,7 @@ import { SyncContext, fetchFreeStock, moyskladTime } from "./context"
 import { DEFAULT_MAP_OPTIONS, MapOptions, MappedProduct, attrValue, mapProduct } from "./map-product"
 import { syncStockLevels } from "./sync-stock"
 import { MsFolder, MsImage, MsProduct, MsVariant, idFromHref } from "./types"
+import { applyPromoAttributes } from "../catalog/promo-attributes"
 
 export const SIZE_OPTION = "Размер"
 
@@ -201,6 +202,9 @@ export async function syncCatalog(
 
   // 7. Остатки
   stats.stock = await syncStockLevels(ctx, freeStock)
+
+  // 8. Бренд → коллекция, пол/цвет/пометки → теги (для условий акций в админке)
+  await applyPromoAttributes(ctx.container).catch((e: Error) => logger.warn(`Коллекции и теги для акций не обновлены: ${e.message}`))
   return stats
 }
 

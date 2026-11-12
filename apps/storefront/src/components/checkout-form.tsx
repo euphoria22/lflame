@@ -1,6 +1,7 @@
 "use client"
 
 import { formatPrice } from "@/lib/format"
+import { CardIcon, HandIcon, PartsIcon } from "./method-icons"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -21,7 +22,11 @@ import { OrderSummary } from "./order-summary"
  * Оформление на одной странице (ТЗ, п. 6.4): контакты → получение → оплата → подтверждение.
  * Без обязательной регистрации. Согласие на обработку ПД — отдельная галочка, не отмечена (п. 8.7).
  */
-export type PaymentOptions = { online_payment: boolean; split_payment?: boolean; manual_payment: boolean; cod_methods: string[] }
+export type PaymentOptions = {
+  online_payment: boolean; split_payment?: boolean; manual_payment: boolean; cod_methods: string[]
+  delivery_texts?: Partial<Record<DeliveryChoice["kind"], { title: string; hint: string; logo: string | null }>>
+  payment_logos?: { name: string; logo: string | null }[]
+}
 
 export function CheckoutForm({ options, notice, defaults }: { options: PaymentOptions; notice?: string | null; defaults?: Partial<CheckoutInput> }) {
   const { cart, clear } = useCart()
@@ -41,6 +46,8 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
   ]
   const payment: PaymentMethod | null = chosenPayment && available.includes(chosenPayment) ? chosenPayment : available[0] ?? null
   const [quote, setQuote] = useState<Quote | null>({ amount: 0, days_min: 0, days_max: 0 })
+  // Логотип Сплита — тот, что загружен для подвала («Доставка и оплата» → логотипы оплаты)
+  const splitLogo = options.payment_logos?.find((p) => /сплит|split/i.test(p.name))?.logo ?? null
 
   const set = (k: keyof CheckoutInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value
@@ -111,26 +118,26 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">2. Получение</h2>
           <DeliveryPicker value={delivery} onChange={(d) => { setDelivery(d); setErrors((x) => ({ ...x, delivery: "" })) }}
-            quote={quote} onQuote={setQuote} error={errors.delivery} refreshKey={`${cart?.goods_total ?? 0}:${cart?.count ?? 0}`} />
+            quote={quote} onQuote={setQuote} error={errors.delivery} texts={options.delivery_texts} refreshKey={`${cart?.goods_total ?? 0}:${cart?.count ?? 0}`} />
         </section>
 
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">3. Оплата</h2>
           <div className="space-y-2">
             {available.includes("tbank") && (
-              <PayOption checked={payment === "tbank"} onSelect={() => setPayment("tbank")} title="Картой или СБП онлайн"
+              <PayOption checked={payment === "tbank"} onSelect={() => setPayment("tbank")} title="Картой или СБП онлайн" icon={<CardIcon className="size-5 text-muted" />}
                 hint="Visa, Mastercard, МИР, СБП, T-Pay — безопасная оплата на странице Т-Банка" />
             )}
             {available.includes("split") && (
-              <PayOption checked={payment === "split"} onSelect={() => setPayment("split")} title="Частями — Яндекс Сплит"
+              <PayOption checked={payment === "split"} onSelect={() => setPayment("split")} title="Частями — Яндекс Сплит" icon={splitLogo ? <img src={splitLogo} alt="" className="max-h-7 max-w-[48px] object-contain" /> : <PartsIcon className="size-5 text-muted" />}
                 hint={`${cart ? `4 платежа по ${formatPrice(Math.ceil((cart.goods_total + (quote?.amount ?? 0)) / 4))} ` : "4 платежа "}раз в 2 недели, без переплаты. Первый — сейчас, одобрение за минуту на странице Яндекс Пэй`} />
             )}
             {available.includes("manual") && (
-              <PayOption checked={payment === "manual"} onSelect={() => setPayment("manual")} title="Предоплата по ссылке"
+              <PayOption checked={payment === "manual"} onSelect={() => setPayment("manual")} title="Предоплата по ссылке" icon={<CardIcon className="size-5 text-muted" />}
                 hint="Подтвердим наличие и пришлём ссылку на оплату. Отправим заказ после оплаты." />
             )}
             {available.includes("cod") && (
-              <PayOption checked={payment === "cod"} onSelect={() => setPayment("cod")} title="При получении"
+              <PayOption checked={payment === "cod"} onSelect={() => setPayment("cod")} title="При получении" icon={<HandIcon className="size-5 text-muted" />}
                 hint={delivery.kind === "pickup" ? "Картой или наличными в магазине" : "Картой или наличными при получении"} />
             )}
             {!available.length && <p className="text-[13px] text-sale">Оплата сейчас недоступна — позвоните нам, оформим заказ по телефону.</p>}
@@ -167,10 +174,11 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
   )
 }
 
-function PayOption({ checked, onSelect, title, hint }: { checked: boolean; onSelect: () => void; title: string; hint: string }) {
+function PayOption({ checked, onSelect, title, hint, icon }: { checked: boolean; onSelect: () => void; title: string; hint: string; icon: React.ReactNode }) {
   return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${checked ? "border-foreground" : "border-line"}`}>
-      <input type="radio" name="payment" checked={checked} onChange={onSelect} className="mt-1 accent-black" />
+    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${checked ? "border-foreground" : "border-line"}`}>
+      <input type="radio" name="payment" checked={checked} onChange={onSelect} className="accent-black" />
+      <span className="flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface">{icon}</span>
       <span className="text-[14px]">
         {title}
         <span className="mt-1 block text-[12px] text-muted">{hint}</span>

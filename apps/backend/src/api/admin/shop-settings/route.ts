@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateShippingOptionsWorkflow } from "@medusajs/medusa/core-flows"
 import { cdekConfig, cdekRequest, CdekTariff, cdekTariffList } from "../../../lib/delivery/cdek-client"
 import { DEFAULT_PARCEL, estimateParcel } from "../../../lib/delivery/parcel"
+import { revalidateCatalog } from "../../../lib/brands/admin"
 import { getShopSettings, saveShopSettings, ShopSettings, validateSettings } from "../../../lib/settings/shop-settings"
 
 type Point = { code: string; location: { address: string } }
@@ -70,7 +71,10 @@ export async function POST(req: MedusaRequest<Partial<ShopSettings> & { courier_
     res.status(400).json({ message: error })
     return
   }
-  res.json({ settings: await saveShopSettings(value) })
+  const settings = await saveShopSettings(value)
+  // Тексты и логотипы доставки/оплаты, подвал сайта — сбросить кэш витрины
+  await revalidateCatalog(["settings"])
+  res.json({ settings })
 }
 
 type OptionRow = { id: string; type?: { code?: string } | null; prices?: { amount: unknown; currency_code: string }[] }

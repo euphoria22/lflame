@@ -9,6 +9,7 @@ import { useCart } from "./cart-context"
 import { CartProgress } from "./cart-progress"
 import { CartLines } from "./cart-lines"
 import { OrderSummary } from "./order-summary"
+import { SplitBadge } from "./split-badge"
 
 export function CartPageView() {
   const { cart, error } = useCart()
@@ -22,6 +23,7 @@ export function CartPageView() {
           <aside className="h-fit rounded-[22px] bg-surface p-6 md:sticky md:top-[96px]">
             <p className="mb-5 text-[22px] tracking-tight">Ваш заказ</p>
             <OrderSummary cart={cart} />
+            <SplitBadge amount={cart.item_total} cart={cart.lines.map((l) => ({ product_id: l.variant_id, total: l.total }))} size="m" variant="detailed" className="mt-4" />
             <AskUs compact className="mt-4" message="Здравствуйте! Вопрос по заказу на сайте" />
             <Link href="/checkout" className="mt-6 flex h-12 items-center justify-center rounded-full bg-foreground text-[14px] text-background">Оформить заказ</Link>
             <CartProgress total={cart.goods_total} className="mt-5 border-t border-line pt-5" />

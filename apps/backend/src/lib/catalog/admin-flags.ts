@@ -2,6 +2,7 @@ import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { revalidateCatalog } from "../brands/admin"
+import { applyPromoAttributes } from "./promo-attributes"
 
 /** Флажки товара для сайта, хранятся в metadata (синхронизация с МС их не трогает). */
 export const FLAGS = ["preorder", "is_new", "pinned", "outlet", "no_loyalty"] as const
@@ -65,6 +66,7 @@ export async function setFlags(container: MedusaContainer, ids: string[], set: P
     if (products.length) await updateProductsWorkflow(container).run({ input: { products } })
     done += products.length
   }
+  await applyPromoAttributes(container, ids).catch(() => null)
   await revalidateCatalog()
   return done
 }

@@ -9,6 +9,7 @@ import { Price } from "./price"
 import { QuickSizes } from "./quick-sizes"
 import { YourPrice } from "./your-price"
 import { FadeImage } from "./fade-image"
+import { SplitBadge } from "./split-badge"
 
 /**
  * Карточка товара в сетке (ТЗ, п. 6.2): фото 3:4 на серой подложке, второе фото при наведении,
@@ -61,6 +62,7 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
         <div className="mt-auto pt-2">
           <Price price={item.price} compareAt={item.compare_at} />
           <YourPrice price={item.price} brand={item.brand?.name} noLoyalty={item.no_loyalty} />
+          <SplitBadge amount={item.price} productId={item.sizes[0]?.variant_id} size="s" className="mt-1.5" />
         </div>
       </div>
     </article>

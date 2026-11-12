@@ -25,6 +25,21 @@ type Settings = {
   markup: { cdek: Markup; pochta: Markup }
   free_shipping_methods: string[]
   payments: { manual: boolean; cod_methods: string[] }
+  delivery_texts: Record<string, DeliveryText>
+  payment_logos: { name: string; logo: string | null }[]
+}
+type DeliveryText = { title: string; hint: string; logo: string | null }
+const KIND_NAMES: [string, string][] = [["pickup", "Самовывоз"], ["omsk-courier", "Курьер по Омску"], ["cdek-pvz", "СДЭК — пункт выдачи"], ["cdek-door", "СДЭК — курьер"], ["pochta", "Почта России"]]
+
+/** Загрузка логотипа в файловое хранилище Medusa (S3) — возвращает ссылку на картинку. */
+async function uploadLogo(file: File): Promise<string> {
+  if (file.size > 1024 * 1024) throw new Error("Логотип — не больше 1 МБ (лучше SVG или PNG)")
+  const form = new FormData()
+  form.append("files", file)
+  const res = await fetch("/admin/uploads", { method: "POST", credentials: "include", body: form })
+  const body = (await res.json().catch(() => ({}))) as { files?: { url: string }[]; message?: string }
+  if (!res.ok || !body.files?.[0]?.url) throw new Error(body.message ?? "Не загрузилось")
+  return body.files[0].url
 }
 type Markup = { type: "rub" | "pct"; value: number }
 type Tariff = { code: number; name: string; mode: number; sum: number; days_min: number; days_max: number }
@@ -141,6 +156,72 @@ const DeliveryPage = () => {
           <Text size="small" className="text-ui-fg-subtle">Настройки, которые можно менять без программиста</Text>
         </div>
         <Button onClick={save} isLoading={saving}>Сохранить</Button>
+      </Container>
+
+      <Container className="divide-y p-0">
+        <div className="px-6 py-4">
+          <Heading level="h2">Способы получения на сайте</Heading>
+          <Text size="small" className="text-ui-fg-subtle">Название, описание и логотип при оформлении заказа. Без логотипа показывается значок по умолчанию.</Text>
+        </div>
+        {KIND_NAMES.map(([kind, name]) => {
+          const t = s.delivery_texts[kind] ?? { title: name, hint: "", logo: null }
+          const put = (patch: Partial<DeliveryText>) => set("delivery_texts", { ...s.delivery_texts, [kind]: { ...t, ...patch } })
+          return (
+            <div key={kind} className="grid gap-3 px-6 py-4 md:grid-cols-[88px_1fr_1.6fr]">
+              <div className="flex flex-col items-start gap-1">
+                <label className="flex h-12 w-[88px] cursor-pointer items-center justify-center overflow-hidden rounded-md border border-ui-border-base bg-ui-bg-subtle hover:bg-ui-bg-base-hover" title="Загрузить логотип">
+                  {t.logo ? <img src={t.logo} alt="" className="max-h-10 max-w-[80px] object-contain" /> : <Text size="xsmall" className="text-ui-fg-muted">Логотип</Text>}
+                  <input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp" className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ""
+                      if (!f) return
+                      try { put({ logo: await uploadLogo(f) }); toast.success("Логотип загружен — нажмите «Сохранить»") } catch (err) { toast.error((err as Error).message) }
+                    }} />
+                </label>
+                {t.logo && <Button size="small" variant="transparent" onClick={() => put({ logo: null })}>Убрать</Button>}
+              </div>
+              <div className="flex flex-col gap-y-1">
+                <Label size="small">Название · {name}</Label>
+                <Input size="small" value={t.title} maxLength={80} onChange={(e) => put({ title: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-y-1">
+                <Label size="small">Описание</Label>
+                <Input size="small" value={t.hint} maxLength={200} onChange={(e) => put({ hint: e.target.value })} />
+              </div>
+            </div>
+          )
+        })}
+      </Container>
+
+      <Container className="divide-y p-0">
+        <div className="px-6 py-4">
+          <Heading level="h2">Логотипы оплаты в подвале сайта</Heading>
+          <Text size="small" className="text-ui-fg-subtle">Без картинки показывается название. Лучше SVG или PNG на прозрачном фоне, высотой от 40 px.</Text>
+        </div>
+        {s.payment_logos.map((p, i) => {
+          const put = (patch: Partial<{ name: string; logo: string | null }>) => set("payment_logos", s.payment_logos.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-3 px-6 py-3">
+              <label className="flex h-10 w-[88px] cursor-pointer items-center justify-center overflow-hidden rounded-md border border-ui-border-base bg-ui-bg-subtle hover:bg-ui-bg-base-hover" title="Загрузить логотип">
+                {p.logo ? <img src={p.logo} alt="" className="max-h-8 max-w-[80px] object-contain" /> : <Text size="xsmall" className="text-ui-fg-muted">Логотип</Text>}
+                <input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp" className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0]
+                    e.target.value = ""
+                    if (!f) return
+                    try { put({ logo: await uploadLogo(f) }); toast.success("Логотип загружен — нажмите «Сохранить»") } catch (err) { toast.error((err as Error).message) }
+                  }} />
+              </label>
+              <div className="w-56"><Input size="small" value={p.name} maxLength={40} onChange={(e) => put({ name: e.target.value })} /></div>
+              {p.logo && <Button size="small" variant="transparent" onClick={() => put({ logo: null })}>Убрать картинку</Button>}
+              <IconButton size="small" variant="transparent" onClick={() => set("payment_logos", s.payment_logos.filter((_, j) => j !== i))}><Trash /></IconButton>
+            </div>
+          )
+        })}
+        <div className="px-6 py-3">
+          <Button size="small" variant="secondary" disabled={s.payment_logos.length >= 12} onClick={() => set("payment_logos", [...s.payment_logos, { name: "Новый способ", logo: null }])}><Plus />Добавить</Button>
+        </div>
       </Container>
 
       <Container className="divide-y p-0">

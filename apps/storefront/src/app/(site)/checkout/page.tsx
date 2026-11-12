@@ -1,3 +1,4 @@
+import type { PaymentOptions } from "@/components/checkout-form"
 import type { Metadata } from "next"
 import { connection } from "next/server"
 
@@ -8,7 +9,7 @@ import { pageTitle } from "@/lib/site"
 
 export const metadata: Metadata = { title: pageTitle("Оформление заказа"), ...NOINDEX }
 
-type Options = { online_payment: boolean; split_payment?: boolean; manual_payment: boolean; cod_methods: string[]; free_shipping_from: number }
+type Options = PaymentOptions & { free_shipping_from: number }
 
 export default async function CheckoutPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
   // Страница рендерится только по запросу: настройки из админки должны быть свежими

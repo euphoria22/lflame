@@ -41,7 +41,8 @@ export const money = (rub: number) => (Math.round(rub * 100) / 100).toFixed(2)
  */
 export function buildCart(lines: ReceiptLine[]) {
   const items = lines.map((l, i) => ({
-    productId: `item-${i + 1}`,
+    // id размера (variant) — тот же, что в бейджах Сплита на витрине
+    productId: l.id ?? `item-${i + 1}`,
     title: l.name.slice(0, 1000),
     quantity: { count: String(l.quantity) },
     unitPrice: money(l.price),

@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
+import { applyPromoAttributes } from "../../../../lib/catalog/promo-attributes"
 
 type Body = { preorder?: boolean; no_loyalty?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null; is_new?: boolean; pinned?: boolean; specs?: string | null }
 
@@ -49,6 +50,8 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
     meta.old_site_specs = t || null
   }
   await updateProductsWorkflow(req.scope).run({ input: { products: [{ id: p.id, metadata: meta }] } })
+  // Пометки — в теги «Метка: …» (условия акций)
+  await applyPromoAttributes(req.scope, [p.id]).catch(() => null)
   res.json({
     preorder: Boolean(meta.preorder), no_loyalty: Boolean(meta.no_loyalty), preorder_date: (meta.preorder_date as string | null) ?? null,
     outlet: Boolean(meta.outlet), outlet_note: (meta.outlet_note as string | null) ?? null, is_new: meta.is_new === true, pinned: meta.pinned === true,

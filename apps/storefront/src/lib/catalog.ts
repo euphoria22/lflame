@@ -81,15 +81,16 @@ export async function getProduct(handle: string): Promise<CatalogProduct | null>
   }
 }
 
-/** Способы оплаты для витрины (показ «Сплит» в карточке); меняются редко, кэш на 10 минут. */
-export async function getPaymentOptions(): Promise<{ split_payment: boolean }> {
+/** Настройки магазина для витрины: Сплит (бейджи), логотипы оплаты в подвале. Кэш 10 минут; сброс — тег settings. */
+export type ShopOptions = { split_payment: boolean; split_merchant_id: string | null; payment_logos: { name: string; logo: string | null }[] }
+export async function getShopOptions(): Promise<ShopOptions> {
   "use cache"
   cacheTag("settings")
   cacheLife({ stale: 300, revalidate: 600, expire: 86400 })
   try {
-    const o = await store<{ split_payment?: boolean }>("/store/checkout/options")
-    return { split_payment: Boolean(o.split_payment) }
+    const o = await store<Partial<ShopOptions>>("/store/checkout/options")
+    return { split_payment: Boolean(o.split_payment), split_merchant_id: o.split_merchant_id ?? null, payment_logos: o.payment_logos ?? [] }
   } catch {
-    return { split_payment: false }
+    return { split_payment: false, split_merchant_id: null, payment_logos: [] }
   }
 }
