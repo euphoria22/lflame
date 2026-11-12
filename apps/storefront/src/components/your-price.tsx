@@ -36,7 +36,9 @@ export function YourPrice({ price, brand, noLoyalty, size = "sm" }: {
     load().then((v) => { if (alive) setD(v) })
     return () => { alive = false }
   }, [])
-  if (!d?.pct || noLoyalty) return null
+  if (!d?.pct) return null
+  // Товар без скидок Club: говорим об этом только тем, у кого скидка есть (остальным строка ни к чему)
+  if (noLoyalty) return size === "lg" ? <p className="mt-2 text-[12px] text-muted">Скидка {d.level} −{d.pct}% на этот товар не действует</p> : null
   if (brand && d.excluded_brands?.some((b) => b.toLowerCase() === brand.toLowerCase())) return null
   const mine = loyaltyPrice(price, d.pct)
   if (mine >= price) return null

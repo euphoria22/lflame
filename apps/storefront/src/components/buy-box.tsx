@@ -34,7 +34,6 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
   const chosen = picked && picked.available > 0 ? picked : undefined
   const restock = picked && picked.available <= 0 ? picked : onlyOneSize && !anyAvailable ? variants[0] : undefined
   const lastOnes = allSingles ? [] : availableSizes.filter((v) => v.available === 1)
-  const anyOut = variants.some((v) => v.available <= 0)
   // Кнопка ждёт выбора размера — светлая, чтобы не выглядеть активной
   const needSize = anyAvailable && !chosen && !onlyOneSize
 
@@ -113,9 +112,7 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
               {chosen && chosen.available === 1 ? `Остался последний — ${chosen.size}` : `Последний экземпляр: ${lastOnes.map((v) => v.size).join(", ")}`}
             </p>
           )}
-          {anyOut && anyAvailable && !restock && (
-            <p className="mt-1 text-[12px] text-muted">Нет размера? Нажмите на него — сообщим о поступлении</p>
-          )}
+
         </fieldset>
       )}
       {/* Выбран закончившийся размер (или единственный размер закончился) — подписка вместо кнопки */}

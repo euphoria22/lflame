@@ -1,24 +1,17 @@
 import { Fragment } from "react"
 import type { Metadata } from "next"
-import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
 
 import { Breadcrumbs } from "@/components/breadcrumbs"
-import { AskUs } from "@/components/ask-us"
-import { BuyBox } from "@/components/buy-box"
-import { FavButton } from "@/components/fav-button"
 import { JsonLd } from "@/components/json-ld"
-import { Price } from "@/components/price"
-import { TrackView } from "@/components/track"
-import { YourPrice } from "@/components/your-price"
-import { SplitBadge } from "@/components/split-badge"
+import { ProductInfo } from "@/components/product-info"
 import { ProductGallery } from "@/components/product-gallery"
 import { ProductRail } from "@/components/product-rail"
 import { RecentlyViewed } from "@/components/recently-viewed"
 import { ChevronIcon } from "@/components/icons"
 import { sizeChartFor } from "@/lib/blog"
 import { getCatalog, getProduct } from "@/lib/catalog"
-import { arrivalDate, formatPrice } from "@/lib/format"
+import { formatPrice } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { GenderSlug, genderInfo, routes } from "@/lib/routes"
 import { clip, pageMeta } from "@/lib/seo"
@@ -107,46 +100,7 @@ export default async function ProductPage({ params }: Props) {
         {/* Информация: на десктопе закреплена при прокрутке */}
         <div className="md:order-1">
           <div className="px-4 py-6 md:sticky md:top-[84px] md:px-8 md:py-10">
-            {product.brand && (
-              <Link href={routes.brand(product.brand.handle)} className="eyebrow hover:opacity-60">{product.brand.name}</Link>
-            )}
-            <div className="mt-2 flex items-start justify-between gap-4">
-              <h1 className="text-[22px] font-normal leading-snug tracking-tight md:text-[26px]">{product.title}</h1>
-              <FavButton handle={product.handle} title={product.title} className="size-10 shrink-0 border border-line hover:border-foreground" />
-            </div>
-            <div className="mt-4">
-              <Price price={product.price} compareAt={product.compare_at} size="lg" />
-              <YourPrice price={product.price} brand={product.brand?.name} noLoyalty={product.no_loyalty} size="lg" />
-              {/* Официальный бейдж Яндекс Сплита (показывается, когда Сплит подключён) */}
-              <SplitBadge amount={product.price} productId={product.variants[0]?.id} size="m" variant="detailed" className="mt-3" />
-            </div>
-            {product.color_name && <p className="mt-2 text-[13px] text-muted">Цвет: {product.color_name}</p>}
-            {product.preorder && (
-              <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-[13px] leading-relaxed">
-                <span className="eyebrow mr-2 rounded-full bg-foreground px-2 py-0.5 text-background">Предзаказ</span>
-                Товар ещё едет к нам{arrivalDate(product.preorder_date) ? <>, ожидаем <b className="font-medium">{arrivalDate(product.preorder_date)}</b></> : null}. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
-              </p>
-            )}
-            {product.outlet && (
-              <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-[13px] leading-relaxed">
-                <span className="eyebrow mr-2 rounded-full bg-sale px-2 py-0.5 text-white">Outlet</span>
-                {product.outlet_note ? <>Небольшой дефект: {product.outlet_note}.</> : "Вещь с небольшим дефектом, поэтому дешевле."} Оригинальный товар.
-              </p>
-            )}
-            {product.no_loyalty && <p className="mt-2 text-[12px] text-muted">Скидка Laflamme Club на этот товар не действует</p>}
-
-            <div className="mt-8">
-              <TrackView id={product.handle} name={product.title} price={product.price} brand={product.brand?.name} category={product.category?.name} />
-              <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />
-            </div>
-
-            {/* Коротко об условиях — подробности на страницах «Доставка», «Оплата», «Обмен и возврат» */}
-            <ul className="mt-6 space-y-1.5 text-[13px] text-muted">
-              <li><Link href="/delivery" className="hover:text-foreground">Доставка по России СДЭК и Почтой, в Омске — курьер и самовывоз</Link></li>
-              <li><Link href="/payment" className="hover:text-foreground">Оплата картой, СБП, T-Pay или частями</Link></li>
-              <li><Link href="/returns" className="hover:text-foreground">Обмен и возврат — 7 дней после получения</Link></li>
-            </ul>
-            <AskUs className="mt-6" message={`Здравствуйте! Вопрос по товару «${product.title}»: ${SITE_URL}${routes.product(product.handle)}`} />
+            <ProductInfo product={product} sizeChart={sizeChart} />
 
             <div className="mt-8 divide-y divide-line border-y border-line">
               <Accordion title="Описание" open>
