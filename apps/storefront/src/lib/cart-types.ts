@@ -29,4 +29,6 @@ export type Cart = {
   loyalty: { level: string; pct: number; saved: number } | null
   /** Промокод: applied=false — введён, но скидка LAFLAMME выгоднее (не суммируются) */
   promo: { code: string; applied: boolean; saved: number; note: string | null } | null
+  /** Автоматические акции из админки (скидка на бренд, категорию…): не суммируются со скидкой Club на тех же товарах */
+  auto?: { saved: number } | null
 }

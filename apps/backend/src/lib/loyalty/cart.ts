@@ -4,8 +4,14 @@ import { updateLineItemInCartWorkflow } from "@medusajs/medusa/core-flows"
 import { discountFor, getLoyaltySettings } from "./engine"
 import { loyaltyPrice } from "./rules"
 
-type CartItem = { id: string; variant_id: string | null; quantity: number; unit_price: unknown; is_custom_price?: boolean; metadata?: Record<string, unknown> | null }
+type CartItem = { id: string; variant_id: string | null; quantity: number; unit_price: unknown; is_custom_price?: boolean; metadata?: Record<string, unknown> | null; adjustments?: { code?: string | null; amount?: unknown }[] | null }
 type VariantRow = { id: string; metadata?: Record<string, unknown> | null; prices?: { amount: unknown; currency_code: string }[]; product?: { brand?: { name?: string } | null; metadata?: Record<string, unknown> | null } | null }
+
+/** На строку действует автоматическая акция Medusa: есть скидка не от введённого покупателем промокода. */
+export function hasAutoPromo(item: Pick<CartItem, "adjustments">, cartMeta?: Record<string, unknown> | null): boolean {
+  const code = String(cartMeta?.promo_code ?? "").toUpperCase()
+  return (item.adjustments ?? []).some((a) => Number(a.amount ?? 0) > 0 && String(a.code ?? "").toUpperCase() !== code)
+}
 
 export type CartLoyalty = { level: string; pct: number; saved: number } | null
 
@@ -19,10 +25,10 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
   const query = c.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "cart",
-    fields: ["id", "currency_code", "customer_id", "completed_at", "items.id", "items.variant_id", "items.quantity", "items.unit_price", "items.is_custom_price", "items.metadata"],
+    fields: ["id", "currency_code", "customer_id", "completed_at", "metadata", "items.id", "items.variant_id", "items.quantity", "items.unit_price", "items.is_custom_price", "items.metadata", "items.adjustments.code", "items.adjustments.amount"],
     filters: { id: cartId },
   })
-  const cart = data[0] as unknown as { id: string; currency_code: string; customer_id: string | null; completed_at: string | null; items?: CartItem[] } | undefined
+  const cart = data[0] as unknown as { id: string; currency_code: string; customer_id: string | null; completed_at: string | null; metadata?: Record<string, unknown> | null; items?: CartItem[] } | undefined
   if (!cart || cart.completed_at || !cart.items?.length) return null
 
   // Скидка — только владельцу корзины
@@ -50,8 +56,9 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
     const price = Number(v.prices?.find((p) => p.currency_code === cart.currency_code)?.amount ?? item.unit_price)
     const compareAt = Number(v.metadata?.compare_at_price ?? 0) || null
     const brand = v.product?.brand?.name?.toLowerCase() ?? ""
-    // Исключения: бренды из настроек и товары с флажком «Не действуют скидки лояльности»
-    const pct = discount && !excluded.has(brand) && !v.product?.metadata?.no_loyalty ? discount.pct : 0
+    // Исключения: бренды из настроек, товары с флажком «Не действуют скидки лояльности»
+    // и товары, на которые действует автоматическая акция (не суммируется со скидкой уровня, как и промокод)
+    const pct = discount && !excluded.has(brand) && !v.product?.metadata?.no_loyalty && !hasAutoPromo(item, cart.metadata) ? discount.pct : 0
     const target = loyaltyPrice(price, compareAt, pct)
     const meta = { ...(item.metadata ?? {}) }
     const want = pct && target < price ? { level: discount!.tier.name, pct, base: price } : null

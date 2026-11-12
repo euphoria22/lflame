@@ -20,7 +20,8 @@ export function cartBreakdown(cart: Cart) {
   }
   const club = cart.loyalty?.saved ?? 0
   const promo = cart.promo?.applied ? cart.promo.saved : 0
-  return { full: Math.round(full), sale: Math.round(sale), club, promo }
+  const auto = cart.auto?.saved ?? 0
+  return { full: Math.round(full), sale: Math.round(sale), club, promo, auto }
 }
 
 const Row = ({ label, value, muted = false }: { label: React.ReactNode; value: React.ReactNode; muted?: boolean }) => (
@@ -46,6 +47,7 @@ export function OrderSummary({ cart, delivery, promoInput = true }: { cart: Cart
         {!!b.club && cart.loyalty && (
           <Row label={<>Скидка <ClubBadge /> <span className="text-foreground">{cart.loyalty.pct}%</span></>} value={<span className="text-sale">−{formatPrice(b.club)}</span>} />
         )}
+        {!!b.auto && <Row label="Скидка по акции:" value={<span className="text-sale">−{formatPrice(b.auto)}</span>} />}
         {!!b.promo && cart.promo && <Row label={<>Промокод <span className="eyebrow text-foreground">{cart.promo.code}</span></>} value={<span className="text-sale">−{formatPrice(b.promo)}</span>} />}
         {!!b.sale && <Row label="Скидки на товары:" value={<span className="text-sale">−{formatPrice(b.sale)}</span>} />}
         <Row label="Доставка:" value={delivery === undefined ? "На этапе оформления" : delivery === null ? "—" : delivery === 0 ? "Бесплатно" : formatPrice(delivery)} muted={delivery === undefined || delivery === null} />

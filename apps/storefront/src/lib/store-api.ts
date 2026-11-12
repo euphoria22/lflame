@@ -34,7 +34,7 @@ export async function storeFetch<T>(path: string, init: { method?: string; body?
   return data as T
 }
 
-const CART_FIELDS = "id,total,item_total,item_subtotal,discount_total,shipping_total,metadata,promotions.code,*items,items.variant_id,items.product_handle,items.variant_title"
+const CART_FIELDS = "id,total,item_total,item_subtotal,discount_total,shipping_total,metadata,promotions.code,*items,items.variant_id,items.product_handle,items.variant_title,items.adjustments.code,items.adjustments.amount"
 
 type MedusaCart = {
   id: string
@@ -58,6 +58,7 @@ type MedusaCart = {
     unit_price: number
     total: number
     metadata?: { loyalty?: { level: string; pct: number; base: number } | null; compare_at?: number | null } | null
+    adjustments?: { code?: string | null; amount?: unknown }[] | null
   }[]
 }
 
@@ -87,7 +88,21 @@ export function toCart(c: MedusaCart): Cart {
     total: Number(c.total),
     loyalty: loyaltyOf(c),
     promo: promoOf(c),
+    auto: autoOf(c),
   }
+}
+
+/** Скидки по скидке Medusa, не от введённого промокода (автоматические акции) — по коду акции. */
+function adjustments(c: MedusaCart, auto: boolean): number {
+  const code = (c.metadata?.promo_code ?? "").toUpperCase()
+  return (c.items ?? []).flatMap((i) => i.adjustments ?? [])
+    .filter((a) => (String(a.code ?? "").toUpperCase() !== code) === auto)
+    .reduce((s, a) => s + Number(a.amount ?? 0), 0)
+}
+
+function autoOf(c: MedusaCart): Cart["auto"] {
+  const saved = Math.round(adjustments(c, true))
+  return saved > 0 ? { saved } : null
 }
 
 function promoOf(c: MedusaCart): Cart["promo"] {
@@ -95,7 +110,7 @@ function promoOf(c: MedusaCart): Cart["promo"] {
   if (!code) return null
   const applied = (c.promotions ?? []).some((p) => p.code?.toUpperCase() === code.toUpperCase())
   return applied
-    ? { code, applied, saved: Math.round(Number(c.discount_total ?? 0)), note: null }
+    ? { code, applied, saved: Math.round(adjustments(c, false)), note: null }
     : { code, applied, saved: 0, note: "Скидка Laflamme Club выгоднее — применили её. Промокод и скидка не суммируются." }
 }
 

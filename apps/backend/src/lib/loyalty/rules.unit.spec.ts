@@ -53,3 +53,13 @@ describe("лояльность: правила", () => {
     expect(ok.value?.excluded_brands).toEqual(["Stone Island", "Yeezy Gap"])
   })
 })
+
+describe("автоматические акции и скидка Club", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { hasAutoPromo } = require("./cart") as typeof import("./cart")
+  it("скидка не от промокода — автоматическая акция", () => {
+    expect(hasAutoPromo({ adjustments: [{ code: "STONE-20", amount: 2000 }] }, {})).toBe(true)
+    expect(hasAutoPromo({ adjustments: [{ code: "SALE10", amount: 500 }] }, { promo_code: "sale10" })).toBe(false)
+    expect(hasAutoPromo({ adjustments: [] }, {})).toBe(false)
+  })
+})

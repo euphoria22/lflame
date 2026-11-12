@@ -6,7 +6,7 @@ import { applyCartLoyalty, CartLoyalty } from "./cart"
 export type CartPromo = { code: string; applied: boolean; saved: number; note: string | null } | null
 export type CartPricing = { loyalty: CartLoyalty; promo: CartPromo; error?: string }
 
-type CartRow = { id: string; completed_at: string | null; customer_id: string | null; metadata: Record<string, unknown> | null; discount_total: unknown; promotions?: { code: string | null }[] }
+type CartRow = { id: string; completed_at: string | null; customer_id: string | null; metadata: Record<string, unknown> | null; discount_total: unknown; promotions?: { code: string | null }[]; items?: { adjustments?: { code?: string | null; amount?: unknown }[] | null }[] }
 
 const normalize = (code: unknown) => String(code ?? "").trim().toUpperCase().replace(/\s+/g, "").slice(0, 40) || null
 
@@ -14,7 +14,7 @@ async function load(c: MedusaContainer, cartId: string): Promise<CartRow | undef
   const query = c.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "cart",
-    fields: ["id", "completed_at", "customer_id", "metadata", "discount_total", "promotions.code"],
+    fields: ["id", "completed_at", "customer_id", "metadata", "discount_total", "promotions.code", "items.adjustments.code", "items.adjustments.amount"],
     filters: { id: cartId },
   })
   return data[0] as unknown as CartRow | undefined
@@ -59,7 +59,8 @@ export async function priceCart(c: MedusaContainer, cartId: string, customerId: 
   }
   cart = (await load(c, cartId))!
   const applied = (cart.promotions ?? []).some((p) => p.code?.toUpperCase() === wanted)
-  const saved = applied ? Math.round(Number(cart.discount_total ?? 0)) : 0
+  // Только скидка по промокоду (без автоматических акций)
+  const saved = applied ? Math.round((cart.items ?? []).flatMap((i) => i.adjustments ?? []).filter((a) => String(a.code ?? "").toUpperCase() === wanted).reduce((s, a) => s + Number(a.amount ?? 0), 0)) : 0
   if (!error && (!applied || saved <= 0)) error = "Промокод не действует на товары в корзине"
 
   if (error) {
