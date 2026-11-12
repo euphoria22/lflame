@@ -16,7 +16,7 @@ export function Logo({ className = "" }: { className?: string }) {
 /** Знак-пламя (иконка). */
 export function LogoMark({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="860 790 1290 1420" className={className} aria-hidden focusable="false">
+    <svg viewBox="860 790 1290 1420" className={className} overflow="visible" aria-hidden focusable="false">
       <g>
         <path d="M1874.5,1701.9l206.9,168c52.3,42.5,28.6,126.9-38.1,136L977.7,2151.1c-76.1,10.4-118.8-84.8-60.5-134.8l612.7-519.6" fill="none" stroke="currentColor" strokeWidth={109.5789} strokeLinecap="round" strokeMiterlimit={10} />
         <path d="M1476.4,848.1c12.5,53,22,132.8-16.2,205c-46.9,88.8-124,86.8-195.4,167.5c-78.5,88.8-111.9,234.4-73.1,358.9c49.9,159.8,212.3,269.5,377.2,269.4c183.3-0.1,296.6-135.6,313.9-156.9c119.8-148.2,128.3-373.4,21.5-569.2c-11.3,18.7-37.8,56.9-86.9,85.2c-50.4,29.1-97.9,32.5-119.8,32.7c6.8-14.7,55-123.1-0.4-238C1632.4,868.6,1486,849.2,1476.4,848.1z" fill="none" stroke="currentColor" strokeWidth={109.5789} strokeMiterlimit={10} />
