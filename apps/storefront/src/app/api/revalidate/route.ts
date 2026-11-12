@@ -12,8 +12,10 @@ export async function POST(req: NextRequest) {
   }
   const body = (await req.json().catch(() => ({}))) as { tags?: string[] }
   const tags = (body.tags ?? ["catalog"]).filter((t) => /^[a-z0-9:_-]{1,100}$/i.test(t))
+  // Сразу устаревает: следующий посетитель получает свежие данные, а не прежнюю версию
+  // (с "max" первый после правки видел старую страницу — например, без пометки «Предзаказ»)
   for (const tag of tags) {
-    revalidateTag(tag, "max")
+    revalidateTag(tag, { expire: 0 })
   }
   return NextResponse.json({ ok: true, tags })
 }
