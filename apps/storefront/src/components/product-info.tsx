@@ -28,7 +28,8 @@ const ReturnIcon = ({ className }: { className?: string }) => (
  */
 export function ProductInfo({ product, sizeChart }: { product: CatalogProduct; sizeChart: SizeChart | null }) {
   const ask = `${SUPPORT.telegram}?text=${encodeURIComponent(`Здравствуйте! Вопрос по товару «${product.title}»: ${SITE_URL}${routes.product(product.handle)}`)}`
-  const cond = "flex flex-col items-start gap-1.5 rounded-xl bg-surface px-3 py-3 text-[12px] leading-tight transition-colors hover:bg-surface-2"
+  // Стеклянные плитки — как шапка и плашки на фото: на белом фоне видны по мягкой тени и кромке
+  const cond = "glass flex flex-col items-start gap-1.5 rounded-2xl px-3 py-3 text-[12px] leading-tight transition-transform duration-300 hover:-translate-y-0.5"
   return (
     <>
       {product.brand && (
