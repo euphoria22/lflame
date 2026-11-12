@@ -31,7 +31,11 @@ function MenuTile({ tile }: { tile: NavTile }) {
 export async function Header() {
   "use cache"
   cacheTag("catalog", "menu")
-  const nav = await getNav()
+  return <HeaderView nav={await getNav()} />
+}
+
+/** Сама шапка по данным меню (отдельно от загрузки — для превью без бэкенда). */
+export function HeaderView({ nav }: { nav: Awaited<ReturnType<typeof getNav>> }) {
   const link = "px-3 py-2 text-[13px] hover:opacity-60 group-data-[open=true]:opacity-60 transition-opacity"
 
   return (
