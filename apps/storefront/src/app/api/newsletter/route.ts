@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { rateLimit } from "@/lib/rate-limit"
+
 import { StoreApiError, storeFetch } from "@/lib/store-api"
 
 /** Настройки формы подписки (показывать ли, какая скидка). */
@@ -12,6 +14,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, "newsletter", 5, 3600)
+  if (limited) return limited
   const body = (await req.json().catch(() => ({}))) as { email?: string }
   const email = String(body.email ?? "").trim().slice(0, 200)
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Проверьте email" }, { status: 400 })

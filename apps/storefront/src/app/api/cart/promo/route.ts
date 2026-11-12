@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { rateLimit } from "@/lib/rate-limit"
+
 import { applyPromo, getCartId, retrieveCart, toCart } from "@/lib/store-api"
 
 /** Промокод в корзине: POST { code } — применить, DELETE — убрать. */
 export async function POST(req: NextRequest) {
+  // Перебор промокодов
+  const limited = rateLimit(req, "promo", 10, 600)
+  if (limited) return limited
   const body = (await req.json().catch(() => ({}))) as { code?: string }
   const code = String(body.code ?? "").trim().slice(0, 40)
   if (!code) return NextResponse.json({ error: "Введите промокод" }, { status: 400 })

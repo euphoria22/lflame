@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { rateLimit } from "@/lib/rate-limit"
+
 import { StoreApiError, storeFetch } from "@/lib/store-api"
 
 /** «Сообщить о поступлении»: подписка на закончившийся размер. */
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, "restock", 10, 3600)
+  if (limited) return limited
   const body = (await req.json().catch(() => ({}))) as { email?: string; variant_id?: string }
   const email = String(body.email ?? "").trim().slice(0, 200)
   const variant = String(body.variant_id ?? "").slice(0, 100)

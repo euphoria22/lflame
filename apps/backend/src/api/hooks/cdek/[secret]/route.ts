@@ -1,5 +1,11 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { applyCdekStatus, cdekWebhookSecret, findCdekFulfillment } from "../../../../lib/delivery/cdek-sync"
+import { timingSafeEqual } from "crypto"
+import { cdekWebhookSecret, findCdekFulfillment, syncCdekFulfillment } from "../../../../lib/delivery/cdek-sync"
+
+const sameSecret = (a: string, b: string) => {
+  const x = Buffer.from(a), y = Buffer.from(b)
+  return x.length === y.length && timingSafeEqual(x, y)
+}
 
 type Payload = {
   type?: string
@@ -10,10 +16,11 @@ type Payload = {
 
 /**
  * Вебхук СДЭК ORDER_STATUS. Адрес регистрируется скриптом cdek-webhook.ts.
+ * Уведомление — только сигнал: статус берётся из API СДЭК.
  * Отвечаем 200 всегда (иначе СДЭК повторяет), ошибки пишем в лог.
  */
 export async function POST(req: MedusaRequest<Payload>, res: MedusaResponse) {
-  if (req.params.secret !== cdekWebhookSecret()) {
+  if (!sameSecret(String(req.params.secret ?? ""), cdekWebhookSecret())) {
     res.status(404).end()
     return
   }
@@ -23,7 +30,9 @@ export async function POST(req: MedusaRequest<Payload>, res: MedusaResponse) {
   try {
     if (p.type === "ORDER_STATUS" && p.uuid && code && !p.attributes?.is_return) {
       const f = await findCdekFulfillment(req.scope, { uuid: p.uuid })
-      if (f) await applyCdekStatus(req.scope, f, { code, at: p.attributes?.status_date_time ?? p.date_time, cdek_number: p.attributes?.cdek_number })
+      // Статусу из уведомления не доверяем: запрашиваем заказ у СДЭК по нашему ключу.
+      // Иначе, узнав адрес вебхука, можно было бы прислать «Вручён» и отметить оплату при получении
+      if (f) await syncCdekFulfillment(req.scope, f)
     }
   } catch (e) {
     logger.warn(`СДЭК вебхук: ${(e as Error).message}`)

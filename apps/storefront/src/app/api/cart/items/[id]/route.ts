@@ -4,9 +4,13 @@ import { cartRequest, getCartId, humanError, retrieveCart, storeFetch, syncLoyal
 
 type Ctx = { params: Promise<{ id: string }> }
 
+/** id позиции корзины Medusa — подставляется в адрес запроса, поэтому только этот формат */
+const LINE_ID = /^cali_[A-Z0-9]+$/i
+
 /** Изменить количество или размер (variant_id: новая позиция того же количества вместо старой). */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { id } = await params
+  if (!LINE_ID.test(id)) return NextResponse.json({ error: "Позиция не найдена" }, { status: 404 })
   const cartId = await getCartId()
   const { quantity, variant_id } = (await req.json().catch(() => ({}))) as { quantity?: number; variant_id?: string }
   if (cartId && variant_id) {
@@ -41,6 +45,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 /** Удалить позицию. */
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { id } = await params
+  if (!LINE_ID.test(id)) return NextResponse.json({ error: "Позиция не найдена" }, { status: 404 })
   const cartId = await getCartId()
   if (!cartId) return NextResponse.json({ cart: null })
   try {

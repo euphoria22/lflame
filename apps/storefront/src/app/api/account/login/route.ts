@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { rateLimit } from "@/lib/rate-limit"
+
 import { getCartId, setAuthToken, storeFetch, syncLoyalty } from "@/lib/store-api"
 
 const BACKEND = (process.env.MEDUSA_BACKEND_URL || "http://localhost:9000").replace(/\/+$/, "")
@@ -30,6 +32,8 @@ const hasActor = (token: string) => {
  * Текущая корзина привязывается к покупателю.
  */
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, "login", 15, 600)
+  if (limited) return limited
   const { email, code } = (await req.json().catch(() => ({}))) as { email?: string; code?: string }
   const mail = String(email ?? "").trim().toLowerCase()
   try {
