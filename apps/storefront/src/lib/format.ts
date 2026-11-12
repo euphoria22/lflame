@@ -33,6 +33,12 @@ export function titleWithoutBrand(title: string, brand: string | null | undefine
  * Дата поступления предзаказа: "2026-12-15" -> "15 декабря"; пустая — null.
  * Без сравнения с сегодняшним днём: страницы кэшируются, текущая дата здесь недоступна.
  */
+/** Короткая дата для плашки на фото: «30.11» — длинное «30 ноября» не помещалось на телефоне. */
+export function arrivalShort(iso: string | null | undefined): string | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  return `${iso.slice(8, 10)}.${iso.slice(5, 7)}`
+}
+
 export function arrivalDate(iso: string | null | undefined): string | null {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
   const d = new Date(`${iso}T12:00:00`)

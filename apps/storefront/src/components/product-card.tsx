@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-import { arrivalDate, titleWithoutBrand } from "@/lib/format"
+import { arrivalShort, titleWithoutBrand } from "@/lib/format"
 import { isNew } from "@/lib/listing"
 import { routes } from "@/lib/routes"
 import type { CatalogItem } from "@/lib/types"
@@ -43,9 +43,9 @@ export function ProductCard({ item, priority = false, compact = false, sizes = "
         </Link>
         <div className={`pointer-events-none absolute left-3 right-14 top-3 flex flex-col items-start gap-1.5 ${compact ? "hidden" : ""}`}>
           {isNew(item) && <span className="eyebrow glass rounded-full px-2 py-1">New</span>}
-          {item.preorder && <span className="eyebrow max-w-full truncate rounded-full bg-foreground px-2 py-1 text-background">Предзаказ{arrivalDate(item.preorder_date) ? ` · ${arrivalDate(item.preorder_date)}` : ""}</span>}
+          {item.preorder && <span className="eyebrow whitespace-nowrap rounded-full bg-foreground px-2 py-1 text-background">Предзаказ{arrivalShort(item.preorder_date) ? ` · ${arrivalShort(item.preorder_date)}` : ""}</span>}
           {item.outlet && <span className="eyebrow rounded-full bg-sale px-2 py-1 text-white">Outlet</span>}
-          {lastSize && !item.preorder && <span className="eyebrow glass rounded-full px-2 py-1">Последний размер</span>}
+          {lastSize && !item.preorder && <span className="eyebrow glass whitespace-nowrap rounded-full px-2 py-1">Последний размер</span>}
         </div>
         <FavButton handle={item.handle} title={item.title} className="glass absolute right-3 top-3 z-10 size-9 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100 [&[aria-pressed=true]]:opacity-100" />
         {/* Размеры при наведении: отдельная кнопка на каждый размер (на этапе 4 — сразу в корзину) */}
