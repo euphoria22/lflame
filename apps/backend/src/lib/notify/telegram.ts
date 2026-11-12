@@ -10,7 +10,11 @@ export async function sendTelegram(text: string, log: { info: (m: string) => voi
     return
   }
   // TELEGRAM_API_URL — посредник, если api.telegram.org недоступен с сервера (в РФ бывает заблокирован)
-  const api = (process.env.TELEGRAM_API_URL || "https://api.telegram.org").replace(/\/+$/, "")
+  // Адрес можно записать и без https:// — допишем сами
+  const raw = (process.env.TELEGRAM_API_URL || "https://api.telegram.org").trim().replace(/\/+$/, "")
+  const api = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  // Токен не должен попадать в журнал вместе с текстом ошибки
+  const hide = (m: string) => m.split(token).join("***")
   try {
     const res = await fetch(`${api}/bot${token}/sendMessage`, {
       method: "POST",
@@ -23,9 +27,9 @@ export async function sendTelegram(text: string, log: { info: (m: string) => voi
       // Недоступный Telegram не должен задерживать заказы и задачи
       signal: AbortSignal.timeout(10_000),
     })
-    if (!res.ok) log.warn(`Telegram: ${res.status} ${await res.text().catch(() => "")}`)
+    if (!res.ok) log.warn(hide(`Telegram: ${res.status} ${await res.text().catch(() => "")}`))
   } catch (e) {
-    log.warn(`Telegram недоступен: ${(e as Error).message}`)
+    log.warn(hide(`Telegram недоступен: ${(e as Error).message}`))
   }
 }
 
