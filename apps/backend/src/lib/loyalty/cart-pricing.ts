@@ -62,6 +62,9 @@ export async function priceCart(c: MedusaContainer, cartId: string, customerId: 
   // Только скидка по промокоду (без автоматических акций)
   const saved = applied ? Math.round((cart.items ?? []).flatMap((i) => i.adjustments ?? []).filter((a) => String(a.code ?? "").toUpperCase() === wanted).reduce((s, a) => s + Number(a.amount ?? 0), 0)) : 0
   if (!error && (!applied || saved <= 0)) error = "Промокод не действует на товары в корзине"
+  // Автоматическая акция (распродажа) уже действует в корзине — промокод с ней не суммируется
+  const auto = (cart.items ?? []).flatMap((i) => i.adjustments ?? []).some((a) => Number(a.amount ?? 0) > 0 && String(a.code ?? "").toUpperCase() !== wanted)
+  if (!error && auto) error = "Промокод не суммируется с действующей акцией"
 
   if (error) {
     if ((cart.promotions ?? []).length) await setPromotions(c, cartId, [])
