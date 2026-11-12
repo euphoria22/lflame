@@ -109,6 +109,9 @@ module.exports = defineConfig({
   },
   admin: {
     backendUrl: process.env.MEDUSA_BACKEND_URL,
+    // Фото товаров с фотоаппарата и телефона весят 2–8 МБ; по умолчанию Medusa пускает только до 1 МБ.
+    // На сайте фото всё равно сжимаются под экран, так что большой исходник не замедляет витрину
+    maxUploadFileSize: 15 * 1024 * 1024,
   },
   modules: [
     ...redisModules,
