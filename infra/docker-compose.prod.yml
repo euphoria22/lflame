@@ -122,7 +122,8 @@ services:
       ADMIN_ALLOW_IPS: ${ADMIN_ALLOW_IPS}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Папка, а не один файл: при git pull файл заменяется, и примонтированный по отдельности остаётся старым
+      - ./caddy:/etc/caddy:ro
       - caddydata:/data
       - caddyconfig:/config
     logging: *logging
