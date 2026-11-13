@@ -13,12 +13,18 @@ export function layout(opts: { preheader: string; title: string; body: string; b
   const btn = opts.button
     ? `<tr><td style="padding:8px 0 24px"><a href="${esc(opts.button.url)}" style="display:inline-block;background:#0b0b0b;color:#fff;text-decoration:none;font-size:14px;padding:14px 28px;border-radius:999px">${esc(opts.button.label)}</a></td></tr>`
     : ""
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(opts.title)}</title></head>
-<body style="margin:0;background:#f3f3f2;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#0b0b0b">
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><title>${esc(opts.title)}</title>
+<style>
+/* Тёмная тема Gmail (iPhone) перекрашивает цвета сама: белый текст на чёрной карте становится чёрным.
+   Наложение «screen» + «difference» возвращает белый — приём только для Gmail (u + .body) */
+u + .body .gm-s{background:#000;mix-blend-mode:screen}
+u + .body .gm-d{background:#000;mix-blend-mode:difference}
+</style></head>
+<body class="body" style="margin:0;background:#f3f3f2;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#0b0b0b">
 <span style="display:none;max-height:0;overflow:hidden">${esc(opts.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f3f2;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:20px;padding:32px">
-<tr><td style="padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none;font-size:20px"><img src="${site()}/email-logo.png" width="138" height="24" alt="la:flamme" style="display:block;border:0;outline:none;width:138px;height:24px"></a></td></tr>
+<tr><td style="padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none;font-size:20px"><img src="${site()}/email-logo-2.png" width="142" height="28" alt="la:flamme" style="display:block;border:0;outline:none;width:142px;height:28px;margin:-2px"></a></td></tr>
 <tr><td style="font-size:24px;line-height:1.25;padding-bottom:16px">${esc(opts.title)}</td></tr>
 <tr><td style="font-size:14px;line-height:1.6;color:#3a3a3a;padding-bottom:16px">${opts.body}</td></tr>
 ${btn}

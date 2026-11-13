@@ -35,7 +35,7 @@ export function GiftCardPage({ code: raw }: { code: string }) {
     return () => { off = true }
   }, [code])
 
-  const date = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+  const date = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Omsk" })
   if (r && !r.found) {
     return (
       <div className="pt-10 text-center">

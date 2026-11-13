@@ -16,14 +16,21 @@ export type MailCard = {
   message: string | null
 }
 
-/** Сама карта в письме: чёрная плашка с логотипом, номиналом и кодом */
+/** Белый текст на чёрной карте, который не перекрашивает тёмная тема Gmail */
+const keepWhite = (html: string) => `<div class="gm-s"><div class="gm-d">${html}</div></div>`
+
+/**
+ * Сама карта в письме: чёрная плашка с логотипом, номиналом и кодом.
+ * Фон — градиентом: тёмная тема почты (Gmail) не перекрашивает градиент, карта остаётся чёрной, как на сайте
+ */
 function cardBlock(c: MailCard): string {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0b;border-radius:18px;margin:8px 0 20px">
+  const bg = "background-color:#0b0b0b;background-image:linear-gradient(#0b0b0b,#0b0b0b)"
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${bg};border-radius:18px;margin:8px 0 20px">
 <tr><td style="padding:24px 24px 0"><img src="${site()}/email-logo-white.png" width="115" height="20" alt="la:flamme" style="display:block;border:0;width:115px;height:20px"></td>
-<td align="right" style="padding:24px 24px 0;font-size:11px;letter-spacing:2px;color:#9a9a9a;text-transform:uppercase">Подарочная карта</td></tr>
-<tr><td colspan="2" style="padding:36px 24px 4px;font-size:40px;line-height:1;color:#fff">${rub(c.amount)}</td></tr>
+<td align="right" style="padding:24px 24px 0;font-size:11px;letter-spacing:2px;color:#9a9a9a;text-transform:uppercase;white-space:nowrap">Подарочная карта</td></tr>
+<tr><td colspan="2" style="padding:36px 24px 4px;font-size:40px;line-height:1;color:#fff">${keepWhite(rub(c.amount))}</td></tr>
 <tr><td colspan="2" style="padding:0 24px 24px;font-size:13px;color:#9a9a9a">${c.expires_at ? `действует до ${date(c.expires_at)}` : ""}</td></tr>
-<tr><td colspan="2" style="padding:16px 24px 22px;border-top:1px solid #2a2a2a;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:20px;letter-spacing:2px;color:#fff">${esc(formatCode(c.code))}</td></tr>
+<tr><td colspan="2" style="padding:16px 24px 22px;border-top:1px solid #2a2a2a;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:20px;letter-spacing:2px;color:#fff">${keepWhite(esc(formatCode(c.code)))}</td></tr>
 </table>`
 }
 

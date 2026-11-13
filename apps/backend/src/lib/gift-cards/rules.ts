@@ -67,10 +67,11 @@ export function amountAllowed(amount: number, s: GiftCardSettings): boolean {
   return Number.isInteger(amount) && (s.amounts.includes(amount) || (amount >= s.min && amount <= s.max))
 }
 
+/** Срок: через months месяцев, до конца того же дня по Омску (UTC+6) — дата в письме, на сайте и в админке совпадает */
 export function expiresAt(from: Date, months: number): Date {
-  const d = new Date(from)
-  d.setMonth(d.getMonth() + months)
-  return d
+  const omsk = new Date(from.getTime() + 6 * 3_600_000)
+  const day = Math.min(omsk.getUTCDate(), new Date(Date.UTC(omsk.getUTCFullYear(), omsk.getUTCMonth() + months + 1, 0)).getUTCDate())
+  return new Date(Date.UTC(omsk.getUTCFullYear(), omsk.getUTCMonth() + months, day, 23, 59, 59) - 6 * 3_600_000)
 }
 
 export type CardState = { status: string; balance: number; expires_at: Date | string | null }
