@@ -18,11 +18,12 @@ describe("подпись поста", () => {
   it("название-ссылка, цена со скидкой, размеры, описание, контакт", () => {
     const c = buildCaption(product, opts)
     expect(c).toContain('<a href="https://laflamme.ru/product/hudi-calvin-klein-terry">Худи на молнии Calvin Klein')
-    expect(c).toContain("<b>6 792 ₽</b> <s>24 990 ₽</s> — SALE 🔥")
+    expect(c).toContain("<b>6 792 ₽</b> <b><s>24 990 ₽</s></b> — <b>SALE</b> 🔥")
     expect(c).toContain("Размеры в наличии: L, XL")
     expect(c).toContain("<blockquote expandable>Худи из мягкого")
     expect(c).toContain("Состав: 86% хлопок, 14% полиэстер\nКрой: Relaxed Fit</blockquote>")
-    expect(c).toContain("или @laflammehelp")
+    expect(c).toContain("Оформить заказ: @laflammehelp")
+    expect(c).not.toContain("на сайте</a>")
   })
 
   it("без скидки и без размеров — «Нет в наличии»", () => {
@@ -40,17 +41,17 @@ describe("подпись поста", () => {
 
   it("акция 11.11: итоговая цена, зачёркнутая старая, строка про доп. скидку", () => {
     const c = buildCaption({ ...product, price: 9990, compare_at: 27990, promo: { price: 7493, label: "11.11", pct: 25 } }, opts)
-    expect(c).toContain("<b>7 493 ₽</b> <s>27 990 ₽</s> — SALE 🔥")
+    expect(c).toContain("<b>7 493 ₽</b> <b><s>27 990 ₽</s></b> — <b>SALE</b> 🔥")
     expect(c).toContain("Дополнительная скидка −25% по акции «11.11» уже в цене")
     const noOld = buildCaption({ ...product, price: 10000, compare_at: null, promo: { price: 8500, label: "11.11", pct: 15 } }, opts)
-    expect(noOld).toContain("<b>8 500 ₽</b> <s>10 000 ₽</s> — SALE 🔥")
+    expect(noOld).toContain("<b>8 500 ₽</b> <b><s>10 000 ₽</s></b> — <b>SALE</b> 🔥")
     expect(postState({ ...product, promo: { price: 8500, label: "11.11", pct: 15 } })).not.toBe(postState(product))
   })
 
   it("предзаказ: дата поступления и пояснение", () => {
     const c = buildCaption({ ...product, preorder: true, preorder_date: "2099-11-25" }, opts)
-    expect(c).toContain("🕓 <b>Предзаказ</b> — ожидаем 25 ноября")
-    expect(c).toContain("свяжемся, когда товар поступит")
+    expect(c).toContain("🕓 <b>Предзаказ</b> — ориентировочная дата поступления до 25 ноября")
+    expect(c).not.toContain("SALE")
     expect(c).toContain("Размеры для предзаказа: L, XL")
     expect(buildCaption({ ...product, preorder: true, preorder_date: null }, opts)).toContain("— товар уже едет к нам")
     expect(postState({ ...product, preorder: true, preorder_date: "2099-11-25" })).not.toBe(postState({ ...product, preorder: true, preorder_date: "2099-12-01" }))

@@ -58,7 +58,8 @@ export const inStockSizes = (p: Pick<PostProduct, "sizes">) => p.sizes.filter((s
 
 /** Что видно в посте и может измениться: цена, размеры, наличие. Изменился — подпись обновляем. */
 export const postState = (p: Pick<PostProduct, "title" | "price" | "compare_at" | "preorder" | "preorder_date" | "sizes" | "promo">) =>
-  [p.title, p.price, p.compare_at ?? "", p.preorder ? `pre:${p.preorder_date ?? ""}` : "", inStockSizes(p).join(","), p.promo ? `${p.promo.price}:${p.promo.label}` : ""].join("|")
+  // Версия оформления: меняем, когда меняется текст поста, — подписи выложенных постов обновятся сами
+  ["v2", p.title, p.price, p.compare_at ?? "", p.preorder ? `pre:${p.preorder_date ?? ""}` : "", inStockSizes(p).join(","), p.promo ? `${p.promo.price}:${p.promo.label}` : ""].join("|")
 
 /** Текст о товаре для цитаты: описание и характеристики «Состав: …», как на сайте */
 function about(p: PostProduct): string {
@@ -75,7 +76,7 @@ function about(p: PostProduct): string {
 }
 
 /**
- * Подпись поста: название-ссылка, цена (со старой — «SALE 🔥»), размеры в наличии,
+ * Подпись поста: название-ссылка, цена (обе жирным; со старой — «SALE 🔥», кроме предзаказа), размеры в наличии,
  * описание и характеристики в сворачиваемой цитате, как заказать.
  */
 export function buildCaption(p: PostProduct, opts: { site: string; contact: string }): string {
@@ -87,15 +88,14 @@ export function buildCaption(p: PostProduct, opts: { site: string; contact: stri
   const head = [
     `<b><a href="${esc(url)}">${esc(p.title)}</a></b>`,
     "",
-    was ? `<b>${rub(final)}</b> <s>${rub(was)}</s> — SALE 🔥` : `<b>${rub(final)}</b>`,
+    was ? `<b>${rub(final)}</b> <b><s>${rub(was)}</s></b>${p.preorder ? "" : " — <b>SALE</b> 🔥"}` : `<b>${rub(final)}</b>`,
     p.promo ? `Дополнительная скидка −${p.promo.pct}% по акции «${esc(p.promo.label)}» уже в цене` : null,
-    ...(p.preorder ? ["", `🕓 <b>Предзаказ</b>${arrival(p.preorder_date) ? ` — ожидаем ${arrival(p.preorder_date)}` : " — товар уже едет к нам"}`,
-      "Оформите заказ сейчас: свяжемся, когда товар поступит, и отправим в первую очередь"] : []),
+    ...(p.preorder ? ["", `🕓 <b>Предзаказ</b> — ${arrival(p.preorder_date) ? `ориентировочная дата поступления до ${arrival(p.preorder_date)}` : "товар уже едет к нам"}`] : []),
     p.outlet ? "Outlet: вещь с небольшим дефектом, поэтому дешевле" : null,
     "",
     sizes.length ? `${p.preorder ? "Размеры для предзаказа" : "Размеры в наличии"}: ${sizes.join(", ")}` : p.preorder ? null : "Нет в наличии",
   ].filter((l): l is string => l !== null)
-  const foot = `Оформить заказ: <a href="${esc(url)}">на сайте</a> или ${esc(opts.contact)}`
+  const foot = `Оформить заказ: ${esc(opts.contact)}`
 
   // Цитата — сколько поместится в лимит подписи
   const fixed = visibleLength([...head, "", foot].join("\n")) + 4
