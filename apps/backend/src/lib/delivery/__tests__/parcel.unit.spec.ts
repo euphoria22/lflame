@@ -1,4 +1,4 @@
-import { DEFAULT_PARCEL, estimateParcel, itemWeight, validateParcelConfig } from "../parcel"
+import { DEFAULT_PARCEL, estimateParcel, itemWeight, validateParcelConfig, withDefaultDims } from "../parcel"
 
 describe("parcel", () => {
   it("вес по типу товара", () => {
@@ -12,7 +12,7 @@ describe("parcel", () => {
   })
   it("посылка из нескольких вещей", () => {
     const p = estimateParcel([{ product_title: "Худи", quantity: 2 }, { product_title: "Кепка", quantity: 1 }])
-    expect(p).toEqual({ weight: 1650, length: 35, width: 25, height: 15 })
+    expect(p).toEqual({ weight: 1650, length: 35, width: 25, height: 21 })
   })
 })
 
@@ -24,6 +24,17 @@ describe("parcel: габариты товара и настройки", () => {
     ])
     expect(p).toEqual({ weight: 2100, length: 40, width: 28, height: 25 })
   })
+  it("габариты по типу товара: пуховик + футболка", () => {
+    expect(estimateParcel([{ product_title: "Пуховик C.P. Company", quantity: 1 }, { product_title: "Футболка Stone Island", quantity: 1 }]))
+      .toEqual({ weight: 2350, length: 60, width: 40, height: 25 })
+    expect(estimateParcel([{ product_title: "Футболка Stone Island", quantity: 1 }])).toEqual({ weight: 350, length: 30, width: 25, height: 10 })
+  })
+  it("правило без габаритов — коробка по умолчанию; старые сохранённые правила получают стандартные габариты", () => {
+    const cfg = { ...DEFAULT_PARCEL, weights: [{ keywords: "футболк", weight: 200 }] }
+    expect(estimateParcel([{ product_title: "Футболка", quantity: 1 }], cfg)).toMatchObject({ length: 35, width: 25 })
+    expect(withDefaultDims([{ keywords: "шорт", weight: 400 }])[0]).toMatchObject({ length: 30, width: 25, height: 4 })
+    expect(validateParcelConfig({ weights: [{ keywords: "x", weight: 100, length: 200 }] }).error).toBeTruthy()
+  })
   it("свои правила веса и коробка", () => {
     const cfg = { ...DEFAULT_PARCEL, box_length: 30, fallback_weight: 500, weights: [{ keywords: "футболк", weight: 200 }] }
     expect(estimateParcel([{ product_title: "Футболка Stone Island", quantity: 1 }], cfg)).toMatchObject({ weight: 200, length: 30 })
@@ -32,6 +43,6 @@ describe("parcel: габариты товара и настройки", () => {
   it("проверка настроек", () => {
     expect(validateParcelConfig({ box_length: 0 }).error).toBeTruthy()
     expect(validateParcelConfig({ min_height: 70, max_height: 60 }).error).toBeTruthy()
-    expect(validateParcelConfig({ weights: [{ keywords: " худи ", weight: 650.4 }, { keywords: "", weight: 1 }] }).value?.weights).toEqual([{ keywords: "худи", weight: 650 }])
+    expect(validateParcelConfig({ weights: [{ keywords: " худи ", weight: 650.4 }, { keywords: "", weight: 1 }] }).value?.weights).toEqual([{ keywords: "худи", weight: 650, length: null, width: null, height: null }])
   })
 })

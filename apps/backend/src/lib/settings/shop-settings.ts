@@ -1,6 +1,6 @@
 import { container } from "@medusajs/framework"
 import { MedusaError, Modules } from "@medusajs/framework/utils"
-import { DEFAULT_PARCEL, ParcelConfig, validateParcelConfig } from "../delivery/parcel"
+import { DEFAULT_PARCEL, ParcelConfig, validateParcelConfig, withDefaultDims } from "../delivery/parcel"
 import { Markup, NO_MARKUP } from "../delivery/free-shipping"
 
 /**
@@ -89,7 +89,7 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) },
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}), weights: withDefaultDims(saved.parcel?.weights ?? defaults.parcel.weights) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) },
       delivery_texts: Object.fromEntries(DELIVERY_KINDS.map((k) => [k, { ...defaults.delivery_texts[k], ...(saved.delivery_texts?.[k] ?? {}) }])) as Record<DeliveryKind, DeliveryText> }
     cache = { value, at: Date.now() }
     return value

@@ -3,7 +3,7 @@ import { Plus, RocketLaunch, Trash } from "@medusajs/icons"
 import { Badge, Button, Checkbox, Container, Heading, IconButton, Input, Label, Select, Switch, Text, toast } from "@medusajs/ui"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-type WeightRule = { keywords: string; weight: number }
+type WeightRule = { keywords: string; weight: number; length?: number | null; width?: number | null; height?: number | null }
 type Parcel = {
   box_length: number
   box_width: number
@@ -404,13 +404,18 @@ const DeliveryPage = () => {
           <NumberField label="Вес, если не подошло, г" value={s.parcel.fallback_weight} onChange={(n) => setParcel("fallback_weight", n)} />
         </div>
         <div className="flex flex-col gap-y-2 px-6 py-5">
-          <Label>Вес по названию товара (с упаковкой)</Label>
+          <Label>Вес и габариты по названию товара (одна вещь в упаковке)</Label>
           <Text size="small" className="text-ui-fg-subtle">
             Слова через запятую — начало слова в названии: «куртк» подходит к «Куртка» и «Куртки». Правила проверяются сверху вниз, срабатывает первое.
+            Несколько вещей кладутся стопкой: длина и ширина — по самой большой, высоты складываются (пуховик 60×40×20 + футболка 30×25×5 = 60×40×25).
+            Габариты не заполнены — коробка по умолчанию. Вес и размеры, заполненные у самого товара («Атрибуты»), важнее правил.
           </Text>
-          <div className="flex flex-col gap-y-2 pt-1">
+          <div className="grid grid-cols-[1fr_110px_64px_64px_64px_32px] gap-2 pt-1 text-ui-fg-subtle">
+            <Text size="xsmall">Слова в названии</Text><Text size="xsmall">Вес</Text><Text size="xsmall">Д, см</Text><Text size="xsmall">Ш, см</Text><Text size="xsmall">В, см</Text><span />
+          </div>
+          <div className="flex flex-col gap-y-2">
             {s.parcel.weights.map((r, i) => (
-              <div key={i} className="grid grid-cols-[1fr_120px_32px] items-center gap-2">
+              <div key={i} className="grid grid-cols-[1fr_110px_64px_64px_64px_32px] items-center gap-2">
                 <Input size="small" value={r.keywords} placeholder="худи, свитшот"
                   onChange={(e) => setParcel("weights", s.parcel.weights.map((x, j) => (j === i ? { ...x, keywords: e.target.value } : x)))} />
                 <div className="flex items-center gap-1">
@@ -418,12 +423,16 @@ const DeliveryPage = () => {
                     onChange={(e) => setParcel("weights", s.parcel.weights.map((x, j) => (j === i ? { ...x, weight: Number(e.target.value.replace(/\D/g, "") || 0) } : x)))} />
                   <Text size="small" className="text-ui-fg-subtle">г</Text>
                 </div>
+                {(["length", "width", "height"] as const).map((k) => (
+                  <Input key={k} size="small" inputMode="numeric" value={r[k] ? String(r[k]) : ""} placeholder="—"
+                    onChange={(e) => setParcel("weights", s.parcel.weights.map((x, j) => (j === i ? { ...x, [k]: Number(e.target.value.replace(/\D/g, "")) || null } : x)))} />
+                ))}
                 <IconButton size="small" variant="transparent" aria-label="Удалить правило"
                   onClick={() => setParcel("weights", s.parcel.weights.filter((_, j) => j !== i))}><Trash /></IconButton>
               </div>
             ))}
           </div>
-          <Button size="small" variant="secondary" className="w-fit" onClick={() => setParcel("weights", [...s.parcel.weights, { keywords: "", weight: 500 }])}>
+          <Button size="small" variant="secondary" className="w-fit" onClick={() => setParcel("weights", [...s.parcel.weights, { keywords: "", weight: 500, length: null, width: null, height: null }])}>
             <Plus /> Добавить правило
           </Button>
         </div>
