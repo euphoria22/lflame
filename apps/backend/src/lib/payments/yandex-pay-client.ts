@@ -86,4 +86,5 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
 }
 
 /** Оплачен онлайн до создания заказа: Т-Касса или Сплит (заказ создаётся только после оплаты). */
-export const isPaidOnline = (method: unknown) => method === "tbank" || method === "split"
+/** Оплачен заранее: онлайн (Т-Банк, Сплит) или целиком подарочной картой */
+export const isPaidOnline = (method: unknown) => method === "tbank" || method === "split" || method === "gift"

@@ -1,6 +1,7 @@
 import { container } from "@medusajs/framework"
 import { MedusaError, Modules } from "@medusajs/framework/utils"
 import { DEFAULT_PARCEL, ParcelConfig, validateParcelConfig, withDefaultDims } from "../delivery/parcel"
+import { DEFAULT_GIFT_SETTINGS, GiftCardSettings, validateGiftSettings } from "../gift-cards/rules"
 import { Markup, NO_MARKUP } from "../delivery/free-shipping"
 
 /**
@@ -33,6 +34,8 @@ export type ShopSettings = {
   parcel: ParcelConfig
   /** Подписка на новости: включена ли форма и скидка по одноразовому промокоду (0 — без промокода) */
   newsletter: { enabled: boolean; discount_pct: number }
+  /** Подарочные карты: продаются ли, номиналы, своя сумма, срок */
+  gift_cards: GiftCardSettings
   /** Как способы получения выглядят на сайте при оформлении: название, описание, логотип (пусто — значок по умолчанию) */
   delivery_texts: Record<DeliveryKind, DeliveryText>
   /** Логотипы способов оплаты в подвале сайта (без картинки — название текстом) */
@@ -71,6 +74,7 @@ export function defaultSettings(): ShopSettings {
     // Только предоплата: наложенным платежом не работаем
     payments: { manual: true, split: true, cod_methods: [] },
     newsletter: { enabled: true, discount_pct: 10 },
+    gift_cards: DEFAULT_GIFT_SETTINGS,
     delivery_texts: DEFAULT_DELIVERY_TEXTS,
     payment_logos: DEFAULT_PAYMENT_LOGOS,
   }
@@ -90,7 +94,7 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}), weights: withDefaultDims(saved.parcel?.weights ?? defaults.parcel.weights) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) },
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}), weights: withDefaultDims(saved.parcel?.weights ?? defaults.parcel.weights) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) }, gift_cards: { ...defaults.gift_cards, ...(saved.gift_cards ?? {}) },
       delivery_texts: Object.fromEntries(DELIVERY_KINDS.map((k) => [k, { ...defaults.delivery_texts[k], ...(saved.delivery_texts?.[k] ?? {}) }])) as Record<DeliveryKind, DeliveryText> }
     cache = { value, at: Date.now() }
     return value
@@ -171,6 +175,11 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
       list.push({ name, logo: logo || null })
     }
     out.payment_logos = list
+  }
+  if (input.gift_cards !== undefined) {
+    const r = validateGiftSettings(input.gift_cards ?? {})
+    if (r.error) return { error: `Подарочные карты: ${r.error}` }
+    out.gift_cards = r.value
   }
   if (input.newsletter !== undefined) {
     const n = input.newsletter ?? {}

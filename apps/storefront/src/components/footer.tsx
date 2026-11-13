@@ -65,6 +65,7 @@ export async function Footer() {
             <li><Link href={routes.page("payment")}>Оплата</Link></li>
             <li><Link href={routes.page("returns")}>Обмен и возврат</Link></li>
             <li><Link href={routes.page("loyalty")}>Программа лояльности</Link></li>
+            <li><Link href="/gift-cards">Подарочные карты</Link></li>
             <li><Link href={routes.page("faq")}>Частые вопросы</Link></li>
             <li><Link href={routes.page("contacts")}>Контакты</Link></li>
           </ul>

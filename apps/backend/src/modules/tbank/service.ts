@@ -36,6 +36,8 @@ type SessionInput = {
   email?: string
   phone?: string
   receipt?: ReceiptLine[]
+  /** Оплачено подарочной картой, ₽ — в чеке зачёт аванса */
+  advance?: number
 }
 
 const FINAL_OK = new Set(["CONFIRMED"])
@@ -102,7 +104,7 @@ class TbankPaymentProviderService extends AbstractPaymentProvider<Options> {
       NotificationURL: this.cfg.notificationUrl,
       Language: "ru",
       DATA: { Email: input.email, Phone: input.phone },
-      ...(this.cfg.taxation && lines.length ? { Receipt: buildReceipt(lines, input, this.cfg.taxation) } : {}),
+      ...(this.cfg.taxation && lines.length ? { Receipt: buildReceipt(lines, input, this.cfg.taxation, Number(input.advance ?? 0)) } : {}),
     })
     return {
       id: String(r.PaymentId),

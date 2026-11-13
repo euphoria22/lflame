@@ -36,10 +36,11 @@ const Row = ({ label, value, muted = false }: { label: React.ReactNode; value: R
  * скидки на товары, доставка, поле промокода и крупное «Итого».
  * delivery: undefined — «на этапе оформления» (корзина), число — цена (оформление), null — ещё не выбрана.
  */
-export function OrderSummary({ cart, delivery, promoInput = true }: { cart: Cart; delivery?: number | null; promoInput?: boolean }) {
+/** gift — сколько спишется с подарочной карты (уменьшает сумму к оплате) */
+export function OrderSummary({ cart, delivery, promoInput = true, gift }: { cart: Cart; delivery?: number | null; promoInput?: boolean; gift?: { code: string; amount: number } | null }) {
   const b = cartBreakdown(cart)
   const discounted = b.full > cart.item_total
-  const total = cart.item_total + (typeof delivery === "number" ? delivery : 0)
+  const total = cart.item_total + (typeof delivery === "number" ? delivery : 0) - (gift?.amount ?? 0)
   return (
     <div>
       <div className="space-y-2.5">
@@ -51,10 +52,11 @@ export function OrderSummary({ cart, delivery, promoInput = true }: { cart: Cart
         {!!b.promo && cart.promo && <Row label={<>Промокод <span className="eyebrow text-foreground">{cart.promo.code}</span></>} value={<span className="text-sale">−{formatPrice(b.promo)}</span>} />}
         {!!b.sale && <Row label="Скидки на товары:" value={<span className="text-sale">−{formatPrice(b.sale)}</span>} />}
         <Row label="Доставка:" value={delivery === undefined ? "На этапе оформления" : delivery === null ? "—" : delivery === 0 ? "Бесплатно" : formatPrice(delivery)} muted={delivery === undefined || delivery === null} />
+        {!!gift?.amount && <Row label={<>Подарочная карта <span className="tag-font text-foreground">{gift.code.slice(-4)}</span></>} value={<span>−{formatPrice(gift.amount)}</span>} />}
       </div>
       {promoInput && <div className="mt-5 border-t border-line pt-5"><PromoField defaultOpen /></div>}
       <div className="mt-5 flex items-baseline justify-between border-t border-line pt-5">
-        <span className="text-[18px]">Итого:</span>
+        <span className="text-[18px]">{gift?.amount ? "К оплате:" : "Итого:"}</span>
         <span className="text-[24px] tracking-tight">{formatPrice(total)}</span>
       </div>
     </div>

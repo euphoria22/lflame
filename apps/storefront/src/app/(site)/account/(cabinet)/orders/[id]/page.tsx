@@ -13,7 +13,7 @@ import { pageTitle } from "@/lib/site"
 export const instant = false
 export const metadata: Metadata = { title: pageTitle("Заказ"), ...NOINDEX }
 
-const PAY: Record<string, string> = { tbank: "Онлайн: карта, СБП, T-Pay", split: "Частями: Яндекс Сплит", manual: "Предоплата по ссылке", cod: "При получении" }
+const PAY: Record<string, string> = { tbank: "Онлайн: карта, СБП, T-Pay", split: "Частями: Яндекс Сплит", manual: "Предоплата по ссылке", cod: "При получении", gift: "Подарочной картой" }
 
 /** Страница заказа: товары, итог, оплата, доставка и получатель, трек-номер. */
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {

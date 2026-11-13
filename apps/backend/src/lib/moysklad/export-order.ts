@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/frame
 import { MOYSKLAD_MODULE } from "../../modules/moysklad"
 import MoyskladModuleService from "../../modules/moysklad/service"
 import { MsStore } from "./types"
+import { formatCode } from "../gift-cards/rules"
 
 /**
  * Заказ сайта -> «Заказ покупателя» в МоемСкладе (ТЗ, п. 3.4).
@@ -24,6 +25,7 @@ type OrderRow = {
   metadata: Record<string, unknown> | null
   shipping_address?: { first_name?: string; last_name?: string; phone?: string; address_1?: string; city?: string } | null
   shipping_methods?: { name: string; amount: number; shipping_option_id?: string | null }[]
+  credit_lines?: { amount: number; reference: string | null; metadata?: Record<string, unknown> | null }[] | null
   items?: {
     id: string
     title: string
@@ -57,6 +59,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       "shipping_methods.name", "shipping_methods.amount", "shipping_methods.shipping_option_id",
       "items.id", "items.title", "items.product_title", "items.variant_title", "items.quantity", "items.unit_price", "items.adjustments.amount",
       "items.variant.metadata", "items.variant.product.external_id", "items.variant.product.metadata",
+      "credit_lines.amount", "credit_lines.reference", "credit_lines.metadata",
     ],
     filters: { id: orderId },
   })
@@ -112,7 +115,9 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       `Заказ с сайта № ${order.display_id}`,
       `Получатель: ${[a?.first_name, a?.last_name].filter(Boolean).join(" ")}, ${a?.phone ?? ""}, ${order.email ?? ""}`,
       shipping ? `Получение: ${shipping.name}${Number(shipping.amount) ? `, ${shipping.amount} ₽` : ""}` : null,
-      `Оплата: ${order.metadata?.payment_method === "split" ? "Яндекс Сплит, оплачен" : order.metadata?.payment_method === "tbank" ? "онлайн (Т-Касса), оплачен" : order.metadata?.payment_method === "cod" ? "при получении" : "предоплата по ссылке — ждёт оплаты"}`,
+      // Подарочная карта — часть оплаты (аванс), цены позиций полные
+      ...(order.credit_lines ?? []).filter((l) => l.reference === "gift_card").map((l) => `Оплачено подарочной картой ${formatCode(String(l.metadata?.code ?? ""))}: ${Math.round(Number(l.amount))} ₽`),
+      `Оплата: ${order.metadata?.payment_method === "gift" ? "полностью подарочной картой" : order.metadata?.payment_method === "split" ? "Яндекс Сплит, оплачен" : order.metadata?.payment_method === "tbank" ? "онлайн (Т-Касса), оплачен" : order.metadata?.payment_method === "cod" ? "при получении" : "предоплата по ссылке — ждёт оплаты"}${(order.credit_lines ?? []).some((l) => l.reference === "gift_card") && order.metadata?.payment_method !== "gift" ? " (остаток после карты)" : ""}`,
       a?.address_1 && !a.address_1.startsWith("Самовывоз") ? `Адрес: ${a.city ?? ""}, ${a.address_1}` : null,
       order.metadata?.comment ? `Комментарий покупателя: ${order.metadata.comment}` : null,
       order.metadata?.promo_code && (order.items ?? []).some((i) => i.adjustments?.length) ? `Промокод: ${order.metadata.promo_code}` : null,

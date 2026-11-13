@@ -52,7 +52,7 @@ const num = (v: unknown) => {
   const n = Number(typeof v === "object" && v !== null && "numeric" in (v as object) ? (v as { numeric: unknown }).numeric : v)
   return Number.isFinite(n) ? n : 0
 }
-const PAYMENT: Record<string, string> = { tbank: "Онлайн (Т-Банк)", split: "Частями (Яндекс Сплит)", manual: "Предоплата по ссылке", cod: "При получении" }
+const PAYMENT: Record<string, string> = { tbank: "Онлайн (Т-Банк)", split: "Частями (Яндекс Сплит)", manual: "Предоплата по ссылке", cod: "При получении", gift: "Подарочной картой" }
 const mskDay = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" })
 
 function top(map: Map<string, Bucket>, limit: number, by: "revenue" | "qty" = "revenue"): Bucket[] {

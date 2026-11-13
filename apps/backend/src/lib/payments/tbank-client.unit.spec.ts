@@ -18,4 +18,9 @@ describe("Т-Касса", () => {
     expect(r.Items.reduce((s, i) => s + i.Amount, 0)).toBe(1766200)
     expect(r.Items[1].PaymentObject).toBe("service")
   })
+  it("чек с подарочной картой: зачёт аванса", () => {
+    const r = buildReceipt([{ name: "Джинсы", price: 8690, quantity: 1 }, { name: "Доставка", price: 310, quantity: 1, kind: "service" }], { email: "a@b.ru" }, "usn_income", 3000)
+    expect(r.Payments).toEqual({ Electronic: 600000, AdvancePayment: 300000 })
+    expect(buildReceipt([{ name: "Джинсы", price: 8690, quantity: 1 }], { email: "a@b.ru" }, "usn_income").Payments).toBeUndefined()
+  })
 })

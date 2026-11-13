@@ -57,9 +57,15 @@ export const kopecks = (rub: number) => Math.round(rub * 100)
 
 export type ReceiptLine = { name: string; price: number; quantity: number; kind?: "commodity" | "service"; id?: string }
 
-/** Чек 54-ФЗ (если касса подключена в Т-Кассе). НДС — «без НДС» (УСН). */
-export function buildReceipt(lines: ReceiptLine[], contact: { email?: string | null; phone?: string | null }, taxation: string) {
+/**
+ * Чек 54-ФЗ (если касса подключена в Т-Кассе). НДС — «без НДС» (УСН).
+ * advance — часть заказа, оплаченная подарочной картой: в чеке это зачёт ранее внесённого аванса
+ * (позиции — на всю сумму, «Электронными» — только то, что платят сейчас).
+ */
+export function buildReceipt(lines: ReceiptLine[], contact: { email?: string | null; phone?: string | null }, taxation: string, advance = 0) {
+  const total = lines.reduce((s, l) => s + kopecks(l.price * l.quantity), 0)
   return {
+    ...(advance > 0 ? { Payments: { Electronic: total - kopecks(advance), AdvancePayment: kopecks(advance) } } : {}),
     Email: contact.email || undefined,
     Phone: contact.email ? undefined : contact.phone || undefined,
     Taxation: taxation,

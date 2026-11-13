@@ -50,6 +50,8 @@ export type MailOrder = {
   shipping_total: number
   discount_total?: number
   payment_method?: string | null
+  /** Оплачено подарочной картой, ₽ (итог «к оплате» уже без неё) */
+  gift_card_total?: number
   promo_code?: string | null
   customer_name: string
   shipping_name: string
@@ -76,14 +78,15 @@ function itemsTable(o: MailOrder): string {
 ${line("Товары", rub(o.item_total))}
 ${o.discount_total ? line(o.promo_code ? `Промокод ${esc(o.promo_code)}` : "Скидка", `−${rub(o.discount_total)}`) : ""}
 ${line("Доставка", o.shipping_total ? rub(o.shipping_total) : "бесплатно")}
-${line("Итого", rub(o.total), true)}</table>
+${o.gift_card_total ? line("Подарочная карта", `−${rub(o.gift_card_total)}`) : ""}
+${line(o.gift_card_total ? "Оплачено" : "Итого", rub(o.total), true)}</table>
 <p style="font-size:13px;color:#6e6e6e;margin:16px 0 0">${esc(o.shipping_name)}${o.address ? `<br>${esc(o.address)}` : ""}</p>`
 }
 
 export function orderMail(kind: OrderMailKind, o: MailOrder): Mail {
   const n = `№ ${o.display_id}`
   const account = { label: "Мои заказы", url: `${site()}/account` }
-  const paidOnline = o.payment_method === "tbank" || o.payment_method === "split"
+  const paidOnline = o.payment_method === "tbank" || o.payment_method === "split" || o.payment_method === "gift"
   const variants: Record<OrderMailKind, { subject: string; title: string; text: string; withItems: boolean; button?: { label: string; url: string } }> = {
     placed: {
       subject: `Заказ ${n} оформлен`,
@@ -142,7 +145,8 @@ export function shopOrderMessage(o: MailOrder, adminUrl: string): string {
     `${t(o.customer_name)} · ${t(o.email)}`,
     `${t(o.shipping_name)}${o.address ? `: ${t(o.address)}` : ""}`,
     ...(o.promo_code && o.discount_total ? [`Промокод: ${t(o.promo_code)} (−${rub(o.discount_total)})`] : []),
-    `Оплата: ${o.payment_method === "split" ? "Яндекс Сплит (оплачен)" : o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
+    ...(o.gift_card_total ? [`🎁 Подарочной картой: ${rub(o.gift_card_total)}`] : []),
+    `Оплата: ${o.payment_method === "gift" ? "полностью подарочной картой" : o.payment_method === "split" ? "Яндекс Сплит (оплачен)" : o.payment_method === "tbank" ? "онлайн (оплачен)" : o.payment_method === "cod" ? "при получении" : "⚠️ предоплата — отправить покупателю ссылку на оплату"}`,
     "",
     ...o.items.map((i) => `• ${i.preorder ? `⏳ ПРЕДЗАКАЗ${arrival(i.preorder_date) ? ` (~${arrival(i.preorder_date)})` : ""} · ` : ""}${t(i.title)} — ${t(i.variant)} × ${i.quantity}`),
     "",

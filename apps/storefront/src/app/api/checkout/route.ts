@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const opts = await storeFetch<{ online_payment: boolean; split_payment?: boolean; manual_payment: boolean; cod_methods: string[] }>("/store/checkout/options")
     .catch(() => ({ online_payment: false, split_payment: false, manual_payment: true, cod_methods: [] as string[] }))
   const payment = input.payment as PaymentMethod
-  const allowed = (payment === "tbank" && opts.online_payment) || (payment === "split" && opts.split_payment) || (payment === "manual" && opts.manual_payment)
+  const allowed = payment === "gift" || (payment === "tbank" && opts.online_payment) || (payment === "split" && opts.split_payment) || (payment === "manual" && opts.manual_payment)
     || (payment === "cod" && opts.cod_methods.includes(String(input.delivery?.kind)))
   if (!allowed) return NextResponse.json({ error: "Выберите способ оплаты" }, { status: 400 })
   const phone = normalizePhone(input.phone!)!
@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
       shipping_address: address,
       billing_address: address,
       metadata: {
+        // Код подарочной карты и промокод уже лежат в metadata корзины — сохраняем
+        ...(cart.metadata ?? {}),
         comment: input.comment?.trim().slice(0, 1000) || null,
         // ТЗ, п. 6.4, 8.7: отдельное согласие на обработку ПД и на рассылки — с датой
         pd_consent_at: new Date().toISOString(),
@@ -94,6 +96,23 @@ export async function POST(req: NextRequest) {
     if (!option) throw new Error("Способ получения недоступен")
     await cartRequest(`/store/carts/${cart.id}/shipping-methods`, "POST", { option_id: option.id, data: methodData })
 
+    // Подарочная карта: ставим её в корзину на актуальную сумму (уменьшает сумму к оплате)
+    const { applied: gift } = await storeFetch<{ applied: number }>(`/store/carts/${cart.id}/gift-card/apply`, { method: "POST" })
+    const due = Number((await retrieveCart())?.total ?? 0)
+    if (payment === "gift" && due > 0) {
+      return NextResponse.json({ error: `Подарочной карты не хватает на весь заказ — доплатите ${Math.ceil(due)} ₽ другим способом` }, { status: 400 })
+    }
+    if (gift > 0 && payment === "split") {
+      return NextResponse.json({ error: "Яндекс Сплит нельзя совместить с подарочной картой — выберите оплату картой" }, { status: 400 })
+    }
+    // Карта покрыла весь заказ — оплата не нужна
+    if (due <= 0) {
+      const done = await storeFetch<{ type: "order" | "cart"; order?: { id: string; display_id: number }; error?: { message: string } }>(`/store/carts/${cart.id}/complete`, { method: "POST" })
+      if (done.type !== "order" || !done.order) throw new Error(done.error?.message ?? "Заказ не создан")
+      await setCartId(null)
+      return NextResponse.json({ order: { id: done.order.id, number: done.order.display_id } })
+    }
+
     const { payment_collection } = await storeFetch<{ payment_collection: { id: string } }>("/store/payment-collections", {
       method: "POST",
       body: { cart_id: cart.id },
@@ -109,7 +128,8 @@ export async function POST(req: NextRequest) {
         ...(fresh?.items ?? []).map((i) => ({ id: i.variant_id, name: [i.product_title, i.variant_title].filter(Boolean).join(", "), price: Math.round((Number(i.total) / i.quantity) * 100) / 100, quantity: i.quantity })),
         ...(fresh && Number(fresh.shipping_total) > 0 ? [{ name: "Доставка", price: Number(fresh.shipping_total), quantity: 1, kind: "service" }] : []),
       ]
-      const diff = Math.round((Number(fresh?.total ?? 0) - receipt.reduce((s, l) => s + l.price * l.quantity, 0)) * 100) / 100
+      // Итог чека — вся сумма заказа; часть, оплаченная подарочной картой, в чеке — зачёт аванса
+      const diff = Math.round((Number(fresh?.total ?? 0) + gift - receipt.reduce((s, l) => s + l.price * l.quantity, 0)) * 100) / 100
       const fix = receipt.find((l) => l.quantity === 1)
       if (diff && fix) fix.price = Math.round((fix.price + diff) * 100) / 100
       const { payment_collection: pc } = await storeFetch<{ payment_collection: { payment_sessions?: { provider_id: string; data?: { PaymentURL?: string; paymentUrl?: string } }[] } }>(
@@ -125,6 +145,7 @@ export async function POST(req: NextRequest) {
               email: input.email!.trim().toLowerCase(),
               phone,
               receipt,
+              advance: gift || undefined,
             },
           },
         }

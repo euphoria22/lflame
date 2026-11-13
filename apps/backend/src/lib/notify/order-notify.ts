@@ -18,6 +18,7 @@ type Row = {
   shipping_methods?: { name: string }[]
   items?: { product_title?: string; title: string; variant_title?: string | null; quantity: number; unit_price: unknown; variant?: { product?: { metadata?: Record<string, unknown> | null } | null } | null }[]
   fulfillments?: { id: string; canceled_at: string | null; labels?: { tracking_number: string; tracking_url: string }[] }[]
+  credit_lines?: { amount: unknown; reference: string | null }[]
 }
 
 export async function loadMailOrder(container: MedusaContainer, orderId: string, fulfillmentId?: string): Promise<MailOrder | null> {
@@ -30,6 +31,7 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
       "shipping_address.city", "shipping_address.postal_code", "shipping_methods.name",
       "items.product_title", "items.title", "items.variant_title", "items.quantity", "items.unit_price", "items.variant.product.metadata",
       "fulfillments.id", "fulfillments.canceled_at", "fulfillments.labels.tracking_number", "fulfillments.labels.tracking_url",
+      "credit_lines.amount", "credit_lines.reference",
     ],
     filters: { id: orderId },
   })
@@ -47,6 +49,7 @@ export async function loadMailOrder(container: MedusaContainer, orderId: string,
     shipping_total: Number(o.shipping_total),
     discount_total: Number(o.discount_total ?? 0),
     payment_method: (o.metadata?.payment_method as string) ?? null,
+    gift_card_total: (o.credit_lines ?? []).filter((l) => l.reference === "gift_card").reduce((s, l) => s + Number(l.amount), 0),
     promo_code: (o.metadata?.promo_code as string) ?? null,
     customer_name: [[a.first_name, a.last_name].filter(Boolean).join(" "), a.phone].filter(Boolean).join(", "),
     shipping_name: o.shipping_methods?.[0]?.name ?? "",

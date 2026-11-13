@@ -15,6 +15,7 @@ import { AskUs } from "./ask-us"
 import { useCart } from "./cart-context"
 import { CartLines } from "./cart-lines"
 import { CartProgress } from "./cart-progress"
+import { AppliedGift, GiftCardField } from "./gift-card-field"
 import { DeliveryPicker } from "./delivery-picker"
 import { OrderSummary } from "./order-summary"
 import { EmailHint } from "./email-hint"
@@ -45,8 +46,15 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
     ...(options.manual_payment ? ["manual" as const] : []),
     ...(options.cod_methods.includes(delivery.kind) ? ["cod" as const] : []),
   ]
-  const payment: PaymentMethod | null = chosenPayment && available.includes(chosenPayment) ? chosenPayment : available[0] ?? null
   const [quote, setQuote] = useState<Quote | null>(null)
+  // Подарочная карта: сколько спишется — не больше суммы заказа с доставкой
+  const [gift, setGift] = useState<AppliedGift | null>(null)
+  const orderTotal = (cart?.item_total ?? 0) + (quote?.amount ?? 0)
+  const giftAmount = gift ? Math.min(gift.balance, orderTotal) : 0
+  const paidByGift = !!gift && !!quote && giftAmount >= orderTotal
+  // Сплит с подарочной картой не совмещается; карта покрывает всё — оплата не нужна
+  const offered = gift ? available.filter((m) => m !== "split") : available
+  const payment: PaymentMethod | null = paidByGift ? "gift" : chosenPayment && offered.includes(chosenPayment) ? chosenPayment : offered[0] ?? null
   // Логотип Сплита — тот, что загружен для подвала («Доставка и оплата» → логотипы оплаты)
   const splitLogo = options.payment_logos?.find((p) => /сплит|split/i.test(p.name))?.logo ?? null
 
@@ -124,25 +132,30 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
 
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">3. Оплата</h2>
+          <div className="mb-4"><GiftCardField value={gift} onChange={setGift} due={orderTotal} /></div>
+          {paidByGift ? (
+            <p className="rounded-xl bg-surface px-4 py-3 text-[13px]">Заказ полностью оплачивается подарочной картой — доплачивать ничего не нужно.</p>
+          ) : (
           <div className="space-y-2">
-            {available.includes("tbank") && (
+            {offered.includes("tbank") && (
               <PayOption checked={payment === "tbank"} onSelect={() => setPayment("tbank")} title="Картой или СБП онлайн" icon={<CardIcon className="size-5 text-muted" />}
                 hint="Visa, Mastercard, МИР, СБП, T-Pay — безопасная оплата на странице Т-Банка" />
             )}
-            {available.includes("split") && (
+            {offered.includes("split") && (
               <PayOption checked={payment === "split"} onSelect={() => setPayment("split")} title="Частями — Яндекс Сплит" icon={splitLogo ? <img src={splitLogo} alt="" className="max-h-7 max-w-[48px] object-contain" /> : <PartsIcon className="size-5 text-muted" />}
                 hint={`${cart ? `4 платежа по ${formatPrice(Math.ceil((cart.goods_total + (quote?.amount ?? 0)) / 4))} ` : "4 платежа "}раз в 2 недели, без переплаты. Первый — сейчас, одобрение за минуту на странице Яндекс Пэй`} />
             )}
-            {available.includes("manual") && (
+            {offered.includes("manual") && (
               <PayOption checked={payment === "manual"} onSelect={() => setPayment("manual")} title="Предоплата по ссылке" icon={<CardIcon className="size-5 text-muted" />}
                 hint="Подтвердим наличие и пришлём ссылку на оплату. Отправим заказ после оплаты." />
             )}
-            {available.includes("cod") && (
+            {offered.includes("cod") && (
               <PayOption checked={payment === "cod"} onSelect={() => setPayment("cod")} title="При получении" icon={<HandIcon className="size-5 text-muted" />}
                 hint={delivery.kind === "pickup" ? "Картой или наличными в магазине" : "Картой или наличными при получении"} />
             )}
-            {!available.length && <p className="text-[13px] text-sale">Оплата сейчас недоступна — позвоните нам, оформим заказ по телефону.</p>}
+            {!offered.length && <p className="text-[13px] text-sale">Оплата сейчас недоступна — позвоните нам, оформим заказ по телефону.</p>}
           </div>
+          )}
         </section>
 
         <section className="mt-10">
@@ -163,7 +176,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         <p className="text-[22px] tracking-tight">Ваш заказ</p>
         {/* Размер и количество можно поменять и здесь */}
         {cart && <div className="mt-2 border-b border-line pb-4"><CartLines cart={cart} compact /></div>}
-        {cart && <div className="mt-5"><OrderSummary cart={cart} delivery={quote ? quote.amount : null} /></div>}
+        {cart && <div className="mt-5"><OrderSummary cart={cart} delivery={quote ? quote.amount : null} gift={gift ? { code: gift.code, amount: giftAmount } : null} /></div>}
         {error && <p className="mt-4 text-[13px] text-sale" role="alert">{error}</p>}
         <button type="submit" disabled={sending || !cart} className="mt-5 h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">
           {sending ? "Оформляем…" : payment === "tbank" || payment === "split" ? "Перейти к оплате" : "Подтвердить заказ"}
