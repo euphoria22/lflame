@@ -46,7 +46,8 @@ export function GiftCardPage({ code: raw }: { code: string }) {
   }
   return (
     <div>
-      <GiftCardVisual amount={r ? r.balance : null} code={fmt(code)} />
+      {/* Продавцу: нажать на код на карте — откроется эта карта в админке (кнопки для покупателя нет) */}
+      <GiftCardVisual amount={r ? r.balance : null} code={fmt(code)} codeHref={adminUrl(code)} />
       <div className="mt-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-[13px] text-muted">На карте</p>
@@ -72,7 +73,6 @@ export function GiftCardPage({ code: raw }: { code: string }) {
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/new" className="rounded-full bg-foreground px-6 py-3 text-[14px] text-background">Выбрать подарок</Link>
-        <a href={adminUrl(code)} className="rounded-full border border-line px-6 py-3 text-[14px] text-muted hover:border-foreground">Для продавца: открыть в админке</a>
       </div>
     </div>
   )

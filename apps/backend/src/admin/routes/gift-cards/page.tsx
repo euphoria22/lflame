@@ -255,7 +255,10 @@ const GiftCardsPage = () => {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Heading level="h1">Подарочные карты</Heading>
-            <Text size="small" className="text-ui-fg-subtle">Электронные карты: покупают на сайте, тратят частями на сайте и в шоуруме. Покупка в шоуруме — найдите карту по коду и спишите сумму.</Text>
+            <Text size="small" className="text-ui-fg-subtle">Электронные карты: покупают на сайте, тратят частями на сайте и в шоуруме.</Text>
+            <Text size="small" className="mt-1 text-ui-fg-subtle">
+              <b>Покупка в шоуруме:</b> отсканируйте камерой телефона QR-код с карты покупателя → на открывшейся странице <b>нажмите на код карты</b> (строка LF-… на чёрной карте) — карта откроется здесь; или введите код в поиск ниже. Затем «Списать» на сумму покупки.
+            </Text>
           </div>
           <Button size="small" onClick={() => setIssuing(true)}>Выпустить карту</Button>
         </div>
