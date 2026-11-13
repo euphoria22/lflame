@@ -34,6 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   })
 }
 
+/** Статьи заранее: несуществующая статья отвечает кодом 404 (а не 200 с текстом «не найдена»). Новые статьи открываются и без пересборки. */
+export async function generateStaticParams() {
+  const posts = await safePosts()
+  return (posts.length ? posts.map((p) => p.slug) : ["_"]).map((slug) => ({ slug }))
+}
+
 /** Статья блога: обложка, текст, товары из статьи, другие статьи (ТЗ, п. 7.7 — BlogPosting). */
 export default async function PostPage({ params }: Props) {
   const post = await load((await params).slug)

@@ -5,7 +5,7 @@ import { HELP_TABS, InfoCard, InfoPage as InfoShell } from "@/components/info-pa
 import { ChevronIcon } from "@/components/icons"
 import { JsonLd } from "@/components/json-ld"
 import { RichNodes, RichText } from "@/components/rich-text"
-import { getInfoPage, type LexicalNode } from "@/lib/blog"
+import { getInfoPage, listInfoPages, type LexicalNode } from "@/lib/blog"
 import { routes } from "@/lib/routes"
 import { pageMeta } from "@/lib/seo"
 import { SITE_NAME } from "@/lib/site"
@@ -13,6 +13,16 @@ import { SITE_NAME } from "@/lib/site"
 type Props = { params: Promise<{ page: string }> }
 
 export const instant = false
+
+/**
+ * Список страниц из CMS заранее: тогда на несуществующий адрес (laflamme.ru/что-угодно) Next.js
+ * отвечает настоящим кодом 404, а не 200 с текстом «не найдена». Новые страницы CMS открываются и без пересборки.
+ */
+export async function generateStaticParams() {
+  const slugs = await listInfoPages().catch(() => [] as string[])
+  // Next.js требует хотя бы один адрес — заглушка отдаёт 404
+  return (slugs.length ? slugs : ["_"]).map((page) => ({ page }))
+}
 
 async function load(slug: string) {
   if (!/^[a-z0-9-]{1,60}$/.test(slug)) return null
