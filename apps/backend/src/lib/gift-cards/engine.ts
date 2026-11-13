@@ -8,6 +8,7 @@ import { rub, site } from "../notify/templates"
 import { kopecks, TbankConfig, tbankCall } from "../payments/tbank-client"
 import { getShopSettings } from "../settings/shop-settings"
 import { giftCardBuyerMail, giftCardMail } from "./mails"
+import { qrPng } from "./qr"
 import { amountAllowed, applicable, expiresAt, formatCode, looksLikeCode, newCode, normalizeCode, usable } from "./rules"
 
 /**
@@ -207,7 +208,8 @@ export async function sendDue(c: MedusaContainer, log: Logger): Promise<number> 
     // Отмечаем заранее: письмо не уйдёт дважды, даже если две задачи запустятся одновременно
     await svc(c).updateGiftCards({ id: card.id, sent_at: new Date() })
     try {
-      await sendMail(giftCardMail(to, card, !card.recipient_email), log)
+      // QR карты — картинкой во вложении (в письме: cid:gcqr)
+      await sendMail({ ...giftCardMail(to, card, !card.recipient_email), attachments: [{ filename: "qr.png", content: await qrPng(card.code), cid: "gcqr", contentType: "image/png" }] }, log)
       sent++
     } catch (e) {
       await svc(c).updateGiftCards({ id: card.id, sent_at: null })

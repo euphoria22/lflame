@@ -225,7 +225,8 @@ function SettingsBlock({ value, online, onSaved }: { value: Settings; online: bo
  */
 const GiftCardsPage = () => {
   const [data, setData] = useState<Data | null>(null)
-  const [q, setQ] = useState("")
+  // ?q=КОД — пришли по QR со страницы карты: сразу ищем её
+  const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "")
   const [open, setOpen] = useState<string | null>(null)
   const [issuing, setIssuing] = useState(false)
 
@@ -235,6 +236,13 @@ const GiftCardsPage = () => {
     setData((await r.json()) as Data)
   }, [])
   useEffect(() => { load().catch((e) => toast.error((e as Error).message)) }, [load])
+  // Пришли по QR: одна найденная карта — сразу открываем
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("q")
+    if (!code || !data || open) return
+    const hit = data.cards.filter((r) => r.search.includes(code.toLowerCase().replace(/[^a-z0-9]/g, "")))
+    if (hit.length === 1) setOpen(hit[0].id)
+  }, [data])
 
   const list = useMemo(() => {
     const words = q.toLowerCase().replace(/[-–]/g, "").split(/\s+/).filter(Boolean)

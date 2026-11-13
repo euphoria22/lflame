@@ -30,7 +30,8 @@ function getTransport(): Transporter {
   return transporter
 }
 
-export type Mail = { to: string; subject: string; html: string; text: string }
+/** attachments — вложения; с cid их можно показать в письме: <img src="cid:…"> */
+export type Mail = { to: string; subject: string; html: string; text: string; attachments?: { filename: string; content: Buffer; cid?: string; contentType?: string }[] }
 
 export async function sendMail(mail: Mail, log: { info: (m: string) => void } = console): Promise<void> {
   if (!mailEnabled()) {
