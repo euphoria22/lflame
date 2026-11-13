@@ -49,7 +49,8 @@ export class TelegramError extends Error {
  * Вызов метода Bot API (sendMediaGroup, editMessageCaption…). Ошибка — TelegramError с понятным текстом,
  * токен в текст не попадает. При «слишком часто» Telegram сообщает, через сколько секунд повторить.
  */
-export async function telegramApi<T = unknown>(method: string, body: Record<string, unknown>): Promise<T> {
+/** body — JSON-поля или FormData (загрузка файлов: фото альбома) */
+export async function telegramApi<T = unknown>(method: string, body: Record<string, unknown> | FormData): Promise<T> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new TelegramError("Telegram не настроен: нет TELEGRAM_BOT_TOKEN", 0)
   const hide = (m: string) => m.split(token).join("***")
@@ -58,11 +59,12 @@ export async function telegramApi<T = unknown>(method: string, body: Record<stri
     res = await fetch(`${apiBase()}/bot${token}/${method}`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        // У FormData заголовок с границей частей ставит fetch сам
+        ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...(process.env.TELEGRAM_RELAY_SECRET ? { "X-Relay-Secret": process.env.TELEGRAM_RELAY_SECRET } : {}),
       },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60_000),
+      body: body instanceof FormData ? body : JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
     })
   } catch (e) {
     throw new TelegramError(hide(`Telegram недоступен: ${(e as Error).message}`), 0)

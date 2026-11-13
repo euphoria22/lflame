@@ -68,41 +68,41 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Фото Telegram скачивает сам по ссылке и ждёт недолго. Сжатое фото сайт готовит при первом запросе —
- * запрашиваем все заранее, чтобы к приходу Telegram они уже лежали в кэше.
+ * Фото скачиваем сами (сжатые сайтом, 1080 px, JPEG; не вышло — оригинал) и загружаем в Telegram файлами:
+ * по ссылке Telegram из-за границы не всегда может скачать фото с российского сервера (WEBPAGE_CURL_FAILED).
  */
-async function warmPhotos(urls: string[]) {
-  await Promise.all(urls.map((u) => fetch(u, { headers: { Accept: "image/jpeg,image/*" }, signal: AbortSignal.timeout(30_000) }).then((r) => r.arrayBuffer()).catch(() => null)))
-}
-
-/**
- * Альбом с подписью у первого фото. Если Telegram не смог скачать какое-то фото
- * («failed to send message #4 … WEBPAGE_CURL_FAILED»), убираем его и отправляем без него — до 3 раз.
- */
-export async function sendAlbum(chat: string, photos: string[], caption: string): Promise<{ message_id: number }[]> {
-  let list = [...photos]
-  for (let attempt = 0; ; attempt++) {
-    const media = list.map((url, i) => ({ type: "photo", media: url, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))
+async function downloadPhoto(url: string, original: string): Promise<Blob | null> {
+  for (const u of [url, original]) {
     try {
-      // Одно фото — альбомом не отправить: sendMediaGroup требует от 2 штук
-      if (list.length === 1) {
-        const one = await withRetry(() => telegramApi<{ message_id: number }>("sendPhoto", { chat_id: chat, photo: list[0], caption, parse_mode: "HTML" }))
-        return [one]
-      }
-      return await withRetry(() => telegramApi<{ message_id: number }[]>("sendMediaGroup", { chat_id: chat, media }))
-    } catch (e) {
-      const bad = badPhotoIndex((e as Error).message)
-      if (bad === null || attempt >= 2 || list.length <= 2) throw e
-      list = list.filter((_, i) => i !== bad)
+      const r = await fetch(u, { headers: { Accept: "image/jpeg,image/png;q=0.9" }, signal: AbortSignal.timeout(40_000) })
+      const type = r.headers.get("content-type") ?? ""
+      if (!r.ok || !/^image\/(jpeg|png|webp)/.test(type)) continue
+      const buf = await r.arrayBuffer()
+      // Лимит Telegram на фото — 10 МБ
+      if (buf.byteLength > 0 && buf.byteLength < 10 * 1024 * 1024) return new Blob([buf], { type })
+    } catch {
+      // следующий вариант
     }
   }
+  return null
 }
 
-/** Номер фото, которое Telegram не смог скачать, из текста ошибки */
-export function badPhotoIndex(message: string): number | null {
-  if (!/WEBPAGE_CURL_FAILED|WEBPAGE_MEDIA_EMPTY|failed to get HTTP URL content|wrong type of the web page content|IMAGE_PROCESS_FAILED|PHOTO_INVALID/i.test(message)) return null
-  const m = /message #(\d+)/i.exec(message)
-  return m ? Number(m[1]) : null
+/** Альбом с подписью у первого фото; фото — файлами. Нескачавшиеся фото пропускаем. */
+export async function sendAlbum(chat: string, photos: string[], originals: string[], caption: string): Promise<{ message_id: number }[]> {
+  const files = (await Promise.all(photos.map((u, i) => downloadPhoto(u, originals[i] ?? u)))).filter((b): b is Blob => b !== null)
+  if (!files.length) throw new Error("Не удалось скачать фото товара")
+  const form = new FormData()
+  form.append("chat_id", chat)
+  files.forEach((b, i) => form.append(`p${i}`, b, `p${i}.${b.type.split("/")[1] === "jpeg" ? "jpg" : b.type.split("/")[1]}`))
+  // Одно фото — альбомом не отправить: sendMediaGroup требует от 2 штук
+  if (files.length === 1) {
+    form.append("photo", "attach://p0")
+    form.append("caption", caption)
+    form.append("parse_mode", "HTML")
+    return [await withRetry(() => telegramApi<{ message_id: number }>("sendPhoto", form))]
+  }
+  form.append("media", JSON.stringify(files.map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))))
+  return withRetry(() => telegramApi<{ message_id: number }[]>("sendMediaGroup", form))
 }
 
 /** Выложить товар в канал альбомом с подписью. Возвращает ссылку на пост (для публичного канала). */
@@ -116,9 +116,7 @@ export async function publishProduct(container: MedusaContainer, productId: stri
   if (!p.images.length) throw new Error("У товара нет фото")
 
   const caption = buildCaption(p, { site: site(), contact: contact() })
-  const photos = postPhotos(p.images, site())
-  await warmPhotos(photos)
-  const sent = await sendAlbum(chat, photos, caption)
+  const sent = await sendAlbum(chat, postPhotos(p.images, site()), p.images, caption)
   const id = sent[0].message_id
   const tg = tgMetaOf(row.metadata)
   await saveTg(container, productId, { posts: [...tg.posts, { id, at: new Date().toISOString() }], state: postState(p) })

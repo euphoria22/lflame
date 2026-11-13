@@ -133,10 +133,3 @@ describe("рекомендации", () => {
   })
 })
 
-describe("ошибка Telegram при скачивании фото", () => {
-  it("находит номер фото", () => {
-    const { badPhotoIndex } = jest.requireActual("../channel") as typeof import("../channel")
-    expect(badPhotoIndex('Telegram: Bad Request: failed to send message #4 with the error message "WEBPAGE_CURL_FAILED"')).toBe(4)
-    expect(badPhotoIndex("Telegram: Bad Request: chat not found")).toBeNull()
-  })
-})
