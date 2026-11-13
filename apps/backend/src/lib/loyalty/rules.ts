@@ -41,11 +41,18 @@ export const DEFAULT_LOYALTY: LoyaltySettings = {
 const DAY = 86_400_000
 
 /** Телефон РФ -> +7XXXXXXXXXX; null — не телефон. */
+/**
+ * Мобильный номер в одном виде +79XXXXXXXXX из любой записи: «8 (913) …», «+7 913 …», «913…»,
+ * «+7 8913…», с текстом вокруг («моб.», «доб.») и несколько номеров через запятую — берём первый мобильный.
+ */
 export function normalizePhone(raw: string | null | undefined): string | null {
-  let d = String(raw ?? "").replace(/\D/g, "")
-  if (d.length === 11 && (d.startsWith("8") || d.startsWith("7"))) d = d.slice(1)
-  if (d.length !== 10 || !d.startsWith("9")) return null
-  return `+7${d}`
+  for (const part of String(raw ?? "").split(/[,;/\n]|\s+или\s+/i)) {
+    let d = part.replace(/\D/g, "")
+    if (d.length === 12 && d.startsWith("78")) d = d.slice(2)
+    else if (d.length === 11 && (d.startsWith("8") || d.startsWith("7"))) d = d.slice(1)
+    if (d.length === 10 && d.startsWith("9")) return `+7${d}`
+  }
+  return null
 }
 
 export function sortedTiers(tiers: Tier[]): Tier[] {

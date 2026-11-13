@@ -284,26 +284,54 @@ export type LoyaltyStatus = {
   forecast: { level: string; future: string; need: number; until: string } | null
   pending: number
   history: { date: string; title: string; amount: number; status: string; source: string }[]
+  /** Номер из профиля уже указан в другом аккаунте или в МС у другого email — уровень не показываем */
+  taken?: boolean
 }
 
-/** Телефон покупателя засчитывается, если он есть в его заказах (email подтверждён входом) или в карточке МС с тем же email. */
-export async function confirmedPhone(c: MedusaContainer, customer: { email: string; phone?: string | null }): Promise<string | null> {
+/** Телефоны аккаунтов сайта (в любой записи) → email владельцев; обновляется раз в 5 минут */
+let phoneOwners: { at: number; map: Map<string, Set<string>> } | null = null
+async function accountsByPhone(c: MedusaContainer): Promise<Map<string, Set<string>>> {
+  if (phoneOwners && Date.now() - phoneOwners.at < 5 * 60_000) return phoneOwners.map
+  const list = (await c.resolve(Modules.CUSTOMER).listCustomers({ has_account: true }, { select: ["email", "phone"], take: 100000 })) as { email: string; phone?: string | null }[]
+  const map = new Map<string, Set<string>>()
+  for (const x of list) {
+    const p = normalizePhone(x.phone)
+    if (p) map.set(p, (map.get(p) ?? new Set()).add(x.email.toLowerCase()))
+  }
+  phoneOwners = { at: Date.now(), map }
+  return map
+}
+
+/**
+ * Номер из профиля — действительно этого покупателя (иначе по чужому номеру можно получить чужую скидку).
+ * Подтверждён, если: был заказ на сайте с этим номером; или email в МоёмСкладе совпадает с email аккаунта;
+ * или у покупателя из магазина в МС email не указан и этот номер не указан ни в одном другом аккаунте сайта.
+ * Номер в любой записи: 8…, +7…, со скобками и пробелами.
+ */
+export async function phoneCheck(c: MedusaContainer, customer: { email: string; phone?: string | null }): Promise<{ phone: string | null; taken: boolean }> {
   const phone = normalizePhone(customer.phone)
-  if (!phone) return null
+  if (!phone) return { phone: null, taken: false }
+  const email = customer.email.toLowerCase()
   const query = c.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "order", fields: ["id", "shipping_address.phone"], filters: { email: customer.email }, pagination: { take: 200 } })
-  if ((data as { shipping_address?: { phone?: string } | null }[]).some((o) => normalizePhone(o.shipping_address?.phone) === phone)) return phone
+  if ((data as { shipping_address?: { phone?: string } | null }[]).some((o) => normalizePhone(o.shipping_address?.phone) === phone)) return { phone, taken: false }
   const [m] = (await svc(c).listLoyaltyMembers({ phone })) as unknown as Member[]
-  if (m?.email && m.email.toLowerCase() === customer.email.toLowerCase()) return phone
-  return null
+  if (m?.email) return m.email.toLowerCase() === email ? { phone, taken: false } : { phone: null, taken: true }
+  const others = [...((await accountsByPhone(c)).get(phone) ?? [])].filter((e) => e !== email)
+  return others.length ? { phone: null, taken: true } : { phone, taken: false }
+}
+
+export async function confirmedPhone(c: MedusaContainer, customer: { email: string; phone?: string | null }): Promise<string | null> {
+  return (await phoneCheck(c, customer)).phone
 }
 
 export async function statusFor(c: MedusaContainer, customer: { email: string; phone?: string | null }): Promise<LoyaltyStatus> {
   const settings = await getLoyaltySettings()
   const tiers = sortedTiers(settings.tiers)
   const empty: LoyaltyStatus = { enabled: settings.enabled, phone: normalizePhone(customer.phone), confirmed: false, level: tiers[0], total: 0, next: tiers[1] ?? null, to_next: tiers[1]?.threshold ?? 0, tiers, forecast: null, pending: 0, history: [] }
-  const phone = await confirmedPhone(c, customer)
-  if (!phone) return empty
+  const check = await phoneCheck(c, customer)
+  const phone = check.phone
+  if (!phone) return { ...empty, taken: check.taken }
   const [m] = (await svc(c).listLoyaltyMembers({ phone })) as unknown as Member[]
   const entries = (await svc(c).listLoyaltyEntries({ phone }, { take: 5000, order: { purchased_at: "DESC" } })) as unknown as Entry[]
   const total = periodTotal(entries, settings.period_days)

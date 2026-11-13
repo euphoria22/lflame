@@ -4,6 +4,7 @@ import Link from "next/link"
 import type { AccountOrder, LoyaltyStatus } from "@/lib/account-types"
 import { orderDate, STATUS_STYLE } from "@/lib/account-status"
 import { formatPrice, plural } from "@/lib/format"
+import { SUPPORT } from "@/lib/site"
 
 /** Белая карточка раздела кабинета с заголовком и ссылкой справа. */
 export function Card({ title, action, children, className = "" }: { title?: React.ReactNode; action?: { label: string; href: string }; children: React.ReactNode; className?: string }) {
@@ -66,9 +67,11 @@ export function ClubCard({ s, compact = false }: { s: LoyaltyStatus; compact?: b
       </div>
       {!s.confirmed ? (
         <p className="mt-5 max-w-xl text-[14px] leading-relaxed text-muted">
-          {s.phone
-            ? "Телефон из профиля подтвердится после первого заказа с ним. Если вы уже покупали в магазине — укажите тот же номер, что давали продавцу."
-            : "Укажите телефон в профиле — по нему мы найдём ваши покупки в магазине и на сайте и посчитаем уровень."}
+          {s.taken
+            ? <>Этот номер уже указан в другом аккаунте. Если номер ваш — <a href={SUPPORT.telegram} target="_blank" rel="noopener" className="text-foreground underline underline-offset-4">напишите нам</a>, проверим и подключим уровень.</>
+            : s.phone
+              ? "Телефон из профиля подтвердится после первого заказа с ним."
+              : "Укажите телефон в профиле — по нему мы найдём ваши покупки в магазине и на сайте и посчитаем уровень. Подойдёт любая запись: 8 913…, +7 913…"}
         </p>
       ) : (
         <>

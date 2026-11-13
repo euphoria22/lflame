@@ -26,6 +26,8 @@ export type LoyaltyStatus = {
   enabled: boolean
   phone: string | null
   confirmed: boolean
+  /** Номер уже указан в другом аккаунте — уровень не показываем */
+  taken?: boolean
   level: Tier
   total: number
   next: Tier | null

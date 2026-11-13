@@ -10,6 +10,12 @@ describe("лояльность: правила", () => {
     expect(normalizePhone("9130000000")).toBe("+79130000000")
     expect(normalizePhone("+7 913 000 00 00")).toBe("+79130000000")
     expect(normalizePhone("3812 22-33-44")).toBeNull()
+    expect(normalizePhone("89130000000")).toBe("+79130000000")
+    expect(normalizePhone("79130000000")).toBe("+79130000000")
+    expect(normalizePhone("+7 8913 000-00-00")).toBe("+79130000000")
+    expect(normalizePhone("моб. 8-913-000-00-00")).toBe("+79130000000")
+    expect(normalizePhone("3812 22-33-44, 8 913 000 00 00")).toBe("+79130000000")
+    expect(normalizePhone("89130000000; 89231111111")).toBe("+79130000000")
   })
   it("уровни по сумме", () => {
     const t = DEFAULT_LOYALTY.tiers
