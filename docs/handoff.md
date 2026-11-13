@@ -55,7 +55,7 @@
 | Яндекс Сплит | YANDEX_PAY_API_KEY, YANDEX_PAY_MERCHANT_ID, YANDEX_PAY_SANDBOX | боевые ключи; callback `https://admin.laflamme.ru/hooks/yandex-split`; вкл/выкл в «Доставка и оплата» |
 | Почта (письма) | SMTP_*, MAIL_FROM, SHOP_EMAIL | Beget; DKIM ещё не настроен |
 | Telegram-уведомления | TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API_URL (Worker), TELEGRAM_RELAY_SECRET | работает через Cloudflare Worker (api.telegram.org из РФ недоступен) |
-| Telegram-канал (посты) | TELEGRAM_CHANNEL_ID (@канал), TELEGRAM_ORDER_CONTACT (@laflammehelp) | код готов; **владелец ещё не настроил**: бот — админ канала, обновить код Worker, задать TELEGRAM_CHANNEL_ID |
+| Telegram-канал (посты) | TELEGRAM_CHANNEL_ID (@канал), TELEGRAM_ORDER_CONTACT (@laflammehelp) | работает; фото уходят файлами через Worker (по ссылке Telegram не скачивает с российского сервера) |
 | Прочее | FREE_SHIPPING_FROM, AUTH_MFA_ENCRYPTION_KEY | |
 
 Настройки в админке (хранятся в базе, не в .env): «Доставка и оплата» (тарифы, бесплатная доставка, тексты и логотипы способов, габариты и вес по типу товара, способы оплаты), «Программа лояльности», «Продажа на сайте» (флажки товаров), «Telegram» (очередь и расписание: по умолчанию 12:00–21:00 по Омску раз в 30 минут), «Бренды», «Статистика».
@@ -67,7 +67,7 @@
 ## Открытые задачи
 
 1. **Бэкапы**: бакет S3 на Beget + ключи + BACKUP_PASSPHRASE → настроить BACKUP_REMOTE, проверить `infra/scripts/backup.sh`, cron (`infra/scripts/crontab.example`).
-2. Настроить Telegram-канал (см. таблицу) и проверить первый пост.
+2. Telegram-канал настроен и работает — проверить, что подписи обновляются при смене цены/размеров.
 3. Проверить после деплоя: скорость главной на телефоне (PageSpeed), склад/канал/доставку в заказе МС, уровень Club у покупателей из магазина («Загрузить всё заново» в лояльности).
 4. DKIM для почты Beget; Яндекс Вебмастер и Google Search Console (sitemap, переобход); удалить DNS-запись `new`.
 5. Обновить зависимости (sharp, zod, payload — 5 «high» в npm audit, практический риск низкий); вход в админку с кодом (2FA); код 404 для несуществующих страниц.
