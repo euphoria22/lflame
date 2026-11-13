@@ -76,8 +76,15 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
     }
 
     const [organization] = (await ms.api.get<{ rows: MsRow[] }>("entity/organization")).rows
-    const store = (await ms.api.listAll<MsStore>("entity/store")).find((s) => s.name === ms.options.storeName)
-    if (!organization || !store) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Не найдено юрлицо или склад в МоемСкладе")
+    if (!organization) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Не найдено юрлицо в МоемСкладе")
+    // Склад заказа (MOYSKLAD_ORDER_STORE, по умолчанию «Партизанская»), иначе — склад остатков сайта
+    const stores = await ms.api.listAll<MsStore>("entity/store")
+    const store = byName(stores, process.env.MOYSKLAD_ORDER_STORE || "Партизанская") ?? stores.find((x) => x.name === ms.options.storeName)
+    if (!store) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Не найден склад в МоемСкладе")
+    // Канал продаж (MOYSKLAD_SALES_CHANNEL, по умолчанию «la:flamme»); не нашли — заказ выгружаем без него
+    const channelName = process.env.MOYSKLAD_SALES_CHANNEL || "la:flamme"
+    const channel = byName(await ms.api.listAll<MsRow & { name: string }>("entity/saleschannel").catch(() => []), channelName)
+    if (!channel) logger.warn(`МойСклад: канал продаж «${channelName}» не найден — заказ № ${order.display_id} без канала`)
 
     const agentId = await findOrCreateCounterparty(ms, order)
 
@@ -110,6 +117,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       organization: { meta: organization.meta },
       agent: meta("counterparty", agentId),
       store: { meta: store.meta },
+      ...(channel ? { salesChannel: { meta: channel.meta } } : {}),
       externalCode: order.id,
       moment: new Date(order.created_at).toLocaleString("sv-SE", { timeZone: "Europe/Moscow" }),
       description,
@@ -124,6 +132,12 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
     await saveMeta({ moysklad_export_error: error, moysklad_export_attempted_at: new Date().toISOString() })
     return { status: "failed", error }
   }
+}
+
+/** По названию: точное совпадение, иначе содержит (без учёта регистра и пробелов) — «Партизанская» найдёт «Склад Партизанская» */
+function byName<T extends { name: string }>(rows: T[], name: string): T | undefined {
+  const n = (x: string) => x.toLowerCase().replace(/\s+/g, "")
+  return rows.find((r) => r.name === name) ?? rows.find((r) => n(r.name).includes(n(name)))
 }
 
 /** Контрагент по телефону (10 последних цифр), затем по email; иначе — новый физлицо. */
