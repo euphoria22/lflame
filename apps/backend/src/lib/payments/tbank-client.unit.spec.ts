@@ -24,3 +24,18 @@ describe("Т-Касса", () => {
     expect(buildReceipt([{ name: "Джинсы", price: 8690, quantity: 1 }], { email: "a@b.ru" }, "usn_income").Payments).toBeUndefined()
   })
 })
+
+import { advanceOffsetReceipt } from "./cloudkassir"
+
+describe("CloudKassir: чек зачёта аванса", () => {
+  it("позиции — полный расчёт, оплата — только предоплатой на всю сумму", () => {
+    const r = advanceOffsetReceipt([
+      { label: "Футболка AVAVAV, S", price: 12990, quantity: 1, amount: 12990, kind: "commodity" },
+      { label: "Доставка: СДЭК", price: 310, quantity: 1, amount: 310, kind: "service" },
+    ], { inn: "550117485296", taxation: 1, email: "a@b.ru", invoiceId: "15" })
+    expect(r.Type).toBe("Income")
+    expect(r.CustomerReceipt.Amounts).toEqual({ AdvancePayment: 13300 })
+    expect(r.CustomerReceipt.Items.map((i) => [i.Method, i.Object, i.Vat])).toEqual([[4, 1, null], [4, 4, null]])
+    expect(r.CustomerReceipt.TaxationSystem).toBe(1)
+  })
+})
