@@ -1,3 +1,5 @@
+import type { PromoPrice } from "../promotions/auto-price"
+
 /**
  * Пост о товаре в Telegram-канале магазина: подпись к альбому и подсказки, что выложить.
  * Здесь только расчёты без обращений к Telegram и базе — их проверяют тесты.
@@ -13,6 +15,8 @@ export type PostProduct = {
   title: string
   price: number
   compare_at: number | null
+  /** Цена по действующей автоматической акции (11.11 и т. п.) */
+  promo?: PromoPrice | null
   preorder: boolean
   outlet: boolean
   description: string | null
@@ -43,8 +47,8 @@ export const visibleLength = (html: string) => stripHtml(html).length
 export const inStockSizes = (p: Pick<PostProduct, "sizes">) => p.sizes.filter((s) => s.in_stock).map((s) => s.size)
 
 /** Что видно в посте и может измениться: цена, размеры, наличие. Изменился — подпись обновляем. */
-export const postState = (p: Pick<PostProduct, "title" | "price" | "compare_at" | "preorder" | "sizes">) =>
-  [p.title, p.price, p.compare_at ?? "", p.preorder ? "pre" : "", inStockSizes(p).join(",")].join("|")
+export const postState = (p: Pick<PostProduct, "title" | "price" | "compare_at" | "preorder" | "sizes" | "promo">) =>
+  [p.title, p.price, p.compare_at ?? "", p.preorder ? "pre" : "", inStockSizes(p).join(","), p.promo ? `${p.promo.price}:${p.promo.label}` : ""].join("|")
 
 /** Текст о товаре для цитаты: описание и характеристики «Состав: …», как на сайте */
 function about(p: PostProduct): string {
@@ -67,11 +71,14 @@ function about(p: PostProduct): string {
 export function buildCaption(p: PostProduct, opts: { site: string; contact: string }): string {
   const url = `${opts.site}/product/${p.handle}`
   const sizes = inStockSizes(p)
-  const sale = p.compare_at && p.compare_at > p.price
+  // Итоговая цена — с учётом акции; зачёркнутая — старая цена (или цена каталога, если старой нет)
+  const final = p.promo?.price ?? p.price
+  const was = p.compare_at && p.compare_at > final ? p.compare_at : p.promo ? p.price : null
   const head = [
     `<b><a href="${esc(url)}">${esc(p.title)}</a></b>`,
     "",
-    sale ? `<b>${rub(p.price)}</b> <s>${rub(p.compare_at!)}</s> — SALE 🔥` : `<b>${rub(p.price)}</b>`,
+    was ? `<b>${rub(final)}</b> <s>${rub(was)}</s> — SALE 🔥` : `<b>${rub(final)}</b>`,
+    p.promo ? `Дополнительная скидка −${p.promo.pct}% по акции «${esc(p.promo.label)}» уже в цене` : null,
     p.preorder ? "Предзаказ: товар в пути, отправим в первую очередь" : null,
     p.outlet ? "Outlet: вещь с небольшим дефектом, поэтому дешевле" : null,
     "",
@@ -107,6 +114,7 @@ export type RecItem = {
   category: string | null
   price: number
   compare_at: number | null
+  promo: PromoPrice | null
   in_stock: boolean
   preorder: boolean
   sizes_in_stock: number
@@ -152,11 +160,15 @@ export function recommend(item: RecItem & { category_handle: string | null }, ct
   const age = (ctx.now.getTime() - Date.parse(item.created_at)) / DAY
   if (item.is_new || age <= 21) { score += 25; reasons.push("новинка") }
   if (inSeason(item.category_handle, ctx.now.getMonth() + 1)) { score += 15; reasons.push("по сезону") }
-  if (item.compare_at && item.compare_at > item.price) {
-    const off = Math.round((1 - item.price / item.compare_at) * 100)
-    score += 10 + Math.min(off, 60) / 3
+  // Скидка — от старой цены до итоговой с учётом акции
+  const final = item.promo?.price ?? item.price
+  const base = item.compare_at && item.compare_at > item.price ? item.compare_at : item.price
+  if (final < base) {
+    const off = Math.round((1 - final / base) * 100)
+    score += 10 + Math.min(off, 80) / 3
     reasons.push(`скидка ${off}%`)
   }
+  if (item.promo) { score += 10; reasons.push(`акция «${item.promo.label}» −${item.promo.pct}%`) }
   if (item.sales > 0) { score += Math.min(item.sales, 10) * 2; reasons.push(`продаж за 60 дней: ${item.sales}`) }
   if (item.sizes_total >= 3 && item.sizes_in_stock <= 2) { score += 8; reasons.push("остались последние размеры") }
   if (item.preorder) { score += 5; reasons.push("предзаказ") }

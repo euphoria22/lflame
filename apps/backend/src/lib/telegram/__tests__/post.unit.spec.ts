@@ -38,6 +38,15 @@ describe("подпись поста", () => {
     expect(c).toContain("…</blockquote>")
   })
 
+  it("акция 11.11: итоговая цена, зачёркнутая старая, строка про доп. скидку", () => {
+    const c = buildCaption({ ...product, price: 9990, compare_at: 27990, promo: { price: 7493, label: "11.11", pct: 25 } }, opts)
+    expect(c).toContain("<b>7 493 ₽</b> <s>27 990 ₽</s> — SALE 🔥")
+    expect(c).toContain("Дополнительная скидка −25% по акции «11.11» уже в цене")
+    const noOld = buildCaption({ ...product, price: 10000, compare_at: null, promo: { price: 8500, label: "11.11", pct: 15 } }, opts)
+    expect(noOld).toContain("<b>8 500 ₽</b> <s>10 000 ₽</s> — SALE 🔥")
+    expect(postState({ ...product, promo: { price: 8500, label: "11.11", pct: 15 } })).not.toBe(postState(product))
+  })
+
   it("спецсимволы экранируются", () => {
     expect(buildCaption({ ...product, title: "A & B <x>" }, opts)).toContain("A &amp; B &lt;x&gt;")
   })
@@ -74,7 +83,7 @@ describe("рекомендации", () => {
   const now = new Date("2026-11-13T12:00:00Z")
   const base: RecItem & { category_handle: string | null } = {
     id: "p1", handle: "h", title: "T", thumbnail: null, brand: "Calvin Klein", category: "Куртки", category_handle: "kurtki",
-    price: 10000, compare_at: null, in_stock: true, preorder: false, sizes_in_stock: 4, sizes_total: 5, images: 4,
+    price: 10000, compare_at: null, promo: null, in_stock: true, preorder: false, sizes_in_stock: 4, sizes_total: 5, images: 4,
     has_description: true, sales: 0, is_new: false, created_at: "2026-01-01T00:00:00Z", posts: [],
   }
   const ctx = { now, recentBrands: new Set<string>() }
@@ -96,6 +105,11 @@ describe("рекомендации", () => {
     const r = recommend({ ...base, compare_at: 20000, is_new: true, sizes_in_stock: 1, sales: 3 }, ctx)!
     expect(r.reasons).toEqual(expect.arrayContaining(["новинка", "скидка 50%", "остались последние размеры", "продаж за 60 дней: 3"]))
     expect(r.score).toBeGreaterThan(recommend(base, ctx)!.score)
+  })
+
+  it("акция считается в скидке и даёт причину", () => {
+    const r = recommend({ ...base, compare_at: 30000, promo: { price: 7500, label: "11.11", pct: 25 } }, ctx)!
+    expect(r.reasons).toEqual(expect.arrayContaining(["скидка 75%", "акция «11.11» −25%"]))
   })
 
   it("бренд был в последние дни — ниже", () => {

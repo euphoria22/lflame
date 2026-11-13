@@ -2,6 +2,7 @@ import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { loadCatalogItems, loadCatalogProduct } from "../catalog/store-catalog"
+import { activeAutoPromos, autoPrice, promoProducts } from "../promotions/auto-price"
 import { telegramApi, TelegramError } from "../notify/telegram"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
@@ -30,11 +31,25 @@ async function saveTg(container: MedusaContainer, id: string, tg: TgMeta) {
   await updateProductsWorkflow(container).run({ input: { products: [{ id, metadata: { ...(row.metadata ?? {}), tg } }] } })
 }
 
+/** Цены по действующим автоматическим акциям для товаров (id → цена акции) */
+async function promoPrices(container: MedusaContainer, items: { id: string; price: number }[]) {
+  const promos = await activeAutoPromos(container)
+  const out = new Map<string, ReturnType<typeof autoPrice>>()
+  if (!promos.length || !items.length) return out
+  const products = await promoProducts(container, items.map((i) => i.id))
+  for (const i of items) {
+    const p = products.get(i.id)
+    out.set(i.id, p ? autoPrice(i.price, p, promos) : null)
+  }
+  return out
+}
+
 async function postProduct(container: MedusaContainer, handle: string): Promise<PostProduct | null> {
   const p = await loadCatalogProduct(container, handle)
   if (!p || p.discontinued) return null
+  const promo = (await promoPrices(container, [p])).get(p.id) ?? null
   return {
-    handle: p.handle, title: p.title, price: p.price, compare_at: p.compare_at, preorder: p.preorder, outlet: p.outlet,
+    handle: p.handle, title: p.title, price: p.price, compare_at: p.compare_at, promo, preorder: p.preorder, outlet: p.outlet,
     description: p.has_description ? p.description : null, specs: p.specs, sizes: p.sizes, images: p.images,
   }
 }
@@ -86,12 +101,14 @@ export async function refreshPosts(container: MedusaContainer, log: Logger): Pro
   if (!posted.length) return 0
   // Цена и размеры всех товаров — одним запросом; полную карточку грузим, только если что-то изменилось
   const items = new Map((await loadCatalogItems(container)).map((i) => [i.handle, i]))
+  // Акция началась или закончилась — подпись тоже обновится
+  const promos = await promoPrices(container, posted.map((r) => items.get(r.handle)).filter((i): i is NonNullable<typeof i> => Boolean(i)))
   let edited = 0
   for (const r of posted) {
     const item = items.get(r.handle)
     // Снят с сайта — пост не трогаем
     if (!item) continue
-    const state = postState(item)
+    const state = postState({ ...item, promo: promos.get(item.id) ?? null })
     if (state === r.tg.state) continue
     const product = await postProduct(container, r.handle)
     if (!product) continue
@@ -135,6 +152,7 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
 
   const now = new Date()
   const chat = channelId()
+  const promos = await promoPrices(container, items)
   const allPosts = items.flatMap((i) => (metaById.get(i.id)?.posts ?? []).map((p) => ({ ...p, brand: i.brand?.name ?? null })))
   const recentBrands = new Set(allPosts.filter((p) => now.getTime() - Date.parse(p.at) < 3 * DAY && p.brand).map((p) => p.brand!))
 
@@ -143,7 +161,7 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
     const age = (now.getTime() - Date.parse(i.created_at)) / DAY
     const rec: RecItem = {
       id: i.id, handle: i.handle, title: i.title, thumbnail: i.thumbnail, brand: i.brand?.name ?? null, category: i.category?.name ?? null,
-      price: i.price, compare_at: i.compare_at, in_stock: i.in_stock, preorder: i.preorder,
+      price: i.price, compare_at: i.compare_at, promo: promos.get(i.id) ?? null, in_stock: i.in_stock, preorder: i.preorder,
       sizes_in_stock: i.sizes.filter((s) => s.in_stock).length, sizes_total: i.sizes.length,
       images: i.images_count, has_description: i.has_description, sales: i.sales,
       is_new: i.new_manual || (!i.initial_import && age <= 21), created_at: i.created_at, posts,

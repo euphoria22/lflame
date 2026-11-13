@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 type Post = { id: number; at: string }
 type Row = {
   id: string; handle: string; title: string; thumbnail: string | null; brand: string | null; category: string | null
-  price: number; compare_at: number | null; in_stock: boolean; preorder: boolean
+  price: number; compare_at: number | null; promo: { price: number; label: string; pct: number } | null; in_stock: boolean; preorder: boolean
   sizes_in_stock: number; sizes_total: number; images: number; has_description: boolean; sales: number; is_new: boolean
   posts: Post[]; link: string | null; recommendation: { score: number; reasons: string[] } | null
 }
@@ -281,8 +281,9 @@ const TelegramPage = () => {
                     </a>
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3">
-                    {rub(r.price)}
-                    {r.compare_at && <span className="ml-1.5 text-xs text-ui-fg-muted line-through">{rub(r.compare_at)}</span>}
+                    {rub(r.promo?.price ?? r.price)}
+                    {(r.compare_at || r.promo) && <span className="ml-1.5 text-xs text-ui-fg-muted line-through">{rub(r.compare_at ?? r.price)}</span>}
+                    {r.promo && <span className="block text-xs text-ui-fg-subtle">«{r.promo.label}» −{r.promo.pct}%</span>}
                   </td>
                   <td className="py-2 pr-3">{r.posts.length ? <Badge size="2xsmall" color="blue">{r.posts.length}</Badge> : <Badge size="2xsmall" color="grey">0</Badge>}</td>
                   <td className="max-w-[320px] py-2 pr-3 text-ui-fg-subtle">
