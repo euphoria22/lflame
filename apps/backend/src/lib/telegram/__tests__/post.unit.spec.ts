@@ -18,7 +18,9 @@ describe("подпись поста", () => {
   it("название-ссылка, цена со скидкой, размеры, описание, контакт", () => {
     const c = buildCaption(product, opts)
     expect(c).toContain('<a href="https://laflamme.ru/product/hudi-calvin-klein-terry">Худи на молнии Calvin Klein')
-    expect(c).toContain("<b>6 792 ₽</b> <b><s>24 990 ₽</s></b> — <b>SALE</b> 🔥")
+    expect(c).toContain("<b>6 792 ₽</b> <b><s>24 990 ₽</s></b>\n")
+    // Постоянная скидка без акции — без SALE
+    expect(c).not.toContain("SALE")
     expect(c).toContain("Размеры в наличии: L, XL")
     expect(c).toContain("<blockquote expandable>Худи из мягкого")
     expect(c).toContain("Состав: 86% хлопок, 14% полиэстер\nКрой: Relaxed Fit</blockquote>")
