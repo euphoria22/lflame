@@ -50,6 +50,11 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       receipts: Boolean(process.env.TBANK_TAXATION),
       notification_url: `${backend}/hooks/payment/tbank_tbank`,
     },
+    split: {
+      configured: Boolean(process.env.YANDEX_PAY_API_KEY),
+      mode: !process.env.YANDEX_PAY_API_KEY ? "off" : process.env.YANDEX_PAY_SANDBOX === "true" ? "test" : "production",
+      callback_url: `${backend}/hooks/yandex-split`,
+    },
   })
 }
 

@@ -24,7 +24,7 @@ type Settings = {
   parcel: Parcel
   markup: { cdek: Markup; pochta: Markup }
   free_shipping_methods: string[]
-  payments: { manual: boolean; cod_methods: string[] }
+  payments: { manual: boolean; split: boolean; cod_methods: string[] }
   delivery_texts: Record<string, DeliveryText>
   payment_logos: { name: string; logo: string | null }[]
 }
@@ -49,6 +49,7 @@ type Data = {
   defaults: { parcel: Parcel }
   cdek: { mode: "test" | "production"; own_keys: boolean; error: string | null; points: { code: string; address: string }[]; tariffs: Tariff[]; example: string; webhook_url: string }
   tbank: { configured: boolean; mode: "off" | "test" | "production"; terminal: string | null; receipts: boolean; notification_url: string }
+  split: { configured: boolean; mode: "off" | "test" | "production"; callback_url: string }
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -268,6 +269,20 @@ const DeliveryPage = () => {
               <div>
                 <Label htmlFor="pay-online">Картой или СБП онлайн (Т-Касса)</Label>
                 <Text size="small" className="text-ui-fg-subtle">{data.tbank.configured ? "Работает" : "Включится, когда в настройках сервера будут ключи терминала"}</Text>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Switch className="shrink-0" id="pay-split" checked={data.split.configured && s.payments.split} disabled={!data.split.configured}
+                onCheckedChange={(v) => set("payments", { ...s.payments, split: v })} />
+              <div>
+                <Label htmlFor="pay-split">Частями — Яндекс Сплит</Label>
+                <Text size="small" className="text-ui-fg-subtle">
+                  {!data.split.configured ? "Включится, когда в настройках сервера будет ключ YANDEX_PAY_API_KEY"
+                    : data.split.mode === "test" ? "Подключён в тестовом режиме (песочница) — реальные деньги не списываются"
+                      : s.payments.split ? "Работает: 4 платежа по 25%, магазин получает всю сумму сразу. Бейджи «Частями» — в каталоге, карточке и корзине"
+                        : "Выключен: покупатели не видят оплату частями и бейджи"}
+                </Text>
+                {data.split.configured && <Text size="xsmall" className="text-ui-fg-muted">Callback URL в кабинете Яндекс Пэй: {data.split.callback_url}</Text>}
               </div>
             </div>
             <div className="flex items-start gap-3">

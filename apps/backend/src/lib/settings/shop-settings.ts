@@ -25,7 +25,8 @@ export type ShopSettings = {
   /** Для каких способов действует бесплатная доставка от суммы */
   free_shipping_methods: string[]
   /** Оплата: предоплата по ссылке от менеджера; при получении — только для перечисленных способов */
-  payments: { manual: boolean; cod_methods: string[] }
+  /** split — показывать «Частями — Яндекс Сплит», если на сервере задан ключ */
+  payments: { manual: boolean; split: boolean; cod_methods: string[] }
   /** Наценка на доставку для покупателя (к цене перевозчика) */
   markup: { cdek: Markup; pochta: Markup }
   /** Вес и коробка по умолчанию — если у товара не заполнены */
@@ -68,7 +69,7 @@ export function defaultSettings(): ShopSettings {
     // Условия магазина: бесплатно от суммы — СДЭК до пункта выдачи и обычная Почта
     free_shipping_methods: ["cdek-pvz", "pochta"],
     // Только предоплата: наложенным платежом не работаем
-    payments: { manual: true, cod_methods: [] },
+    payments: { manual: true, split: true, cod_methods: [] },
     newsletter: { enabled: true, discount_pct: 10 },
     delivery_texts: DEFAULT_DELIVERY_TEXTS,
     payment_logos: DEFAULT_PAYMENT_LOGOS,
@@ -181,6 +182,7 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
     const p = input.payments ?? {}
     out.payments = {
       manual: Boolean(p.manual),
+      split: p.split !== false,
       cod_methods: Array.isArray(p.cod_methods) ? [...new Set(p.cod_methods.map(String).filter((k) => KINDS.includes(k)))] : [],
     }
   }
