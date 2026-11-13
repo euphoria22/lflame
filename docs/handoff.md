@@ -24,13 +24,13 @@
 
 ## Сайт и сервер
 
-- Магазин: **https://laflamme.ru** (www → без www). Админка Medusa: **admin.laflamme.ru/app**, CMS: **cms.laflamme.ru** — обе только с IP из `ADMIN_ALLOW_IPS`.
+- Магазин: **https://laflamme.ru** (www → без www). Админка Medusa: **admin.laflamme.ru/app** — открыта с любого адреса; защита: двухфакторный вход (приложение-аутентификатор в профиле), лимит попыток, сообщение в Telegram о каждом входе. CMS: **cms.laflamme.ru** — только с IP из `ADMIN_ALLOW_IPS`.
 - Сервер REG.RU `91.197.98.89`, вход: `ssh -p 2222 deploy@91.197.98.89`, проект в `~/lflame`.
 - Обновить сайт: `cd ~/lflame && git pull && bash infra/scripts/deploy.sh`.
 - Задать секрет/настройку: `bash infra/scripts/set-secret.sh ИМЯ [файл]` (по умолчанию `infra/.env.backend`, ввод скрыт). Общие настройки — `infra/.env` (домены, IP, БД).
 - DNS — REG.RU (ns1/ns2.reg.ru), A `@` и `www` → сервер. Почта — Beget (admin@laflamme.ru), MX не трогали.
 - Дамп БД перед переездом домена: `~/before-move.sql.gz`.
-- Новый сотрудник в админку: добавить его IP в `ADMIN_ALLOW_IPS` (infra/.env) → `docker compose -f infra/docker-compose.prod.yml --env-file infra/.env up -d caddy`; пользователь — «Настройки → Пользователи → Пригласить» или `npx medusa user` в контейнере backend (ролей нет — доступ ко всему).
+- Новый сотрудник в админку: пользователь — «Настройки → Пользователи → Пригласить» или `npx medusa user` в контейнере backend (ролей нет — доступ ко всему).
 
 ## Устройство
 

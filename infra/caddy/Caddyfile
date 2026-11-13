@@ -33,19 +33,14 @@ www.{$SITE_DOMAIN} {
 	reverse_proxy storefront:8000
 }
 
-# Medusa: админка магазина (/app), API админки — только с разрешённых IP.
-# Вебхуки (Т-Банк, СДЭК, МойСклад) и фото товаров (/static, если без S3) — открыты.
+# Medusa: админка магазина (/app), API админки, вебхуки — открыты с любого адреса
+# (из России Telegram работает только с VPN, а адрес VPN в список доверенных не добавить).
+# Защита входа — в самой Medusa: двухфакторный вход (приложение-аутентификатор), лимит попыток,
+# сообщение в Telegram о каждом входе (apps/backend/src/lib/admin/login-guard.ts).
 {$ADMIN_DOMAIN} {
 	import security
 	encode zstd gzip
-	@public path /hooks/* /static/* /health
-	handle @public {
-		reverse_proxy backend:9000
-	}
-	handle {
-		import admin_only
-		reverse_proxy backend:9000
-	}
+	reverse_proxy backend:9000
 }
 
 # Payload CMS: админка (/cms) — только с разрешённых IP; файлы баннеров и блога (/api/media/file/*) — открыты.

@@ -125,6 +125,9 @@ module.exports = defineConfig({
           { resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" },
           { resolve: "./src/modules/otp-auth", id: "otp" },
         ],
+        // Двухфакторный вход в админку (приложение-аутентификатор): сотрудник включает в профиле.
+        // Ключ шифрует секреты кодов в базе; без него MFA не включаем
+        ...(process.env.AUTH_MFA_ENCRYPTION_KEY ? { mfa: { encryption_key: process.env.AUTH_MFA_ENCRYPTION_KEY } } : {}),
       },
     },
     { resolve: "./src/modules/account" },
