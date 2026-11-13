@@ -1,27 +1,16 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { channelId, enqueuePublish, publishProduct, QUEUE_GAP_MS } from "../../../../lib/telegram/channel"
+import { channelId, publishProduct, updateQueue } from "../../../../lib/telegram/channel"
 
-type Body = { ids?: string[] }
-
-/**
- * Выложить товары в канал. Один товар — сразу (в ответе ссылка на пост),
- * несколько — очередью раз в 30 секунд, чтобы Telegram не ограничил канал.
- */
-export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
-  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.filter((x): x is string => typeof x === "string"))] : []
-  if (!ids.length) { res.status(400).json({ message: "Не выбраны товары" }); return }
-  if (ids.length > 50) { res.status(400).json({ message: "Не больше 50 товаров за раз" }); return }
+/** Выложить один товар прямо сейчас, вне расписания (ответ — ссылка на пост). Из очереди он убирается. */
+export async function POST(req: MedusaRequest<{ id?: string }>, res: MedusaResponse) {
+  const id = typeof req.body?.id === "string" ? req.body.id : null
+  if (!id) { res.status(400).json({ message: "Не выбран товар" }); return }
   if (!channelId()) { res.status(400).json({ message: "Не задан канал: TELEGRAM_CHANNEL_ID в настройках сервера" }); return }
-  if (ids.length === 1) {
-    try {
-      res.json(await publishProduct(req.scope, ids[0]))
-    } catch (e) {
-      res.status(400).json({ message: (e as Error).message })
-    }
-    return
+  try {
+    const r = await publishProduct(req.scope, id)
+    await updateQueue(req.scope, (q) => ({ ...q, items: q.items.filter((x) => x !== id) }))
+    res.json(r)
+  } catch (e) {
+    res.status(400).json({ message: (e as Error).message })
   }
-  const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
-  const queued = enqueuePublish(req.scope, ids, logger)
-  res.json({ queued, minutes: Math.ceil((queued * QUEUE_GAP_MS) / 60_000) })
 }

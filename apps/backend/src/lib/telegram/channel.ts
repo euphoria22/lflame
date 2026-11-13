@@ -1,9 +1,10 @@
 import { MedusaContainer } from "@medusajs/framework/types"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { loadCatalogItems, loadCatalogProduct } from "../catalog/store-catalog"
 import { telegramApi, TelegramError } from "../notify/telegram"
 import { site } from "../notify/templates"
+import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
 import { buildCaption, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
 
 /**
@@ -164,31 +165,74 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
   }
 }
 
-// ——— Очередь: несколько товаров подряд, не чаще одного альбома в 30 секунд (лимит Telegram для каналов) ———
+// ——— Очередь по расписанию: хранится в metadata магазина, выкладывается по слотам (задача раз в минуту) ———
 
-const queue: string[] = []
-let running = false
-export const QUEUE_GAP_MS = 30_000
+export type TgQueueState = { schedule: TgSchedule; items: string[]; last_at: string | null; last_error: string | null }
 
-export function enqueuePublish(container: MedusaContainer, ids: string[], log: Logger): number {
-  for (const id of ids) if (!queue.includes(id)) queue.push(id)
-  if (!running) {
-    running = true
-    void (async () => {
-      while (queue.length) {
-        const id = queue.shift()!
-        try {
-          const r = await publishProduct(container, id)
-          log.info(`Telegram: товар ${id} выложен (пост ${r.id})`)
-        } catch (e) {
-          log.warn(`Telegram: товар ${id} не выложен: ${(e as Error).message}`)
-        }
-        if (queue.length) await new Promise((res) => setTimeout(res, QUEUE_GAP_MS))
-      }
-      running = false
-    })()
-  }
-  return queue.length
+async function store(container: MedusaContainer) {
+  const stores = (await container.resolve(Modules.STORE).listStores({}, { take: 1 })) as { id: string; metadata?: Record<string, unknown> | null }[]
+  if (!stores[0]) throw new Error("Магазин не найден")
+  return stores[0]
 }
 
-export const queueLength = () => queue.length
+export async function readQueue(container: MedusaContainer): Promise<TgQueueState> {
+  const raw = ((await store(container)).metadata?.tg_queue ?? {}) as Partial<TgQueueState>
+  return {
+    schedule: validateSchedule(raw.schedule ?? {}).value ?? DEFAULT_SCHEDULE,
+    items: Array.isArray(raw.items) ? raw.items.filter((x): x is string => typeof x === "string") : [],
+    last_at: raw.last_at ?? null,
+    last_error: raw.last_error ?? null,
+  }
+}
+
+/** Изменить очередь: читаем свежую версию прямо перед записью, остальные данные магазина не трогаем */
+export async function updateQueue(container: MedusaContainer, fn: (q: TgQueueState) => TgQueueState): Promise<TgQueueState> {
+  const s = await store(container)
+  const next = fn(await readQueue(container))
+  const fresh = await store(container)
+  await container.resolve(Modules.STORE).updateStores(s.id, { metadata: { ...(fresh.metadata ?? {}), tg_queue: next } })
+  return next
+}
+
+export const addToQueue = (container: MedusaContainer, ids: string[]) =>
+  updateQueue(container, (q) => ({ ...q, items: [...q.items, ...ids.filter((id) => !q.items.includes(id))] }))
+
+let ticking = false
+
+/** Раз в минуту: наступил слот — выложить первый товар очереди (или лучшую рекомендацию, если включено). */
+export async function queueTick(container: MedusaContainer, log: Logger, now = new Date()): Promise<void> {
+  if (ticking || !channelId() || !process.env.TELEGRAM_BOT_TOKEN) return
+  ticking = true
+  try {
+    const q = await readQueue(container)
+    const slot = dueSlot(q.schedule, now, q.last_at)
+    if (!slot) return
+    let id = q.items[0] ?? null
+    let fromQueue = Boolean(id)
+    if (!id && q.schedule.auto) {
+      const best = (await telegramOverview(container)).rows
+        .filter((r) => r.recommendation)
+        .sort((a, b) => b.recommendation!.score - a.recommendation!.score)[0]
+      id = best?.id ?? null
+      fromQueue = false
+    }
+    if (!id) return
+    let error: string | null = null
+    try {
+      const r = await publishProduct(container, id)
+      log.info(`Telegram: по расписанию выложен товар ${id} (пост ${r.id})`)
+    } catch (e) {
+      error = `${new Date().toLocaleString("ru-RU", { timeZone: q.schedule.tz })}: ${(e as Error).message}`
+      log.warn(`Telegram: товар ${id} не выложен: ${(e as Error).message}`)
+    }
+    // Слот отработан в любом случае: неудачный товар убираем из очереди, чтобы он не блокировал остальные
+    await updateQueue(container, (cur) => ({
+      ...cur,
+      items: fromQueue ? cur.items.filter((x) => x !== id) : cur.items,
+      last_at: now.toISOString(),
+      last_error: error ?? cur.last_error,
+    }))
+  } finally {
+    ticking = false
+  }
+}

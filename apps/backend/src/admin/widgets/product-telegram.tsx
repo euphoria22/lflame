@@ -7,7 +7,7 @@ type Post = { id: number; at: string; link: string | null }
 
 const date = (iso: string) => new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
 
-/** «Telegram» в карточке товара: сколько раз выкладывали, ссылки на посты, кнопка «Выложить». */
+/** «Telegram» в карточке товара: сколько раз выкладывали, ссылки на посты, «В очередь» (по расписанию) и «Сейчас». */
 const ProductTelegramWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) => {
   const [posts, setPosts] = useState<Post[] | null>(null)
   const [configured, setConfigured] = useState(true)
@@ -21,18 +21,31 @@ const ProductTelegramWidget = ({ data: product }: DetailWidgetProps<AdminProduct
   }, [product.id])
   useEffect(() => { load().catch(() => setPosts([])) }, [load])
 
-  const publish = async () => {
-    if (!window.confirm(posts?.length ? "Выложить товар в канал ещё раз?" : "Выложить товар в канал?")) return
+  const call = async (url: string, body: unknown) => {
+    const r = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    const d = (await r.json().catch(() => ({}))) as { message?: string; link?: string | null }
+    if (!r.ok) throw new Error(d.message ?? "Не получилось")
+    return d
+  }
+  const publishNow = async () => {
+    if (!window.confirm("Выложить товар в канал прямо сейчас, вне расписания?")) return
     setBusy(true)
     try {
-      const r = await fetch("/admin/telegram/publish", {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: [product.id] }),
-      })
-      const d = (await r.json().catch(() => ({}))) as { message?: string; link?: string | null }
-      if (!r.ok) throw new Error(d.message ?? "Не получилось")
+      const d = await call("/admin/telegram/publish", { id: product.id })
       toast.success("Выложено в канал")
       if (d.link) window.open(d.link, "_blank", "noopener")
       await load()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const enqueue = async () => {
+    setBusy(true)
+    try {
+      await call("/admin/telegram/queue", { add: [product.id] })
+      toast.success("Добавлено в очередь — выйдет по расписанию (раздел «Telegram»)")
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -48,7 +61,10 @@ const ProductTelegramWidget = ({ data: product }: DetailWidgetProps<AdminProduct
           <Heading level="h2">Telegram</Heading>
           <Text size="small" className="text-ui-fg-subtle">{posts.length ? `Выкладывали ${posts.length} раз` : "Ещё не выкладывали"}</Text>
         </div>
-        <Button size="small" variant="secondary" isLoading={busy} disabled={!configured} onClick={publish}>{posts.length ? "Ещё раз" : "Выложить"}</Button>
+        <div className="flex gap-1">
+          <Button size="small" variant="secondary" isLoading={busy} onClick={enqueue}>В очередь</Button>
+          <Button size="small" variant="transparent" disabled={busy || !configured} onClick={publishNow}>Сейчас</Button>
+        </div>
       </div>
       {!configured && <Text size="small" className="px-6 py-3 text-ui-fg-subtle">Канал не настроен (TELEGRAM_CHANNEL_ID на сервере)</Text>}
       {posts.slice().reverse().slice(0, 5).map((p) => (

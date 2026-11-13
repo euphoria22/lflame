@@ -1,6 +1,7 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { PaperPlane } from "@medusajs/icons"
-import { Badge, Button, Checkbox, Container, Heading, Input, Select, Text, toast } from "@medusajs/ui"
+import { Badge, Button, Checkbox, Container, Heading, IconButton, Input, Label, Select, Switch, Text, toast } from "@medusajs/ui"
+import { ArrowUpMini, ArrowDownMini, XMarkMini } from "@medusajs/icons"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 type Post = { id: number; at: string }
@@ -14,8 +15,9 @@ type Overview = {
   configured: { channel: string | null; token: boolean }
   totals: { products: number; posted: number; never: number; posts: number; last7: number; last30: number }
   rows: Row[]
-  queue: number
+  queue: { schedule: Schedule; items: string[]; last_at: string | null; last_error: string | null; slots: string[] }
 }
+type Schedule = { start: string; end: string; every: number; tz: string; auto: boolean; enabled: boolean }
 
 const VIEWS: Record<string, string> = {
   rec: "Рекомендуем выложить",
@@ -27,6 +29,64 @@ const PAGE = 50
 const rub = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₽`
 const date = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "2-digit" })
 const lastAt = (r: Row) => (r.posts.length ? r.posts[r.posts.length - 1].at : "")
+const slot = (iso: string, tz: string) => new Date(iso).toLocaleString("ru-RU", { timeZone: tz, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+
+/** Расписание: с — до (время магазина), интервал, рекомендации при пустой очереди, пауза */
+const ScheduleBlock = ({ value, onSaved }: { value: Schedule; onSaved: () => Promise<void> }) => {
+  const [v, setV] = useState(value)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { setV(value) }, [value])
+  const changed = JSON.stringify(v) !== JSON.stringify(value)
+  const perDay = (() => {
+    const m = (x: string) => { const [h, mm] = x.split(":").map(Number); return h * 60 + mm }
+    return v.every > 0 && m(v.end) >= m(v.start) ? Math.floor((m(v.end) - m(v.start)) / v.every) + 1 : 0
+  })()
+  const save = async () => {
+    setSaving(true)
+    try {
+      const r = await fetch("/admin/telegram/schedule", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(v) })
+      const d = (await r.json().catch(() => ({}))) as { message?: string }
+      if (!r.ok) throw new Error(d.message ?? "Не сохранилось")
+      toast.success("Расписание сохранено")
+      await onSaved()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Container className="px-6 py-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <Heading level="h2">Расписание</Heading>
+          <Text size="small" className="text-ui-fg-subtle">Время — {v.tz === "Asia/Omsk" ? "омское" : v.tz}. В день: {perDay} постов</Text>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label size="small">С</Label>
+          <Input size="small" type="time" value={v.start} onChange={(e) => setV({ ...v, start: e.target.value })} className="w-28" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label size="small">До</Label>
+          <Input size="small" type="time" value={v.end} onChange={(e) => setV({ ...v, end: e.target.value })} className="w-28" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label size="small">Раз в, минут</Label>
+          <Input size="small" type="number" min={5} step={5} value={String(v.every)} onChange={(e) => setV({ ...v, every: Number(e.target.value) })} className="w-24" />
+        </div>
+        <div className="flex items-center gap-2 pb-1.5">
+          <Switch id="tg-auto" checked={v.auto} onCheckedChange={(auto) => setV({ ...v, auto })} />
+          <Label size="small" htmlFor="tg-auto">Очередь пуста — выкладывать рекомендации</Label>
+        </div>
+        <div className="flex items-center gap-2 pb-1.5">
+          <Switch id="tg-on" checked={v.enabled} onCheckedChange={(enabled) => setV({ ...v, enabled })} />
+          <Label size="small" htmlFor="tg-on">{v.enabled ? "Посты выходят" : "Пауза"}</Label>
+        </div>
+        <Button size="small" className="ml-auto" disabled={!changed} isLoading={saving} onClick={save}>Сохранить</Button>
+      </div>
+    </Container>
+  )
+}
 
 /**
  * «Telegram»: посты о товарах в канале магазина. Сколько раз и когда выкладывали каждый товар,
@@ -59,34 +119,37 @@ const TelegramPage = () => {
   }, [data, view, q])
   const shown = list.slice(page * PAGE, (page + 1) * PAGE)
 
-  const publish = async (ids: string[]) => {
-    if (!ids.length) return
-    const many = ids.length > 1
-    if (!window.confirm(many ? `Выложить ${ids.length} товаров в канал? Посты пойдут по одному раз в 30 секунд.` : "Выложить товар в канал?")) return
-    setBusy(many ? "bulk" : ids[0])
-    try {
-      const r = await fetch("/admin/telegram/publish", {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }),
-      })
-      const d = (await r.json().catch(() => ({}))) as { message?: string; link?: string | null; queued?: number; minutes?: number }
-      if (!r.ok) throw new Error(d.message ?? "Не получилось")
-      if (many) {
-        toast.success(`В очереди: ${d.queued}. Займёт около ${d.minutes} мин — обновите страницу позже`)
-        setSelected(new Set())
-      } else {
-        toast.success("Выложено в канал")
-        if (d.link) window.open(d.link, "_blank", "noopener")
-        await load()
-      }
-    } catch (e) {
-      toast.error((e as Error).message)
-    } finally {
-      setBusy(null)
-    }
+  const call = async (url: string, body: unknown) => {
+    const r = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    const d = (await r.json().catch(() => ({}))) as { message?: string; link?: string | null }
+    if (!r.ok) throw new Error(d.message ?? "Не получилось")
+    return d
   }
+  const run = async (key: string, fn: () => Promise<void>) => {
+    setBusy(key)
+    try { await fn(); await load() } catch (e) { toast.error((e as Error).message) } finally { setBusy(null) }
+  }
+
+  /** Сразу, вне расписания */
+  const publishNow = (id: string) => {
+    if (!window.confirm("Выложить товар в канал прямо сейчас, вне расписания?")) return
+    run(id, async () => {
+      const d = await call("/admin/telegram/publish", { id })
+      toast.success("Выложено в канал")
+      if (d.link) window.open(d.link, "_blank", "noopener")
+    })
+  }
+  const queueAdd = (ids: string[]) => run(ids.length > 1 ? "bulk" : `q-${ids[0]}`, async () => {
+    await call("/admin/telegram/queue", { add: ids })
+    toast.success(ids.length > 1 ? `Добавлено в очередь: ${ids.length}` : "Добавлено в очередь")
+    setSelected(new Set())
+  })
+  const queueEdit = (body: unknown) => run("queue", async () => { await call("/admin/telegram/queue", body) })
 
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const t = data?.totals
+  const queued = new Set(data?.queue.items ?? [])
+  const byId = useMemo(() => new Map((data?.rows ?? []).map((r) => [r.id, r])), [data])
   const notReady = data && (!data.configured.channel || !data.configured.token)
 
   return (
@@ -95,7 +158,7 @@ const TelegramPage = () => {
         <Heading level="h1">Telegram</Heading>
         <Text size="small" className="text-ui-fg-subtle">
           Посты о товарах в канале{data?.configured.channel ? ` ${data.configured.channel}` : ""}: альбом с фото, цена, размеры в наличии, описание и ссылка на сайт.
-          Когда меняется цена или продаётся размер, подпись в уже выложенном посте обновляется сама (раз в 10 минут).
+          Посты выходят по расписанию из очереди. Когда меняется цена или продаётся размер, подпись в уже выложенном посте обновляется сама (раз в 10 минут).
         </Text>
         {notReady && (
           <Text size="small" className="mt-2 text-ui-fg-error">
@@ -118,8 +181,46 @@ const TelegramPage = () => {
             ))}
           </div>
         )}
-        {data && data.queue > 0 && <Text size="small" className="mt-3">В очереди на публикацию: {data.queue}</Text>}
       </Container>
+
+      {data && <ScheduleBlock value={data.queue.schedule} onSaved={load} />}
+
+      {data && (
+        <Container className="p-0">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div>
+              <Heading level="h2">Очередь · {data.queue.items.length}</Heading>
+              <Text size="small" className="text-ui-fg-subtle">
+                {data.queue.items.length
+                  ? `Следующий пост: ${slot(data.queue.slots[0], data.queue.schedule.tz)}`
+                  : data.queue.schedule.auto ? "Очередь пуста — в каждый слот выйдет лучшая рекомендация" : "Очередь пуста — добавьте товары из списка ниже"}
+                {data.queue.last_at ? ` · последний пост по расписанию: ${slot(data.queue.last_at, data.queue.schedule.tz)}` : ""}
+              </Text>
+              {data.queue.last_error && <Text size="small" className="text-ui-fg-error">Последняя ошибка: {data.queue.last_error}</Text>}
+            </div>
+            {data.queue.items.length > 0 && (
+              <Button size="small" variant="transparent" disabled={!!busy} onClick={() => window.confirm("Очистить очередь?") && queueEdit({ clear: true })}>Очистить</Button>
+            )}
+          </div>
+          {data.queue.items.map((id, i) => {
+            const r = byId.get(id)
+            return (
+              <div key={id} className="flex items-center gap-3 border-t border-ui-border-base px-6 py-2">
+                <Text size="small" className="w-36 shrink-0 text-ui-fg-subtle">{data.queue.slots[i] ? slot(data.queue.slots[i], data.queue.schedule.tz) : ""}</Text>
+                <span className="h-10 w-8 shrink-0 overflow-hidden rounded bg-ui-bg-component">
+                  {r?.thumbnail && <img src={r.thumbnail} alt="" className="h-full w-full object-cover" loading="lazy" />}
+                </span>
+                <a href={`/app/products/${id}`} className="min-w-0 flex-1 truncate text-sm hover:underline">{r?.title ?? "Товар снят с сайта — будет пропущен"}</a>
+                <div className="flex shrink-0 gap-1">
+                  <IconButton size="small" variant="transparent" disabled={i === 0 || !!busy} onClick={() => queueEdit({ move: { id, to: "up" } })}><ArrowUpMini /></IconButton>
+                  <IconButton size="small" variant="transparent" disabled={i === data.queue.items.length - 1 || !!busy} onClick={() => queueEdit({ move: { id, to: "down" } })}><ArrowDownMini /></IconButton>
+                  <IconButton size="small" variant="transparent" disabled={!!busy} onClick={() => queueEdit({ remove: [id] })}><XMarkMini /></IconButton>
+                </div>
+              </div>
+            )
+          })}
+        </Container>
+      )}
 
       <Container className="p-0">
         <div className="flex flex-wrap items-center gap-2 px-6 py-4">
@@ -133,11 +234,11 @@ const TelegramPage = () => {
           <Text size="small" className="text-ui-fg-subtle">Найдено: {list.length}{selected.size ? ` · выбрано: ${selected.size}` : ""}</Text>
           <div className="ml-auto flex gap-2">
             {view === "rec" && list.length > 0 && (
-              <Button size="small" variant="transparent" onClick={() => setSelected(new Set(list.slice(0, 5).map((r) => r.id)))}>Выбрать 5 лучших</Button>
+              <Button size="small" variant="transparent" onClick={() => setSelected(new Set(list.filter((r) => !queued.has(r.id)).slice(0, 10).map((r) => r.id)))}>Выбрать 10 лучших</Button>
             )}
             {selected.size > 0 && <Button size="small" variant="transparent" onClick={() => setSelected(new Set())}>Снять выбор</Button>}
-            <Button size="small" disabled={!selected.size || !!busy || !!notReady} isLoading={busy === "bulk"} onClick={() => publish([...selected])}>
-              Выложить выбранные
+            <Button size="small" disabled={!selected.size || !!busy} isLoading={busy === "bulk"} onClick={() => queueAdd([...selected])}>
+              В очередь выбранные
             </Button>
           </div>
         </div>
@@ -194,10 +295,13 @@ const TelegramPage = () => {
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="py-2 pr-6 text-right">
-                    <Button size="small" variant="secondary" disabled={!!busy || !!notReady} isLoading={busy === r.id} onClick={() => publish([r.id])}>
-                      {r.posts.length ? "Ещё раз" : "Выложить"}
-                    </Button>
+                  <td className="py-2 pr-6">
+                    <div className="flex justify-end gap-1">
+                      {queued.has(r.id)
+                        ? <Badge size="small" color="orange">в очереди</Badge>
+                        : <Button size="small" variant="secondary" disabled={!!busy} isLoading={busy === `q-${r.id}`} onClick={() => queueAdd([r.id])}>В очередь</Button>}
+                      <Button size="small" variant="transparent" disabled={!!busy || !!notReady} isLoading={busy === r.id} onClick={() => publishNow(r.id)}>Сейчас</Button>
+                    </div>
                   </td>
                 </tr>
               ))}
