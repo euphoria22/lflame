@@ -5,7 +5,8 @@ import { revalidateCatalog } from "../brands/admin"
 import { applyPromoAttributes } from "./promo-attributes"
 
 /** Флажки товара для сайта, хранятся в metadata (синхронизация с МС их не трогает). */
-export const FLAGS = ["preorder", "is_new", "pinned", "outlet", "no_loyalty"] as const
+/** no_discounts — не флажок в metadata, а поле товара Medusa «Скидки» (discountable): выключено — не действуют акции, промокоды и Club */
+export const FLAGS = ["preorder", "is_new", "pinned", "outlet", "no_loyalty", "no_discounts"] as const
 export type Flag = (typeof FLAGS)[number]
 
 export type SiteProductRow = {
@@ -21,10 +22,12 @@ type Raw = {
   id: string; title: string; handle: string; thumbnail?: string | null; status: string; created_at: string | Date
   description?: string | null; images?: { id: string }[] | null
   metadata?: Record<string, unknown> | null; brand?: { name?: string | null } | null; categories?: { name?: string | null }[] | null
+  discountable?: boolean | null
 }
 
-const flagsOf = (m: Record<string, unknown>): Record<Flag, boolean> => ({
+const flagsOf = (m: Record<string, unknown>, discountable: boolean | null | undefined): Record<Flag, boolean> => ({
   preorder: Boolean(m.preorder), is_new: m.is_new === true, pinned: m.pinned === true, outlet: Boolean(m.outlet), no_loyalty: Boolean(m.no_loyalty),
+  no_discounts: discountable === false,
 })
 
 /** Строка характеристик без подписи «Ключ:» и без процентов — это текст о товаре (как на сайте). */
@@ -36,14 +39,14 @@ export async function listSiteProducts(container: MedusaContainer): Promise<Site
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "product",
-    fields: ["id", "title", "handle", "thumbnail", "status", "created_at", "metadata", "description", "images.id", "brand.name", "categories.name"],
+    fields: ["id", "title", "handle", "thumbnail", "status", "created_at", "metadata", "discountable", "description", "images.id", "brand.name", "categories.name"],
     pagination: { take: 100000 },
   })
   return (data as unknown as Raw[]).map((p) => ({
     id: p.id, title: p.title, handle: p.handle, thumbnail: p.thumbnail ?? null, status: p.status,
     brand: p.brand?.name ?? null, category: p.categories?.[0]?.name ?? null,
     created_at: new Date(p.created_at).toISOString(),
-    flags: flagsOf(p.metadata ?? {}),
+    flags: flagsOf(p.metadata ?? {}, p.discountable),
     has_description: Boolean(p.description?.trim()) || specsHaveText(p.metadata?.old_site_specs),
     images: p.images?.length ?? 0,
   }))
@@ -57,11 +60,12 @@ export async function setFlags(container: MedusaContainer, ids: string[], set: P
   let done = 0
   for (let i = 0; i < ids.length; i += 100) {
     const { data } = await query.graph({ entity: "product", fields: ["id", "metadata"], filters: { id: ids.slice(i, i + 100) } })
+    const { no_discounts: noDiscounts, ...metaPatch } = patch
     const products = (data as { id: string; metadata: Record<string, unknown> | null }[]).map((p) => {
-      const meta: Record<string, unknown> = { ...(p.metadata ?? {}), ...patch }
+      const meta: Record<string, unknown> = { ...(p.metadata ?? {}), ...metaPatch }
       // Сняли предзаказ — дата больше не нужна
       if (patch.preorder === false) meta.preorder_date = null
-      return { id: p.id, metadata: meta }
+      return { id: p.id, metadata: meta, ...(typeof noDiscounts === "boolean" ? { discountable: !noDiscounts } : {}) }
     })
     if (products.length) await updateProductsWorkflow(container).run({ input: { products } })
     done += products.length

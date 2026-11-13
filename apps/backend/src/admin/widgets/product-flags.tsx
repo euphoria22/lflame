@@ -3,7 +3,7 @@ import type { AdminProduct, DetailWidgetProps } from "@medusajs/framework/types"
 import { Button, Container, Heading, Input, Label, Switch, Text, Textarea, toast } from "@medusajs/ui"
 import { useState } from "react"
 
-type Flags = { preorder: boolean; no_loyalty: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean; pinned: boolean }
+type Flags = { preorder: boolean; no_loyalty: boolean; no_discounts: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean; pinned: boolean }
 type Patch = Partial<Flags>
 
 /** Флажки товара для сайта: предзаказ (с ожидаемой датой поступления), Outlet (с описанием дефекта) и исключение из программы лояльности. */
@@ -11,6 +11,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
   const m = product.metadata ?? {}
   const [preorder, setPreorder] = useState(Boolean(m.preorder))
   const [noLoyalty, setNoLoyalty] = useState(Boolean(m.no_loyalty))
+  const [noDiscounts, setNoDiscounts] = useState(product.discountable === false)
   const [date, setDate] = useState(typeof m.preorder_date === "string" ? m.preorder_date : "")
   const [savedDate, setSavedDate] = useState(date)
   const [isNew, setIsNew] = useState(m.is_new === true)
@@ -30,6 +31,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
       const d = (await r.json()) as Flags
       setPreorder(d.preorder)
       setNoLoyalty(d.no_loyalty)
+      setNoDiscounts(d.no_discounts)
       setDate(d.preorder_date ?? "")
       setSavedDate(d.preorder_date ?? "")
       setIsNew(d.is_new)
@@ -101,6 +103,13 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
           <div className="min-w-0 flex-1">
             <Label htmlFor="lf-noloyalty" weight="plus">Не действуют скидки Laflamme Club</Label>
             <Text size="small" className="text-ui-fg-subtle">Скидка уровня программы лояльности на этот товар не применяется.</Text>
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <Switch id="lf-nodiscounts" className="mt-0.5 shrink-0" checked={noDiscounts} disabled={busy} onCheckedChange={(v) => save({ no_discounts: v })} />
+          <div className="min-w-0 flex-1">
+            <Label htmlFor="lf-nodiscounts" weight="plus">Без скидок вообще</Label>
+            <Text size="small" className="text-ui-fg-subtle">Не действуют акции, промокоды и Laflamme Club — товар продаётся строго по цене на сайте. То же, что «Скидки» в «Редактировать товар».</Text>
           </div>
         </div>
       </div>

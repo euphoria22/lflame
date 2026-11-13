@@ -85,6 +85,7 @@ type Row = {
   created_at: string | Date
   updated_at: string | Date
   metadata?: Record<string, unknown> | null
+  discountable?: boolean | null
   images?: { url: string; rank?: number }[]
   categories?: { handle: string; name: string }[]
   brand?: { handle: string; name: string; description?: string | null; is_active?: boolean } | null
@@ -100,7 +101,7 @@ type Row = {
 }
 
 const FIELDS = [
-  "id", "handle", "title", "description", "status", "thumbnail", "created_at", "updated_at", "metadata", "external_id",
+  "id", "handle", "title", "description", "status", "thumbnail", "created_at", "updated_at", "metadata", "external_id", "discountable",
   "images.url", "images.rank",
   "categories.handle", "categories.name",
   "brand.handle", "brand.name", "brand.is_active",
@@ -184,7 +185,8 @@ function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0):
     initial_import: new Date(row.created_at).getTime() < start + INITIAL_IMPORT_WINDOW,
     outlet: Boolean(meta.outlet),
     outlet_note: meta.outlet && typeof meta.outlet_note === "string" ? meta.outlet_note : null,
-    no_loyalty: Boolean(meta.no_loyalty),
+    // «Без скидок вообще» (поле Medusa «Скидки» выключено) — Club тоже не действует
+    no_loyalty: Boolean(meta.no_loyalty) || row.discountable === false,
     created_at: new Date(row.created_at).toISOString(),
     old_path: oldPath(meta.old_site_url),
   }

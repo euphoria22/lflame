@@ -3,19 +3,20 @@ import { CheckCircle } from "@medusajs/icons"
 import { Badge, Button, Checkbox, Container, DropdownMenu, Heading, Input, Select, Text, toast } from "@medusajs/ui"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-type Flag = "preorder" | "is_new" | "pinned" | "outlet" | "no_loyalty"
+type Flag = "preorder" | "is_new" | "pinned" | "outlet" | "no_loyalty" | "no_discounts"
 type Row = {
   id: string; title: string; handle: string; thumbnail: string | null; status: string
   brand: string | null; category: string | null; created_at: string; flags: Record<Flag, boolean>
   has_description: boolean; images: number
 }
 
-const FLAGS: { key: Flag; label: string; color: "orange" | "green" | "blue" | "red" | "purple" }[] = [
+const FLAGS: { key: Flag; label: string; color: "orange" | "green" | "blue" | "red" | "purple" | "grey" }[] = [
   { key: "preorder", label: "Предзаказ", color: "orange" },
   { key: "is_new", label: "Новинка", color: "green" },
   { key: "pinned", label: "Закреплён наверху", color: "blue" },
   { key: "outlet", label: "Outlet", color: "red" },
   { key: "no_loyalty", label: "Без скидок Laflamme Club", color: "purple" },
+  { key: "no_discounts", label: "Без скидок вообще", color: "grey" },
 ]
 const PAGE = 50
 const ALL = "__all"

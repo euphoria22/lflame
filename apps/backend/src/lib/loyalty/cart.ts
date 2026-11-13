@@ -5,7 +5,7 @@ import { discountFor, getLoyaltySettings } from "./engine"
 import { loyaltyPrice } from "./rules"
 
 type CartItem = { id: string; variant_id: string | null; quantity: number; unit_price: unknown; is_custom_price?: boolean; metadata?: Record<string, unknown> | null; adjustments?: { code?: string | null; amount?: unknown }[] | null }
-type VariantRow = { id: string; metadata?: Record<string, unknown> | null; prices?: { amount: unknown; currency_code: string }[]; product?: { brand?: { name?: string } | null; metadata?: Record<string, unknown> | null } | null }
+type VariantRow = { id: string; metadata?: Record<string, unknown> | null; prices?: { amount: unknown; currency_code: string }[]; product?: { brand?: { name?: string } | null; metadata?: Record<string, unknown> | null; discountable?: boolean | null } | null }
 
 /** На строку действует автоматическая акция Medusa: есть скидка не от введённого покупателем промокода. */
 export function hasAutoPromo(item: Pick<CartItem, "adjustments">, cartMeta?: Record<string, unknown> | null): boolean {
@@ -44,7 +44,7 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
   const ids = cart.items.map((i) => i.variant_id).filter(Boolean) as string[]
   const { data: variants } = await query.graph({
     entity: "variant",
-    fields: ["id", "metadata", "prices.amount", "prices.currency_code", "product.brand.name", "product.metadata"],
+    fields: ["id", "metadata", "prices.amount", "prices.currency_code", "product.brand.name", "product.metadata", "product.discountable"],
     filters: { id: ids },
   })
   const byId = new Map((variants as unknown as VariantRow[]).map((v) => [v.id, v]))
@@ -58,7 +58,7 @@ export async function applyCartLoyalty(c: MedusaContainer, cartId: string, custo
     const brand = v.product?.brand?.name?.toLowerCase() ?? ""
     // Исключения: бренды из настроек, товары с флажком «Не действуют скидки лояльности»
     // и товары, на которые действует автоматическая акция (не суммируется со скидкой уровня, как и промокод)
-    const pct = discount && !excluded.has(brand) && !v.product?.metadata?.no_loyalty && !hasAutoPromo(item, cart.metadata) ? discount.pct : 0
+    const pct = discount && !excluded.has(brand) && !v.product?.metadata?.no_loyalty && v.product?.discountable !== false && !hasAutoPromo(item, cart.metadata) ? discount.pct : 0
     const target = loyaltyPrice(price, compareAt, pct)
     const meta = { ...(item.metadata ?? {}) }
     const want = pct && target < price ? { level: discount!.tier.name, pct, base: price } : null
