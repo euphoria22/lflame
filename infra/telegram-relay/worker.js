@@ -6,7 +6,7 @@
  * в заголовке X-Relay-Secret — он задаётся в настройках Worker как переменная RELAY_SECRET (тип Secret)
  * и на сервере как TELEGRAM_RELAY_SECRET.
  */
-const METHODS = ["sendMessage", "sendMediaGroup", "editMessageCaption", "getChat"]
+const METHODS = ["sendMessage", "sendMediaGroup", "sendPhoto", "editMessageCaption", "getChat"]
 
 export default {
   async fetch(request, env) {

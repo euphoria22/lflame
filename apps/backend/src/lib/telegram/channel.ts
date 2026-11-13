@@ -49,7 +49,7 @@ async function postProduct(container: MedusaContainer, handle: string): Promise<
   if (!p || p.discontinued) return null
   const promo = (await promoPrices(container, [p])).get(p.id) ?? null
   return {
-    handle: p.handle, title: p.title, price: p.price, compare_at: p.compare_at, promo, preorder: p.preorder, outlet: p.outlet,
+    handle: p.handle, title: p.title, price: p.price, compare_at: p.compare_at, promo, preorder: p.preorder, preorder_date: p.preorder_date, outlet: p.outlet,
     description: p.has_description ? p.description : null, specs: p.specs, sizes: p.sizes, images: p.images,
   }
 }
@@ -67,6 +67,44 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Фото Telegram скачивает сам по ссылке и ждёт недолго. Сжатое фото сайт готовит при первом запросе —
+ * запрашиваем все заранее, чтобы к приходу Telegram они уже лежали в кэше.
+ */
+async function warmPhotos(urls: string[]) {
+  await Promise.all(urls.map((u) => fetch(u, { headers: { Accept: "image/jpeg,image/*" }, signal: AbortSignal.timeout(30_000) }).then((r) => r.arrayBuffer()).catch(() => null)))
+}
+
+/**
+ * Альбом с подписью у первого фото. Если Telegram не смог скачать какое-то фото
+ * («failed to send message #4 … WEBPAGE_CURL_FAILED»), убираем его и отправляем без него — до 3 раз.
+ */
+export async function sendAlbum(chat: string, photos: string[], caption: string): Promise<{ message_id: number }[]> {
+  let list = [...photos]
+  for (let attempt = 0; ; attempt++) {
+    const media = list.map((url, i) => ({ type: "photo", media: url, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))
+    try {
+      // Одно фото — альбомом не отправить: sendMediaGroup требует от 2 штук
+      if (list.length === 1) {
+        const one = await withRetry(() => telegramApi<{ message_id: number }>("sendPhoto", { chat_id: chat, photo: list[0], caption, parse_mode: "HTML" }))
+        return [one]
+      }
+      return await withRetry(() => telegramApi<{ message_id: number }[]>("sendMediaGroup", { chat_id: chat, media }))
+    } catch (e) {
+      const bad = badPhotoIndex((e as Error).message)
+      if (bad === null || attempt >= 2 || list.length <= 2) throw e
+      list = list.filter((_, i) => i !== bad)
+    }
+  }
+}
+
+/** Номер фото, которое Telegram не смог скачать, из текста ошибки */
+export function badPhotoIndex(message: string): number | null {
+  if (!/WEBPAGE_CURL_FAILED|WEBPAGE_MEDIA_EMPTY|failed to get HTTP URL content|wrong type of the web page content|IMAGE_PROCESS_FAILED|PHOTO_INVALID/i.test(message)) return null
+  const m = /message #(\d+)/i.exec(message)
+  return m ? Number(m[1]) : null
+}
+
 /** Выложить товар в канал альбомом с подписью. Возвращает ссылку на пост (для публичного канала). */
 export async function publishProduct(container: MedusaContainer, productId: string): Promise<{ id: number; link: string | null }> {
   const chat = channelId()
@@ -78,8 +116,9 @@ export async function publishProduct(container: MedusaContainer, productId: stri
   if (!p.images.length) throw new Error("У товара нет фото")
 
   const caption = buildCaption(p, { site: site(), contact: contact() })
-  const media = postPhotos(p.images, site()).map((url, i) => ({ type: "photo", media: url, ...(i === 0 ? { caption, parse_mode: "HTML" } : {}) }))
-  const sent = await withRetry(() => telegramApi<{ message_id: number }[]>("sendMediaGroup", { chat_id: chat, media }))
+  const photos = postPhotos(p.images, site())
+  await warmPhotos(photos)
+  const sent = await sendAlbum(chat, photos, caption)
   const id = sent[0].message_id
   const tg = tgMetaOf(row.metadata)
   await saveTg(container, productId, { posts: [...tg.posts, { id, at: new Date().toISOString() }], state: postState(p) })
@@ -161,7 +200,7 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
     const age = (now.getTime() - Date.parse(i.created_at)) / DAY
     const rec: RecItem = {
       id: i.id, handle: i.handle, title: i.title, thumbnail: i.thumbnail, brand: i.brand?.name ?? null, category: i.category?.name ?? null,
-      price: i.price, compare_at: i.compare_at, promo: promos.get(i.id) ?? null, in_stock: i.in_stock, preorder: i.preorder,
+      price: i.price, compare_at: i.compare_at, promo: promos.get(i.id) ?? null, in_stock: i.in_stock, preorder: i.preorder, preorder_date: i.preorder_date,
       sizes_in_stock: i.sizes.filter((s) => s.in_stock).length, sizes_total: i.sizes.length,
       images: i.images_count, has_description: i.has_description, sales: i.sales,
       is_new: i.new_manual || (!i.initial_import && age <= 21), created_at: i.created_at, posts,

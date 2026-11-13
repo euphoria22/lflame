@@ -47,6 +47,15 @@ describe("подпись поста", () => {
     expect(postState({ ...product, promo: { price: 8500, label: "11.11", pct: 15 } })).not.toBe(postState(product))
   })
 
+  it("предзаказ: дата поступления и пояснение", () => {
+    const c = buildCaption({ ...product, preorder: true, preorder_date: "2099-11-25" }, opts)
+    expect(c).toContain("🕓 <b>Предзаказ</b> — ожидаем 25 ноября")
+    expect(c).toContain("свяжемся, когда товар поступит")
+    expect(c).toContain("Размеры для предзаказа: L, XL")
+    expect(buildCaption({ ...product, preorder: true, preorder_date: null }, opts)).toContain("— товар уже едет к нам")
+    expect(postState({ ...product, preorder: true, preorder_date: "2099-11-25" })).not.toBe(postState({ ...product, preorder: true, preorder_date: "2099-12-01" }))
+  })
+
   it("спецсимволы экранируются", () => {
     expect(buildCaption({ ...product, title: "A & B <x>" }, opts)).toContain("A &amp; B &lt;x&gt;")
   })
@@ -121,5 +130,13 @@ describe("рекомендации", () => {
     expect(inSeason("kurtki", 12)).toBe(true)
     expect(inSeason("shorty", 12)).toBe(false)
     expect(inSeason("shorty", 7)).toBe(true)
+  })
+})
+
+describe("ошибка Telegram при скачивании фото", () => {
+  it("находит номер фото", () => {
+    const { badPhotoIndex } = jest.requireActual("../channel") as typeof import("../channel")
+    expect(badPhotoIndex('Telegram: Bad Request: failed to send message #4 with the error message "WEBPAGE_CURL_FAILED"')).toBe(4)
+    expect(badPhotoIndex("Telegram: Bad Request: chat not found")).toBeNull()
   })
 })

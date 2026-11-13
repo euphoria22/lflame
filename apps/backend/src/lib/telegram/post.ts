@@ -18,6 +18,8 @@ export type PostProduct = {
   /** Цена по действующей автоматической акции (11.11 и т. п.) */
   promo?: PromoPrice | null
   preorder: boolean
+  /** Ожидаемая дата поступления предзаказа, ГГГГ-ММ-ДД */
+  preorder_date?: string | null
   outlet: boolean
   description: string | null
   specs: string | null
@@ -41,14 +43,22 @@ const stripHtml = (s: string) => s.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/
   .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
   .replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim()
 
+/** «25 ноября» из ГГГГ-ММ-ДД; прошедшая дата не показывается (товар вот-вот будет) */
+export function arrival(iso: string | null | undefined, now = new Date()): string | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const d = new Date(`${iso}T12:00:00Z`)
+  if (Number.isNaN(d.getTime()) || d.getTime() < now.getTime() - 86_400_000) return null
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" })
+}
+
 /** Видимая длина подписи: Telegram считает текст без тегов */
 export const visibleLength = (html: string) => stripHtml(html).length
 
 export const inStockSizes = (p: Pick<PostProduct, "sizes">) => p.sizes.filter((s) => s.in_stock).map((s) => s.size)
 
 /** Что видно в посте и может измениться: цена, размеры, наличие. Изменился — подпись обновляем. */
-export const postState = (p: Pick<PostProduct, "title" | "price" | "compare_at" | "preorder" | "sizes" | "promo">) =>
-  [p.title, p.price, p.compare_at ?? "", p.preorder ? "pre" : "", inStockSizes(p).join(","), p.promo ? `${p.promo.price}:${p.promo.label}` : ""].join("|")
+export const postState = (p: Pick<PostProduct, "title" | "price" | "compare_at" | "preorder" | "preorder_date" | "sizes" | "promo">) =>
+  [p.title, p.price, p.compare_at ?? "", p.preorder ? `pre:${p.preorder_date ?? ""}` : "", inStockSizes(p).join(","), p.promo ? `${p.promo.price}:${p.promo.label}` : ""].join("|")
 
 /** Текст о товаре для цитаты: описание и характеристики «Состав: …», как на сайте */
 function about(p: PostProduct): string {
@@ -79,10 +89,11 @@ export function buildCaption(p: PostProduct, opts: { site: string; contact: stri
     "",
     was ? `<b>${rub(final)}</b> <s>${rub(was)}</s> — SALE 🔥` : `<b>${rub(final)}</b>`,
     p.promo ? `Дополнительная скидка −${p.promo.pct}% по акции «${esc(p.promo.label)}» уже в цене` : null,
-    p.preorder ? "Предзаказ: товар в пути, отправим в первую очередь" : null,
+    ...(p.preorder ? ["", `🕓 <b>Предзаказ</b>${arrival(p.preorder_date) ? ` — ожидаем ${arrival(p.preorder_date)}` : " — товар уже едет к нам"}`,
+      "Оформите заказ сейчас: свяжемся, когда товар поступит, и отправим в первую очередь"] : []),
     p.outlet ? "Outlet: вещь с небольшим дефектом, поэтому дешевле" : null,
     "",
-    sizes.length ? `Размеры в наличии: ${sizes.join(", ")}` : p.preorder ? null : "Нет в наличии",
+    sizes.length ? `${p.preorder ? "Размеры для предзаказа" : "Размеры в наличии"}: ${sizes.join(", ")}` : p.preorder ? null : "Нет в наличии",
   ].filter((l): l is string => l !== null)
   const foot = `Оформить заказ: <a href="${esc(url)}">на сайте</a> или ${esc(opts.contact)}`
 
@@ -116,6 +127,7 @@ export type RecItem = {
   compare_at: number | null
   promo: PromoPrice | null
   in_stock: boolean
+  preorder_date?: string | null
   preorder: boolean
   sizes_in_stock: number
   sizes_total: number
@@ -171,7 +183,7 @@ export function recommend(item: RecItem & { category_handle: string | null }, ct
   if (item.promo) { score += 10; reasons.push(`акция «${item.promo.label}» −${item.promo.pct}%`) }
   if (item.sales > 0) { score += Math.min(item.sales, 10) * 2; reasons.push(`продаж за 60 дней: ${item.sales}`) }
   if (item.sizes_total >= 3 && item.sizes_in_stock <= 2) { score += 8; reasons.push("остались последние размеры") }
-  if (item.preorder) { score += 5; reasons.push("предзаказ") }
+  if (item.preorder) { score += 5; reasons.push(arrival(item.preorder_date) ? `предзаказ, ждём ${arrival(item.preorder_date)}` : "предзаказ") }
   if (item.images >= 5) score += 5
   if (!item.has_description) { score -= 5; reasons.push("нет описания") }
   if (item.brand && ctx.recentBrands.has(item.brand)) { score -= 15; reasons.push("бренд уже был в последние 3 дня") }
