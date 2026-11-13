@@ -19,12 +19,15 @@ export function layout(opts: { preheader: string; title: string; body: string; b
    Наложение «screen» + «difference» возвращает белый — приём только для Gmail (u + .body) */
 u + .body .gm-s{background:#000;mix-blend-mode:screen}
 u + .body .gm-d{background:#000;mix-blend-mode:difference}
+/* Логотип в Gmail: белый с наложением «difference» — на белом фоне выходит чёрным, в тёмной теме — белым */
+u + .body .logo-b{display:none!important}
+u + .body .logo-w{display:block!important;mix-blend-mode:difference}
 </style></head>
 <body class="body" style="margin:0;background:#f3f3f2;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#0b0b0b">
 <span style="display:none;max-height:0;overflow:hidden">${esc(opts.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f3f2;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:20px;padding:32px">
-<tr><td style="padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none;font-size:20px"><img src="${site()}/email-logo-2.png" width="142" height="28" alt="la:flamme" style="display:block;border:0;outline:none;width:142px;height:28px;margin:-2px"></a></td></tr>
+<tr><td style="padding-bottom:28px"><a href="${site()}" style="color:#0b0b0b;text-decoration:none;font-size:20px"><img class="logo-b" src="${site()}/email-logo-black.png" width="138" height="24" alt="la:flamme" style="display:block;border:0;outline:none;width:138px;height:24px"><img class="logo-w" src="${site()}/email-logo-white.png" width="138" height="24" alt="" style="display:none;mso-hide:all;border:0;outline:none;width:138px;height:24px"></a></td></tr>
 <tr><td style="font-size:24px;line-height:1.25;padding-bottom:16px">${esc(opts.title)}</td></tr>
 <tr><td style="font-size:14px;line-height:1.6;color:#3a3a3a;padding-bottom:16px">${opts.body}</td></tr>
 ${btn}
