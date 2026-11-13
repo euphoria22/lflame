@@ -63,3 +63,6 @@ infra/.env
 infra/.env.backend
 infra/backups/
 infra/certs/
+
+# Снимок Redis при локальном запуске
+dump.rdb
