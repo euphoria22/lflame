@@ -66,6 +66,10 @@ export function GiftCardPage({ code: raw }: { code: string }) {
         </p>
       </div>
 
+      <p className="mt-4 rounded-2xl border border-line px-4 py-3 text-[13px] leading-relaxed">
+        🔒 <b className="font-medium">Не показывайте код и QR-код карты посторонним</b> — по ним картой может воспользоваться кто угодно вместо вас. Не публикуйте скриншоты карты и не пересылайте ссылку на эту страницу.
+      </p>
+
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/new" className="rounded-full bg-foreground px-6 py-3 text-[14px] text-background">Выбрать подарок</Link>
         <a href={adminUrl(code)} className="rounded-full border border-line px-6 py-3 text-[14px] text-muted hover:border-foreground">Для продавца: открыть в админке</a>

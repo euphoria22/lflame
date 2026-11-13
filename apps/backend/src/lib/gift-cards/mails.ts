@@ -35,6 +35,11 @@ function qrBlock(c: MailCard): string {
 <a href="${cardUrl(c.code)}" style="color:#0b0b0b">Открыть карту</a> — остаток и QR на сайте, можно сохранить в закладки или сделать скриншот.</td></tr></table>`
 }
 
+/** Предупреждение: код — как деньги. Покупателю — свой текст: ему код можно передать получателю */
+const warnBox = (text: string) => `<p style="margin:0 0 20px;padding:12px 14px;background:#f3f3f2;border-radius:12px;font-size:13px;line-height:1.5;color:#0b0b0b">🔒 ${text}</p>`
+const warning = warnBox("<b>Не показывайте код и QR-код карты посторонним</b> — по ним картой может воспользоваться кто угодно вместо вас. Не пересылайте это письмо и не публикуйте скриншоты карты.")
+const buyerWarning = warnBox("<b>Код передавайте только получателю</b> — по коду и QR-коду картой может воспользоваться кто угодно. Не показывайте его посторонним и не публикуйте скриншоты.")
+
 const howTo = `<p style="margin:0 0 8px"><b>Как потратить</b></p>
 <p style="margin:0 0 16px">На сайте — введите код при оформлении заказа в поле «Подарочная карта». В шоуруме в Омске (ул. Партизанская, 5а/8) — назовите код продавцу.
 Можно тратить частями: остаток сохраняется на карте. Баланс — на странице <a href="${site()}/gift-cards" style="color:#0b0b0b">подарочных карт</a>.</p>`
@@ -52,11 +57,11 @@ export function giftCardMail(to: string, c: MailCard, forSelf: boolean): Mail {
   return {
     to,
     subject: forSelf ? `Ваша подарочная карта Laflamme на ${rub(c.amount)}` : `${from ?? "Вам"} ${from ? "дарит" : "подарили"} подарочную карту Laflamme`,
-    text: `${intro}\n\nНоминал: ${rub(c.amount)}\nКод: ${formatCode(c.code)}${c.expires_at ? `\nДействует до ${date(c.expires_at)}` : ""}${c.message ? `\n\n${c.message}` : ""}\n\nНа сайте — введите код при оформлении заказа в поле «Подарочная карта». В шоуруме в Омске (ул. Партизанская, 5а/8) — назовите код продавцу. Остаток сохраняется на карте.\nКарта и QR-код для кассы: ${cardUrl(c.code)}`,
+    text: `${intro}\n\nНоминал: ${rub(c.amount)}\nКод: ${formatCode(c.code)}${c.expires_at ? `\nДействует до ${date(c.expires_at)}` : ""}${c.message ? `\n\n${c.message}` : ""}\n\nНа сайте — введите код при оформлении заказа в поле «Подарочная карта». В шоуруме в Омске (ул. Партизанская, 5а/8) — назовите код продавцу. Остаток сохраняется на карте.\n\nНе показывайте код и QR-код карты посторонним — по ним картой может воспользоваться кто угодно вместо вас.\nКарта и QR-код для кассы: ${cardUrl(c.code)}`,
     html: layout({
       preheader: `Подарочная карта на ${rub(c.amount)}`,
       title: forSelf ? "Ваша подарочная карта" : "Вам подарок",
-      body: `<p style="margin:0 0 16px;font-size:15px;color:#0b0b0b">${intro}</p>${message}${cardBlock(c)}${qrBlock(c)}${howTo}`,
+      body: `<p style="margin:0 0 16px;font-size:15px;color:#0b0b0b">${intro}</p>${message}${cardBlock(c)}${qrBlock(c)}${warning}${howTo}`,
       button: { label: "Выбрать подарок", url: `${site()}/new` },
     }),
   }
@@ -74,7 +79,7 @@ export function giftCardBuyerMail(to: string, c: MailCard & { recipient_email: s
       preheader: "Подарочная карта оплачена",
       title: "Спасибо, карта оплачена",
       body: `<p style="margin:0 0 16px">${when ? `Отправим карту получателю — ${who} — <b>${when}</b> утром.` : `Отправили карту получателю — ${who}.`}</p>
-${cardBlock(c)}<p style="margin:0;color:#6e6e6e;font-size:13px">Код в этом письме — на случай, если письмо получателю не дойдёт: его можно переслать или назвать.</p>`,
+${cardBlock(c)}<p style="margin:0 0 16px;color:#6e6e6e;font-size:13px">Код в этом письме — на случай, если письмо получателю не дойдёт: его можно переслать или назвать получателю лично.</p>${buyerWarning}`,
     }),
   }
 }
