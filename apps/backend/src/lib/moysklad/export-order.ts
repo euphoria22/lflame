@@ -23,7 +23,7 @@ type OrderRow = {
   created_at: string
   metadata: Record<string, unknown> | null
   shipping_address?: { first_name?: string; last_name?: string; phone?: string; address_1?: string; city?: string } | null
-  shipping_methods?: { name: string; amount: number }[]
+  shipping_methods?: { name: string; amount: number; shipping_option_id?: string | null }[]
   items?: {
     id: string
     title: string
@@ -54,7 +54,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
       "id", "display_id", "email", "created_at", "metadata",
       "shipping_address.first_name", "shipping_address.last_name", "shipping_address.phone",
       "shipping_address.address_1", "shipping_address.city",
-      "shipping_methods.name", "shipping_methods.amount",
+      "shipping_methods.name", "shipping_methods.amount", "shipping_methods.shipping_option_id",
       "items.id", "items.title", "items.product_title", "items.variant_title", "items.quantity", "items.unit_price", "items.adjustments.amount",
       "items.variant.metadata", "items.variant.product.external_id", "items.variant.product.metadata",
     ],
@@ -88,7 +88,7 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
 
     const agentId = await findOrCreateCounterparty(ms, order)
 
-    const positions = (order.items ?? []).map((i) => {
+    const positions: Record<string, unknown>[] = (order.items ?? []).map((i) => {
       const msId = i.variant?.metadata?.moysklad_id as string | undefined
       if (!msId) throw new MedusaError(MedusaError.Types.INVALID_DATA, `У позиции «${i.title}» нет связи с МоимСкладом`)
       // Товар без модификаций в МС: moysklad_id варианта = id товара
@@ -102,6 +102,12 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
 
     const a = order.shipping_address
     const shipping = order.shipping_methods?.[0]
+    // Доставка — отдельной позицией-услугой МС (и при бесплатной — с ценой 0)
+    const kind = shipping?.shipping_option_id ? await deliveryKind(container, shipping.shipping_option_id) : null
+    const serviceName = kind ? deliveryServiceName(kind) : null
+    const service = serviceName ? byName(await ms.api.listAll<MsRow & { name: string }>("entity/service").catch(() => []), serviceName) : undefined
+    if (shipping && !service) logger.warn(`МойСклад: услуга доставки «${serviceName ?? shipping.name}» не найдена — заказ № ${order.display_id} без позиции доставки`)
+    if (shipping && service) positions.push({ quantity: 1, price: Math.round(Number(shipping.amount) * 100), discount: 0, assortment: { meta: service.meta } })
     const description = [
       `Заказ с сайта № ${order.display_id}`,
       `Получатель: ${[a?.first_name, a?.last_name].filter(Boolean).join(" ")}, ${a?.phone ?? ""}, ${order.email ?? ""}`,
@@ -132,6 +138,27 @@ export async function exportOrderToMoysklad(container: MedusaContainer, orderId:
     await saveMeta({ moysklad_export_error: error, moysklad_export_attempted_at: new Date().toISOString() })
     return { status: "failed", error }
   }
+}
+
+/** Способ получения заказа (код типа варианта доставки: pickup, omsk-courier, cdek-pvz, cdek-door, pochta) */
+async function deliveryKind(container: MedusaContainer, optionId: string): Promise<string | null> {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const { data } = await query.graph({ entity: "shipping_option", fields: ["id", "type.code"], filters: { id: optionId } })
+  return (data[0] as { type?: { code?: string } | null } | undefined)?.type?.code ?? null
+}
+
+/** Услуги доставки в МС по способу получения; переопределяются MOYSKLAD_DELIVERY_SERVICES (JSON: {"pochta": "Почта России"}) */
+const DELIVERY_SERVICES: Record<string, string> = {
+  "cdek-pvz": "СДЭК",
+  "cdek-door": "СДЭК",
+  pochta: "Почта",
+  "omsk-courier": "Доставка курьером по городу Омск",
+  pickup: "Самовывоз из шоурума",
+}
+export function deliveryServiceName(kind: string): string | null {
+  let custom: Record<string, string> = {}
+  try { custom = JSON.parse(process.env.MOYSKLAD_DELIVERY_SERVICES || "{}") } catch { /* неверный JSON — стандартные */ }
+  return custom[kind] ?? DELIVERY_SERVICES[kind] ?? null
 }
 
 /** По названию: точное совпадение, иначе содержит (без учёта регистра и пробелов) — «Партизанская» найдёт «Склад Партизанская» */
