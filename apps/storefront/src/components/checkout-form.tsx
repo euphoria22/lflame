@@ -89,7 +89,8 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
         return
       }
       clear()
-      router.push(`/order/confirmed?n=${data.order.number}`)
+      // Оплачен целиком подарочной картой — как онлайн-оплата: «Заказ оплачен»
+      router.push(`/order/confirmed?n=${data.order.number}${payment === "gift" ? "&paid=1" : ""}`)
     } catch {
       setError("Нет связи. Попробуйте ещё раз.")
     } finally {

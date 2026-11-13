@@ -69,6 +69,18 @@ export function arrival(iso: string | null | undefined): string {
 
 export type OrderMailKind = "placed" | "paid" | "shipped" | "delivered" | "canceled"
 
+/** Заказ с подарочной картой: полная сумма, сколько картой и сколько доплачено (или к оплате) */
+function giftLines(o: MailOrder, line: (label: string, value: string, strong?: boolean) => string): string {
+  const gift = o.gift_card_total ?? 0
+  const rest = Math.max(0, o.total)
+  const paid = o.payment_method === "tbank" || o.payment_method === "split"
+  return [
+    line("Итого", rub(rest + gift)),
+    line("Подарочная карта", `−${rub(gift)}`),
+    rest > 0 ? line(paid ? "Оплачено картой или СБП" : o.payment_method === "cod" ? "К оплате при получении" : "К оплате", rub(rest), true) : line("Оплачено подарочной картой", rub(gift), true),
+  ].join("\n")
+}
+
 function itemsTable(o: MailOrder): string {
   const rows = o.items.map((i) => `<tr><td style="padding:6px 0;font-size:14px">${esc(i.title)}<br><span style="color:#6e6e6e;font-size:12px">${esc(i.variant)} · ${i.quantity} шт.${i.preorder ? ` · предзаказ${arrival(i.preorder_date) ? `, поступление ~${arrival(i.preorder_date)}` : ""}` : ""}</span></td><td align="right" style="padding:6px 0;font-size:14px;white-space:nowrap">${rub(i.unit_price * i.quantity)}</td></tr>`).join("")
   const line = (label: string, value: string, strong = false) =>
@@ -78,8 +90,7 @@ function itemsTable(o: MailOrder): string {
 ${line("Товары", rub(o.item_total))}
 ${o.discount_total ? line(o.promo_code ? `Промокод ${esc(o.promo_code)}` : "Скидка", `−${rub(o.discount_total)}`) : ""}
 ${line("Доставка", o.shipping_total ? rub(o.shipping_total) : "бесплатно")}
-${o.gift_card_total ? line("Подарочная карта", `−${rub(o.gift_card_total)}`) : ""}
-${line(o.gift_card_total ? "Оплачено" : "Итого", rub(o.total), true)}</table>
+${o.gift_card_total ? giftLines(o, line) : line("Итого", rub(o.total), true)}</table>
 <p style="font-size:13px;color:#6e6e6e;margin:16px 0 0">${esc(o.shipping_name)}${o.address ? `<br>${esc(o.address)}` : ""}</p>`
 }
 
@@ -123,7 +134,11 @@ export function orderMail(kind: OrderMailKind, o: MailOrder): Mail {
     canceled: {
       subject: `Заказ ${n} отменён`,
       title: `Заказ ${n} отменён`,
-      text: paidOnline ? "Деньги вернутся на карту в течение нескольких дней — срок зависит от банка." : "Если это ошибка — ответьте на письмо или позвоните нам.",
+      text: [
+        o.gift_card_total ? `${rub(o.gift_card_total)}, оплаченные подарочной картой, вернули на карту — их можно потратить снова.` : null,
+        paidOnline && o.payment_method !== "gift" ? "Деньги вернутся на банковскую карту в течение нескольких дней — срок зависит от банка." : null,
+        !paidOnline && !o.gift_card_total ? "Если это ошибка — ответьте на письмо или позвоните нам." : null,
+      ].filter(Boolean).join(" "),
       withItems: false,
     },
   }
