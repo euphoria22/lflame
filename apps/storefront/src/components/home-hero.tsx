@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { preload } from "react-dom"
 
 import type { HomeHero } from "@/lib/blog"
 import { GENDERS, routes } from "@/lib/routes"
@@ -37,11 +38,15 @@ export function HomeHeroBlock({ hero, picks }: { hero: HomeHero | null; picks: R
   const buttons = hero.buttons.length ? hero.buttons : GENDERS.map((g) => ({ label: g.name, link: routes.gender(g.slug) }))
   const light = hero.textColor === "light"
   const pos = { top: "object-[50%_15%]", center: "object-center", bottom: "object-[50%_85%]" }[hero.focus]
+  // Видео: обложка — первое, что видно на экране (LCP), грузим её раньше всего остального;
+  // фото под видео тогда не нужно — иначе телефон качает две картинки
+  const video = hero.video && hero.video.type !== "image/gif" ? hero.video : null
+  if (video) preload(hero.image.url, { as: "image", fetchPriority: "high" })
   return (
     <section className="px-2 md:px-4">
       <div className="relative h-[min(78vh,640px)] min-h-[440px] overflow-hidden rounded-[28px] bg-surface md:h-[min(64vh,640px)]">
         {/* Отдельное фото для телефона, если загружено */}
-        {hero.imageMobile ? (
+        {video ? null : hero.imageMobile ? (
           <>
             <Image src={hero.imageMobile.url} alt={hero.imageMobile.alt || hero.title || ""} fill priority sizes="100vw" className="object-cover md:hidden" />
             <Image src={hero.image.url} alt={hero.image.alt || hero.title || ""} fill priority sizes="100vw" className={`hidden object-cover md:block ${pos}`} />

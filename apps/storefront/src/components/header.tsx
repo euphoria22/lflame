@@ -21,7 +21,7 @@ function MenuTile({ tile }: { tile: NavTile }) {
     <Link href={tile.href} className="group/tile block min-w-0 max-w-[240px] flex-1">
       <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface">
         {/* Фото меню грузятся заранее — при открытии панели ничего не «проявляется» */}
-        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="240px" loading="eager" className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.03]" />}
+        {tile.image && <Image src={tile.image} alt={tile.label} fill sizes="240px" loading="eager" fetchPriority="low" className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.03]" />}
       </span>
       <span className="eyebrow mt-2 block text-center">{tile.label}</span>
     </Link>
