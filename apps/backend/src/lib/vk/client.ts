@@ -6,8 +6,35 @@
 const API = "https://api.vk.com/method"
 const VERSION = "5.199"
 
-export const vkGroupId = () => (process.env.VK_GROUP_ID ?? "").trim().replace(/^-/, "").replace(/^club/, "") || null
-export const vkConfigured = () => Boolean(vkGroupId() && process.env.VK_ACCESS_TOKEN?.trim())
+/**
+ * VK_GROUP_ID — номер сообщества (123456, -123456, club123456) или его короткое имя / ссылка (laflammeru, https://vk.ru/laflammeru).
+ * Имя превращается в номер запросом к ВКонтакте один раз (ensureVkGroupId) и запоминается.
+ */
+const rawGroup = () => (process.env.VK_GROUP_ID ?? "").trim().replace(/^https?:\/\/(m\.)?vk\.(com|ru)\//i, "").replace(/\/+$/, "").replace(/^-/, "")
+let resolved: { raw: string; id: string } | null = null
+
+/** Номер сообщества (цифры); для короткого имени — после ensureVkGroupId, до этого null */
+export const vkGroupId = (): string | null => {
+  const raw = rawGroup()
+  if (!raw) return null
+  const num = raw.replace(/^(club|public|event)(?=\d+$)/, "")
+  if (/^\d+$/.test(num)) return num
+  return resolved?.raw === raw ? resolved.id : null
+}
+export const vkConfigured = () => Boolean(rawGroup() && process.env.VK_ACCESS_TOKEN?.trim())
+
+/** Узнать номер сообщества по короткому имени (laflammeru) — один раз */
+export async function ensureVkGroupId(): Promise<string> {
+  const known = vkGroupId()
+  if (known) return known
+  const raw = rawGroup()
+  if (!raw) throw new Error("ВКонтакте не настроен: нет VK_GROUP_ID в настройках сервера")
+  const r = await vkApi<{ groups?: { id: number }[] } | { id: number }[]>("groups.getById", { group_id: raw })
+  const id = (Array.isArray(r) ? r : r.groups ?? [])[0]?.id
+  if (!id) throw new Error(`ВКонтакте: сообщество «${raw}» не найдено`)
+  resolved = { raw, id: String(id) }
+  return resolved.id
+}
 
 export class VkError extends Error {
   constructor(message: string, readonly code: number) {
@@ -48,8 +75,7 @@ type Saved = { id: number; owner_id: number; access_key?: string }[]
 
 /** Загрузить фото на стену сообщества (по одному: так требует ВКонтакте). Возвращает вложения photo<владелец>_<id> */
 export async function uploadWallPhotos(files: Blob[]): Promise<string[]> {
-  const group = vkGroupId()
-  if (!group) throw new Error("ВКонтакте не настроен: нет VK_GROUP_ID в настройках сервера")
+  const group = await ensureVkGroupId()
   const out: string[] = []
   for (const [i, file] of files.entries()) {
     const { upload_url } = await vkApi<UploadServer>("photos.getWallUploadServer", { group_id: group })

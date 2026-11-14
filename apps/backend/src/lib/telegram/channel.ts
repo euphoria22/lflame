@@ -4,7 +4,7 @@ import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { loadCatalogItems, loadCatalogProduct } from "../catalog/store-catalog"
 import { activeAutoPromos, autoPrice, promoProducts } from "../promotions/auto-price"
 import { telegramApi, TelegramError } from "../notify/telegram"
-import { uploadWallPhotos, vkApi, vkConfigured, vkGroupId, vkPostLink } from "../vk/client"
+import { ensureVkGroupId, uploadWallPhotos, vkApi, vkConfigured, vkGroupId, vkPostLink } from "../vk/client"
 import { buildVkText } from "../vk/post"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
@@ -130,9 +130,10 @@ async function publishVk(container: MedusaContainer, productId: string): Promise
   const urls = postPhotos(p.images, site())
   const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, p.images[i] ?? u)))).filter((b): b is Blob => b !== null)
   if (!files.length) throw new Error("Не удалось скачать фото товара")
+  const group = await ensureVkGroupId()
   const att = (await uploadWallPhotos(files)).join(",")
   if (!att) throw new Error("ВКонтакте не принял фото")
-  const r = await vkApi<{ post_id: number }>("wall.post", { owner_id: `-${vkGroupId()}`, from_group: 1, message: buildVkText(p, { site: site(), contact: contact() }), attachments: att })
+  const r = await vkApi<{ post_id: number }>("wall.post", { owner_id: `-${group}`, from_group: 1, message: buildVkText(p, { site: site(), contact: contact() }), attachments: att })
   const vk = tgMetaOf(row.metadata, "vk")
   await saveTg(container, productId, { posts: [...vk.posts, { id: r.post_id, at: new Date().toISOString(), att }], state: postState(p) }, "vk")
   return { id: r.post_id, link: vkPostLink(r.post_id) }
@@ -176,6 +177,7 @@ export async function refreshPosts(container: MedusaContainer, log: Logger): Pro
 
 async function refreshNet(container: MedusaContainer, log: Logger, net: Net): Promise<number> {
   const chat = channelId()
+  if (net === "vk") await ensureVkGroupId()
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "product", fields: ["id", "handle", "metadata"], pagination: { take: 100000 } })
   const posted = (data as { id: string; handle: string; metadata: Record<string, unknown> | null }[])
@@ -234,6 +236,8 @@ export type Overview = {
 const DAY = 86_400_000
 
 export async function telegramOverview(container: MedusaContainer, net: Net = "tg"): Promise<Overview> {
+  // Номер сообщества по короткому имени — для ссылок на посты
+  if (net === "vk" && vkConfigured()) await ensureVkGroupId().catch(() => null)
   const items = await loadCatalogItems(container)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "product", fields: ["id", "metadata", "description"], filters: { id: items.map((i) => i.id) }, pagination: { take: 100000 } })
@@ -289,7 +293,7 @@ export async function telegramOverview(container: MedusaContainer, net: Net = "t
   return {
     net,
     configured: net === "vk"
-      ? { channel: vkGroupId() ? `vk.com/club${vkGroupId()}` : null, token: Boolean(process.env.VK_ACCESS_TOKEN?.trim()) }
+      ? { channel: process.env.VK_GROUP_ID?.trim() ? `vk.com/${vkGroupId() ? `club${vkGroupId()}` : process.env.VK_GROUP_ID.trim().replace(/^.*\//, "")}` : null, token: Boolean(process.env.VK_ACCESS_TOKEN?.trim()) }
       : { channel: chat, token: Boolean(process.env.TELEGRAM_BOT_TOKEN) },
     totals: { products: rows.length, posted, never: rows.length - posted, posts: allPosts.length, last7: since(7), last30: since(30) },
     rows,

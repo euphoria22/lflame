@@ -1,5 +1,5 @@
 import { buildVkText } from "../post"
-import { vkPostLink } from "../client"
+import { vkConfigured, vkGroupId, vkPostLink } from "../client"
 
 const p = {
   handle: "puhovik-ck", title: "Пуховик Calvin Klein Nylon Puffer Black", price: 17990, compare_at: 45990, promo: null,
@@ -39,5 +39,11 @@ describe("пост во ВКонтакте", () => {
     expect(vkPostLink(42)).toBe("https://vk.com/wall-123456_42")
     process.env.VK_GROUP_ID = "club777"
     expect(vkPostLink(1)).toBe("https://vk.com/wall-777_1")
+    // Короткое имя: номер станет известен после запроса к ВКонтакте
+    process.env.VK_GROUP_ID = "https://vk.ru/laflammeru"
+    expect(vkGroupId()).toBeNull()
+    expect(vkConfigured()).toBe(false)
+    process.env.VK_ACCESS_TOKEN = "x"
+    expect(vkConfigured()).toBe(true)
   })
 })
