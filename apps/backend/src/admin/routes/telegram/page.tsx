@@ -32,7 +32,7 @@ const lastAt = (r: Row) => (r.posts.length ? r.posts[r.posts.length - 1].at : ""
 const slot = (iso: string, tz: string) => new Date(iso).toLocaleString("ru-RU", { timeZone: tz, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
 
 /** Расписание: с — до (время магазина), интервал, рекомендации при пустой очереди, пауза */
-const ScheduleBlock = ({ value, onSaved }: { value: Schedule; onSaved: () => Promise<void> }) => {
+const ScheduleBlock = ({ value, onSaved, net }: { value: Schedule; onSaved: () => Promise<void>; net: Net }) => {
   const [v, setV] = useState(value)
   const [saving, setSaving] = useState(false)
   useEffect(() => { setV(value) }, [value])
@@ -44,7 +44,7 @@ const ScheduleBlock = ({ value, onSaved }: { value: Schedule; onSaved: () => Pro
   const save = async () => {
     setSaving(true)
     try {
-      const r = await fetch("/admin/telegram/schedule", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(v) })
+      const r = await fetch("/admin/telegram/schedule", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...v, net }) })
       const d = (await r.json().catch(() => ({}))) as { message?: string }
       if (!r.ok) throw new Error(d.message ?? "Не сохранилось")
       toast.success("Расписание сохранено")
@@ -89,10 +89,18 @@ const ScheduleBlock = ({ value, onSaved }: { value: Schedule; onSaved: () => Pro
 }
 
 /**
- * «Telegram»: посты о товарах в канале магазина. Сколько раз и когда выкладывали каждый товар,
+ * «Соцсети»: посты о товарах в Telegram-канале и сообществе ВКонтакте. Сколько раз и когда выкладывали каждый товар,
  * какие ещё ни разу, и подсказки, что выложить сейчас (новинки, сезон, скидки, давно не было).
  */
+type Net = "tg" | "vk"
+const NET_NAME: Record<Net, string> = { tg: "Telegram", vk: "ВКонтакте" }
+const NET_KEY = "lf-social-net"
+
 const TelegramPage = () => {
+  const [net, setNetState] = useState<Net>(() => {
+    try { return localStorage.getItem(NET_KEY) === "vk" ? "vk" : "tg" } catch { return "tg" }
+  })
+  const setNet = (n: Net) => { setNetState(n); setData(null); setSelected(new Set()); try { localStorage.setItem(NET_KEY, n) } catch { /* не важно */ } }
   const [data, setData] = useState<Overview | null>(null)
   const [view, setView] = useState("rec")
   const [q, setQ] = useState("")
@@ -101,10 +109,10 @@ const TelegramPage = () => {
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const r = await fetch("/admin/telegram", { credentials: "include" })
+    const r = await fetch(`/admin/telegram?net=${net}`, { credentials: "include" })
     if (!r.ok) throw new Error("Не удалось загрузить данные")
     setData((await r.json()) as Overview)
-  }, [])
+  }, [net])
   useEffect(() => { load().catch((e) => toast.error((e as Error).message)) }, [load])
   useEffect(() => { setPage(0) }, [view, q])
 
@@ -121,7 +129,7 @@ const TelegramPage = () => {
   const shown = list.slice(page * PAGE, (page + 1) * PAGE)
 
   const call = async (url: string, body: unknown) => {
-    const r = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    const r = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(body as object), net }) })
     const d = (await r.json().catch(() => ({}))) as { message?: string; link?: string | null }
     if (!r.ok) throw new Error(d.message ?? "Не получилось")
     return d
@@ -133,10 +141,10 @@ const TelegramPage = () => {
 
   /** Сразу, вне расписания */
   const publishNow = (id: string) => {
-    if (!window.confirm("Выложить товар в канал прямо сейчас, вне расписания?")) return
+    if (!window.confirm(`Выложить товар в ${net === "vk" ? "сообщество ВКонтакте" : "Telegram-канал"} прямо сейчас, вне расписания?`)) return
     run(id, async () => {
       const d = await call("/admin/telegram/publish", { id })
-      toast.success("Выложено в канал")
+      toast.success(net === "vk" ? "Выложено во ВКонтакте" : "Выложено в канал")
       if (d.link) window.open(d.link, "_blank", "noopener")
     })
   }
@@ -156,14 +164,25 @@ const TelegramPage = () => {
   return (
     <div className="flex flex-col gap-y-3">
       <Container className="px-6 py-4">
-        <Heading level="h1">Telegram</Heading>
-        <Text size="small" className="text-ui-fg-subtle">
-          Посты о товарах в канале{data?.configured.channel ? ` ${data.configured.channel}` : ""}: альбом с фото, цена, размеры в наличии, описание и ссылка на сайт.
-          Посты выходят по расписанию из очереди. Когда меняется цена или продаётся размер, подпись в уже выложенном посте обновляется сама (раз в 10 минут).
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Heading level="h1">Соцсети</Heading>
+          <div className="flex gap-1 rounded-lg bg-ui-bg-subtle p-1">
+            {(["tg", "vk"] as Net[]).map((n) => (
+              <Button key={n} size="small" variant={net === n ? "primary" : "transparent"} onClick={() => net !== n && setNet(n)}>{NET_NAME[n]}</Button>
+            ))}
+          </div>
+        </div>
+        <Text size="small" className="mt-1 text-ui-fg-subtle">
+          {net === "vk"
+            ? <>Посты о товарах в сообществе ВКонтакте{data?.configured.channel ? ` ${data.configured.channel}` : ""}: фото, цена, размеры в наличии, описание и ссылка на сайт (без жирного шрифта — ВКонтакте его не поддерживает).</>
+            : <>Посты о товарах в канале{data?.configured.channel ? ` ${data.configured.channel}` : ""}: альбом с фото, цена, размеры в наличии, описание и ссылка на сайт.</>}
+          {" "}У каждой соцсети своя очередь, расписание и история. Когда меняется цена или продаётся размер, текст в уже выложенном посте обновляется сам (раз в 10 минут).
         </Text>
         {notReady && (
           <Text size="small" className="mt-2 text-ui-fg-error">
-            Канал не настроен: на сервере нужны TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL_ID, а бот — администратор канала.
+            {net === "vk"
+              ? "ВКонтакте не настроен: на сервере нужны VK_GROUP_ID (номер сообщества) и VK_ACCESS_TOKEN (ключ владельца сообщества)."
+              : "Канал не настроен: на сервере нужны TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL_ID, а бот — администратор канала."}
           </Text>
         )}
         {t && (
@@ -184,7 +203,7 @@ const TelegramPage = () => {
         )}
       </Container>
 
-      {data && <ScheduleBlock value={data.queue.schedule} onSaved={load} />}
+      {data && <ScheduleBlock value={data.queue.schedule} onSaved={load} net={net} />}
 
       {data && (
         <Container className="p-0">
@@ -247,7 +266,7 @@ const TelegramPage = () => {
           <Text size="small" className="px-6 pb-3 text-ui-fg-subtle">
             Сверху — что выложить следующим. Основа — балл товара из умной сортировки каталога (новизна, продажи, интерес, размеры, сезон, маржа, ручные правила).
             К нему добавляются большой остаток, спрос раздела и давность поста. Порядок вперемешку: бренды, разделы и цвета одной модели не идут подряд.
-            Не предлагаем: нет в наличии, нет фото, недавно выкладывали. Веса и интервалы — в разделе «Сортировка» → «Настройки» → «Рекомендации постов в Telegram».
+            Не предлагаем: нет в наличии, нет фото, недавно выкладывали. Веса и интервалы — в разделе «Сортировка» → «Настройки» → «Рекомендации постов в Telegram» (общие для обеих соцсетей).
           </Text>
         )}
 
@@ -326,6 +345,6 @@ const TelegramPage = () => {
   )
 }
 
-export const config = defineRouteConfig({ label: "Telegram", icon: PaperPlane })
+export const config = defineRouteConfig({ label: "Соцсети", icon: PaperPlane })
 
 export default TelegramPage

@@ -6,8 +6,9 @@ import type { TelegramRecConfig } from "../sort/config"
  * Здесь только расчёты без обращений к Telegram и базе — их проверяют тесты.
  */
 
-/** Опубликованный пост: номер первого сообщения альбома (к нему подпись) и время */
-export type TgPost = { id: number; at: string }
+/** Опубликованный пост: номер (Telegram — первое сообщение альбома, к нему подпись; ВКонтакте — номер записи) и время.
+ * att — вложения поста ВКонтакте (фото): при правке текста их нужно передать снова */
+export type TgPost = { id: number; at: string; att?: string }
 /** Хранится в metadata товара: все посты и «отпечаток» цены и размеров на момент последнего обновления подписи */
 export type TgMeta = { posts: TgPost[]; state?: string }
 
@@ -32,9 +33,12 @@ export type PostProduct = {
 export const CAPTION_LIMIT = 1024
 const MAX_PHOTOS = 10
 
-export const tgMetaOf = (meta: Record<string, unknown> | null | undefined): TgMeta => {
-  const t = meta?.tg as Partial<TgMeta> | undefined
-  const posts = Array.isArray(t?.posts) ? t.posts.filter((p): p is TgPost => typeof p?.id === "number" && typeof p?.at === "string") : []
+/** История постов товара в сети: metadata.tg — Telegram, metadata.vk — ВКонтакте */
+export const tgMetaOf = (meta: Record<string, unknown> | null | undefined, key: "tg" | "vk" = "tg"): TgMeta => {
+  const t = meta?.[key] as Partial<TgMeta> | undefined
+  const posts = Array.isArray(t?.posts)
+    ? t.posts.filter((p): p is TgPost => typeof p?.id === "number" && typeof p?.at === "string").map((p) => ({ id: p.id, at: p.at, ...(typeof p.att === "string" ? { att: p.att } : {}) }))
+    : []
   return { posts, state: typeof t?.state === "string" ? t.state : undefined }
 }
 

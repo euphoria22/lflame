@@ -4,6 +4,8 @@ import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { loadCatalogItems, loadCatalogProduct } from "../catalog/store-catalog"
 import { activeAutoPromos, autoPrice, promoProducts } from "../promotions/auto-price"
 import { telegramApi, TelegramError } from "../notify/telegram"
+import { uploadWallPhotos, vkApi, vkConfigured, vkGroupId, vkPostLink } from "../vk/client"
+import { buildVkText } from "../vk/post"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
 import { modelKeys } from "../catalog/model-key"
@@ -21,6 +23,14 @@ import { BaseScore, buildCaption, categoryDemand, mixOrder, postLink, postPhotos
 export const channelId = () => process.env.TELEGRAM_CHANNEL_ID?.trim() || null
 const contact = () => process.env.TELEGRAM_ORDER_CONTACT?.trim() || "@laflammehelp"
 
+/** Соцсеть: tg — Telegram-канал, vk — сообщество ВКонтакте. У каждой своя очередь, расписание и история постов в товаре */
+export type Net = "tg" | "vk"
+export const NETS: Net[] = ["tg", "vk"]
+export const NET_NAME: Record<Net, string> = { tg: "Telegram", vk: "ВКонтакте" }
+export const asNet = (v: unknown): Net => (v === "vk" ? "vk" : "tg")
+export const netConfigured = (net: Net) => (net === "vk" ? vkConfigured() : Boolean(channelId() && process.env.TELEGRAM_BOT_TOKEN))
+export const postUrl = (net: Net, id: number) => (net === "vk" ? vkPostLink(id) : channelId() ? postLink(channelId()!, id) : null)
+
 type Logger = { info: (m: string) => void; warn: (m: string) => void }
 
 async function readMeta(container: MedusaContainer, id: string) {
@@ -29,10 +39,10 @@ async function readMeta(container: MedusaContainer, id: string) {
   return data[0] as { id: string; handle: string; metadata: Record<string, unknown> | null } | undefined
 }
 
-async function saveTg(container: MedusaContainer, id: string, tg: TgMeta) {
+async function saveTg(container: MedusaContainer, id: string, tg: TgMeta, net: Net = "tg") {
   const row = await readMeta(container, id)
   if (!row) return
-  await updateProductsWorkflow(container).run({ input: { products: [{ id, metadata: { ...(row.metadata ?? {}), tg } }] } })
+  await updateProductsWorkflow(container).run({ input: { products: [{ id, metadata: { ...(row.metadata ?? {}), [net]: tg } }] } })
 }
 
 /** Цены по действующим автоматическим акциям для товаров (id → цена акции) */
@@ -75,7 +85,7 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
  * Фото скачиваем сами (сжатые сайтом, 1080 px, JPEG; не вышло — оригинал) и загружаем в Telegram файлами:
  * по ссылке Telegram из-за границы не всегда может скачать фото с российского сервера (WEBPAGE_CURL_FAILED).
  */
-async function downloadPhoto(url: string, original: string): Promise<Blob | null> {
+export async function downloadPhoto(url: string, original: string): Promise<Blob | null> {
   for (const u of [url, original]) {
     try {
       const r = await fetch(u, { headers: { Accept: "image/jpeg,image/png;q=0.9" }, signal: AbortSignal.timeout(40_000) })
@@ -109,8 +119,28 @@ export async function sendAlbum(chat: string, photos: string[], originals: strin
   return withRetry(() => telegramApi<{ message_id: number }[]>("sendMediaGroup", form))
 }
 
-/** Выложить товар в канал альбомом с подписью. Возвращает ссылку на пост (для публичного канала). */
-export async function publishProduct(container: MedusaContainer, productId: string): Promise<{ id: number; link: string | null }> {
+/** Выложить товар во ВКонтакте: фото загружаются файлами, текст без разметки */
+async function publishVk(container: MedusaContainer, productId: string): Promise<{ id: number; link: string | null }> {
+  if (!vkConfigured()) throw new Error("ВКонтакте не настроен: VK_GROUP_ID и VK_ACCESS_TOKEN в настройках сервера")
+  const row = await readMeta(container, productId)
+  if (!row) throw new Error("Товар не найден")
+  const p = await postProduct(container, row.handle)
+  if (!p) throw new Error("Товар не опубликован на сайте")
+  if (!p.images.length) throw new Error("У товара нет фото")
+  const urls = postPhotos(p.images, site())
+  const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, p.images[i] ?? u)))).filter((b): b is Blob => b !== null)
+  if (!files.length) throw new Error("Не удалось скачать фото товара")
+  const att = (await uploadWallPhotos(files)).join(",")
+  if (!att) throw new Error("ВКонтакте не принял фото")
+  const r = await vkApi<{ post_id: number }>("wall.post", { owner_id: `-${vkGroupId()}`, from_group: 1, message: buildVkText(p, { site: site(), contact: contact() }), attachments: att })
+  const vk = tgMetaOf(row.metadata, "vk")
+  await saveTg(container, productId, { posts: [...vk.posts, { id: r.post_id, at: new Date().toISOString(), att }], state: postState(p) }, "vk")
+  return { id: r.post_id, link: vkPostLink(r.post_id) }
+}
+
+/** Выложить товар в канал альбомом с подписью (Telegram) или постом сообщества (ВКонтакте). Возвращает ссылку на пост. */
+export async function publishProduct(container: MedusaContainer, productId: string, net: Net = "tg"): Promise<{ id: number; link: string | null }> {
+  if (net === "vk") return publishVk(container, productId)
   const chat = channelId()
   if (!chat) throw new Error("Не задан канал: TELEGRAM_CHANNEL_ID в настройках сервера")
   const row = await readMeta(container, productId)
@@ -129,15 +159,27 @@ export async function publishProduct(container: MedusaContainer, productId: stri
 
 /**
  * Обновить подписи опубликованных постов, если цена или размеры изменились (раз в 10 минут после сверки остатков).
- * Удалённый вручную пост забываем.
+ * Удалённый вручную пост забываем. Telegram и ВКонтакте — по отдельности.
  */
 export async function refreshPosts(container: MedusaContainer, log: Logger): Promise<number> {
+  let edited = 0
+  for (const net of NETS) {
+    if (!netConfigured(net)) continue
+    try {
+      edited += await refreshNet(container, log, net)
+    } catch (e) {
+      log.warn(`${NET_NAME[net]}: подписи постов не обновлены: ${(e as Error).message}`)
+    }
+  }
+  return edited
+}
+
+async function refreshNet(container: MedusaContainer, log: Logger, net: Net): Promise<number> {
   const chat = channelId()
-  if (!chat || !process.env.TELEGRAM_BOT_TOKEN) return 0
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "product", fields: ["id", "handle", "metadata"], pagination: { take: 100000 } })
   const posted = (data as { id: string; handle: string; metadata: Record<string, unknown> | null }[])
-    .map((r) => ({ ...r, tg: tgMetaOf(r.metadata) }))
+    .map((r) => ({ ...r, tg: tgMetaOf(r.metadata, net) }))
     .filter((r) => r.tg.posts.length)
   if (!posted.length) return 0
   // Цена и размеры всех товаров — одним запросом; полную карточку грузим, только если что-то изменилось
@@ -153,22 +195,27 @@ export async function refreshPosts(container: MedusaContainer, log: Logger): Pro
     if (state === r.tg.state) continue
     const product = await postProduct(container, r.handle)
     if (!product) continue
-    const caption = buildCaption(product, { site: site(), contact: contact() })
     const alive: typeof r.tg.posts = []
     for (const post of r.tg.posts) {
       try {
-        await withRetry(() => telegramApi("editMessageCaption", { chat_id: chat, message_id: post.id, caption, parse_mode: "HTML" }))
+        if (net === "vk") {
+          // Вложения передаём снова: без них ВКонтакте уберёт фото из поста
+          await vkApi("wall.edit", { owner_id: `-${vkGroupId()}`, post_id: post.id, message: buildVkText(product, { site: site(), contact: contact() }), attachments: post.att })
+        } else {
+          const caption = buildCaption(product, { site: site(), contact: contact() })
+          await withRetry(() => telegramApi("editMessageCaption", { chat_id: chat, message_id: post.id, caption, parse_mode: "HTML" }))
+        }
         alive.push(post)
         edited++
       } catch (e) {
         const msg = (e as Error).message
         if (/not modified/i.test(msg)) alive.push(post)
-        else if (/not found|can't be edited/i.test(msg)) log.info(`Telegram: пост ${post.id} удалён из канала — больше не обновляем`)
-        else { log.warn(`Telegram: не обновилась подпись поста ${post.id}: ${msg}`); alive.push(post) }
+        else if (/not found|can't be edited|post was deleted|access denied|код 100/i.test(msg)) log.info(`${NET_NAME[net]}: пост ${post.id} удалён — больше не обновляем`)
+        else { log.warn(`${NET_NAME[net]}: не обновилась подпись поста ${post.id}: ${msg}`); alive.push(post) }
       }
       await new Promise((res) => setTimeout(res, 1500))
     }
-    await saveTg(container, r.id, { posts: alive, state })
+    await saveTg(container, r.id, { posts: alive, state }, net)
   }
   return edited
 }
@@ -179,17 +226,18 @@ export type OverviewRow = RecItem & { link: string | null; recommendation: Recom
 
 export type Overview = {
   configured: { channel: string | null; token: boolean }
+  net: Net
   totals: { products: number; posted: number; never: number; posts: number; last7: number; last30: number }
   rows: OverviewRow[]
 }
 
 const DAY = 86_400_000
 
-export async function telegramOverview(container: MedusaContainer): Promise<Overview> {
+export async function telegramOverview(container: MedusaContainer, net: Net = "tg"): Promise<Overview> {
   const items = await loadCatalogItems(container)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "product", fields: ["id", "metadata", "description"], filters: { id: items.map((i) => i.id) }, pagination: { take: 100000 } })
-  const metaById = new Map((data as { id: string; metadata: Record<string, unknown> | null }[]).map((r) => [r.id, tgMetaOf(r.metadata)]))
+  const metaById = new Map((data as { id: string; metadata: Record<string, unknown> | null }[]).map((r) => [r.id, tgMetaOf(r.metadata, net)]))
 
   const now = new Date()
   const chat = channelId()
@@ -223,7 +271,7 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
     const last = posts.at(-1)
     return {
       ...rec,
-      link: last && chat ? postLink(chat, last.id) : null,
+      link: last ? postUrl(net, last.id) : null,
       recommendation: recommend({ ...rec, category_handle: i.category?.handle ?? null, base: base.get(i.id) ?? null }, { now, recentBrands, demand, tg: config.telegram, maxScore }),
     }
   })
@@ -239,7 +287,10 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
   const since = (d: number) => allPosts.filter((p) => now.getTime() - Date.parse(p.at) < d * DAY).length
   const posted = rows.filter((r) => r.posts.length).length
   return {
-    configured: { channel: chat, token: Boolean(process.env.TELEGRAM_BOT_TOKEN) },
+    net,
+    configured: net === "vk"
+      ? { channel: vkGroupId() ? `vk.com/club${vkGroupId()}` : null, token: Boolean(process.env.VK_ACCESS_TOKEN?.trim()) }
+      : { channel: chat, token: Boolean(process.env.TELEGRAM_BOT_TOKEN) },
     totals: { products: rows.length, posted, never: rows.length - posted, posts: allPosts.length, last7: since(7), last30: since(30) },
     rows,
   }
@@ -255,10 +306,14 @@ async function store(container: MedusaContainer) {
   return stores[0]
 }
 
-export async function readQueue(container: MedusaContainer): Promise<TgQueueState> {
-  const raw = ((await store(container)).metadata?.tg_queue ?? {}) as Partial<TgQueueState>
+/** ВКонтакте по умолчанию реже: раз в 2 часа (алгоритмы ленты не любят частые посты) */
+export const defaultSchedule = (net: Net): TgSchedule => (net === "vk" ? { ...DEFAULT_SCHEDULE, every: 120 } : DEFAULT_SCHEDULE)
+const queueKey = (net: Net) => (net === "vk" ? "vk_queue" : "tg_queue")
+
+export async function readQueue(container: MedusaContainer, net: Net = "tg"): Promise<TgQueueState> {
+  const raw = ((await store(container)).metadata?.[queueKey(net)] ?? {}) as Partial<TgQueueState>
   return {
-    schedule: validateSchedule(raw.schedule ?? {}).value ?? DEFAULT_SCHEDULE,
+    schedule: raw.schedule ? validateSchedule(raw.schedule).value ?? defaultSchedule(net) : defaultSchedule(net),
     items: Array.isArray(raw.items) ? raw.items.filter((x): x is string => typeof x === "string") : [],
     last_at: raw.last_at ?? null,
     last_error: raw.last_error ?? null,
@@ -266,42 +321,42 @@ export async function readQueue(container: MedusaContainer): Promise<TgQueueStat
 }
 
 /** Изменить очередь: читаем свежую версию прямо перед записью, остальные данные магазина не трогаем */
-export async function updateQueue(container: MedusaContainer, fn: (q: TgQueueState) => TgQueueState): Promise<TgQueueState> {
+export async function updateQueue(container: MedusaContainer, fn: (q: TgQueueState) => TgQueueState, net: Net = "tg"): Promise<TgQueueState> {
   const s = await store(container)
-  const next = fn(await readQueue(container))
+  const next = fn(await readQueue(container, net))
   const fresh = await store(container)
-  await container.resolve(Modules.STORE).updateStores(s.id, { metadata: { ...(fresh.metadata ?? {}), tg_queue: next } })
+  await container.resolve(Modules.STORE).updateStores(s.id, { metadata: { ...(fresh.metadata ?? {}), [queueKey(net)]: next } })
   return next
 }
 
-export const addToQueue = (container: MedusaContainer, ids: string[]) =>
-  updateQueue(container, (q) => ({ ...q, items: [...q.items, ...ids.filter((id) => !q.items.includes(id))] }))
+export const addToQueue = (container: MedusaContainer, ids: string[], net: Net = "tg") =>
+  updateQueue(container, (q) => ({ ...q, items: [...q.items, ...ids.filter((id) => !q.items.includes(id))] }), net)
 
-let ticking = false
+const ticking: Record<Net, boolean> = { tg: false, vk: false }
 
 /** Раз в минуту: наступил слот — выложить первый товар очереди (или лучшую рекомендацию, если включено). */
-export async function queueTick(container: MedusaContainer, log: Logger, now = new Date()): Promise<void> {
-  if (ticking || !channelId() || !process.env.TELEGRAM_BOT_TOKEN) return
-  ticking = true
+export async function queueTick(container: MedusaContainer, log: Logger, now = new Date(), net: Net = "tg"): Promise<void> {
+  if (ticking[net] || !netConfigured(net)) return
+  ticking[net] = true
   try {
-    const q = await readQueue(container)
+    const q = await readQueue(container, net)
     const slot = dueSlot(q.schedule, now, q.last_at)
     if (!slot) return
     let id: string | null = q.items[0] ?? null
     let fromQueue = Boolean(id)
     if (!id && q.schedule.auto) {
-      const best = (await telegramOverview(container)).rows.find((r) => r.recommendation?.order === 1)
+      const best = (await telegramOverview(container, net)).rows.find((r) => r.recommendation?.order === 1)
       id = best?.id ?? null
       fromQueue = false
     }
     if (!id) return
     let error: string | null = null
     try {
-      const r = await publishProduct(container, id)
-      log.info(`Telegram: по расписанию выложен товар ${id} (пост ${r.id})`)
+      const r = await publishProduct(container, id, net)
+      log.info(`${NET_NAME[net]}: по расписанию выложен товар ${id} (пост ${r.id})`)
     } catch (e) {
       error = `${new Date().toLocaleString("ru-RU", { timeZone: q.schedule.tz })}: ${(e as Error).message}`
-      log.warn(`Telegram: товар ${id} не выложен: ${(e as Error).message}`)
+      log.warn(`${NET_NAME[net]}: товар ${id} не выложен: ${(e as Error).message}`)
     }
     // Слот отработан в любом случае: неудачный товар убираем из очереди, чтобы он не блокировал остальные
     await updateQueue(container, (cur) => ({
@@ -309,8 +364,8 @@ export async function queueTick(container: MedusaContainer, log: Logger, now = n
       items: fromQueue ? cur.items.filter((x) => x !== id) : cur.items,
       last_at: now.toISOString(),
       last_error: error ?? cur.last_error,
-    }))
+    }), net)
   } finally {
-    ticking = false
+    ticking[net] = false
   }
 }

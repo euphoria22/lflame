@@ -1,7 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { updateQueue } from "../../../../lib/telegram/channel"
+import { asNet, updateQueue } from "../../../../lib/telegram/channel"
 
-type Body = { add?: string[]; remove?: string[]; move?: { id: string; to: "up" | "down" | "top" }; clear?: boolean }
+type Body = { net?: string; add?: string[]; remove?: string[]; move?: { id: string; to: "up" | "down" | "top" }; clear?: boolean }
 const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [])
 
 /** Очередь постов: добавить товары в конец, убрать, поднять или опустить, очистить. */
@@ -20,6 +20,6 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
       items.splice(j, 0, move.id)
     }
     return { ...cur, items }
-  })
+  }, asNet(req.body?.net))
   res.json({ items: q.items })
 }

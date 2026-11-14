@@ -1,10 +1,12 @@
 import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { queueTick } from "../lib/telegram/channel"
+import { NETS, queueTick } from "../lib/telegram/channel"
 
-/** Посты в Telegram по расписанию (окно и интервал — на странице «Telegram» в админке). */
+/** Посты в Telegram и ВКонтакте по расписанию (у каждой сети своё окно и интервал — на странице «Telegram» в админке). */
 export default async function telegramQueueJob(container: MedusaContainer) {
-  await queueTick(container, container.resolve(ContainerRegistrationKeys.LOGGER))
+  const log = container.resolve(ContainerRegistrationKeys.LOGGER)
+  const now = new Date()
+  for (const net of NETS) await queueTick(container, log, now, net)
 }
 
 export const config = {
