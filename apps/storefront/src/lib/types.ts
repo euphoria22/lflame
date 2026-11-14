@@ -7,6 +7,8 @@ export type CatalogItem = {
   title: string
   brand: Ref | null
   category: Ref | null
+  /** Подраздел большого раздела: «Худи» / «Свитшоты», «Футболки» / «Лонгсливы»… — определяется на сервере по названию товара */
+  subtype?: { slug: string; name: string } | null
   gender: "men" | "women" | "unisex" | string
   color: string | null
   color_name: string | null

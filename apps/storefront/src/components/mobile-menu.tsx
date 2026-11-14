@@ -48,8 +48,8 @@ export function MobileMenu({ nav }: { nav: { genders: NavGender[]; brands: NavBr
               <ul className="space-y-1 text-[22px] leading-tight">
                 <li><Link onClick={close} href={routes.newIn(g.slug)} className="block py-1.5">Новинки</Link></li>
                 <li><Link onClick={close} href={routes.gender(g.slug)} className="block py-1.5">Всё</Link></li>
-                {g.categories.map((c) => (
-                  <li key={c.handle}><Link onClick={close} href={routes.category(g.slug, c.handle)} className="block py-1.5">{c.name}</Link></li>
+                {g.links.map((c) => (
+                  <li key={c.key}><Link onClick={close} href={c.href} className="block py-1.5">{c.name}</Link></li>
                 ))}
                 {nav.outletCount > 0 && <li><Link onClick={close} href={routes.outlet(g.slug)} className="block py-1.5 text-sale">Outlet</Link></li>}
               </ul>

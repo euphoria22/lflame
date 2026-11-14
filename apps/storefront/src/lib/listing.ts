@@ -10,6 +10,8 @@ import type { GenderSlug } from "./routes"
 export type ListingScope = {
   gender?: GenderSlug
   category?: string
+  /** Подраздел раздела (hudi, svitshoty, puhoviki…) */
+  type?: string
   brand?: string
   /** Код цвета (black, beige…) — посадочные страницы по цвету */
   color?: string
@@ -115,6 +117,7 @@ export function scopeItems(items: CatalogItem[], scope: ListingScope): CatalogIt
     if (!i.in_stock) return false
     if (scope.gender && i.gender !== scope.gender && i.gender !== "unisex") return false
     if (scope.category && i.category?.handle !== scope.category) return false
+    if (scope.type && i.subtype?.slug !== scope.type) return false
     if (scope.brand && i.brand?.handle !== scope.brand) return false
     if (scope.color && i.color !== scope.color) return false
     if (scope.onlyOutlet && !i.outlet) return false
@@ -270,6 +273,7 @@ export function scopeToQuery(scope: ListingScope): string {
   const p = new URLSearchParams()
   if (scope.gender) p.set("s_gender", scope.gender)
   if (scope.category) p.set("s_category", scope.category)
+  if (scope.type) p.set("s_type", scope.type)
   if (scope.brand) p.set("s_brand", scope.brand)
   if (scope.color) p.set("s_color", scope.color)
   if (scope.onlyNew) p.set("s_new", "1")
@@ -283,12 +287,25 @@ export function scopeFromQuery(p: URLSearchParams): ListingScope {
   return {
     gender: g === "men" || g === "women" ? g : undefined,
     category: p.get("s_category") ?? undefined,
+    type: p.get("s_type") ?? undefined,
     brand: p.get("s_brand") ?? undefined,
     color: p.get("s_color") ?? undefined,
     onlyNew: p.get("s_new") === "1",
     onlyOutlet: p.get("s_outlet") === "1",
     q: p.get("s_q") ?? undefined,
   }
+}
+
+/** Подразделы раздела, в которых есть товары (в порядке убывания числа товаров) */
+export function subtypes(items: CatalogItem[], category: string): { slug: string; name: string; count: number }[] {
+  const counts = new Map<string, { slug: string; name: string; count: number }>()
+  for (const i of items) {
+    if (i.category?.handle !== category || !i.subtype) continue
+    const c = counts.get(i.subtype.slug) ?? { ...i.subtype, count: 0 }
+    c.count++
+    counts.set(i.subtype.slug, c)
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count)
 }
 
 /** Порог для индексируемой посадочной страницы (ТЗ, п. 7.3). */

@@ -2,6 +2,7 @@ import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, getVariantAvailability } from "@medusajs/framework/utils"
 import { sortSizes } from "./sizes"
 import { modelKeys } from "./model-key"
+import { Subtype, subtypeOf } from "./subtypes"
 import { salesByMoyskladId, salesUnitsByMoyskladId } from "../moysklad/sales"
 
 /**
@@ -19,6 +20,8 @@ export type CatalogItem = {
   title: string
   brand: CatalogBrandRef | null
   category: CatalogCategoryRef | null
+  /** Подраздел большого раздела по названию товара: «Футболки» / «Лонгсливы», «Худи» / «Свитшоты»… (lib/catalog/subtypes.ts) */
+  subtype: Subtype | null
   gender: string
   color: string | null
   color_name: string | null
@@ -185,6 +188,7 @@ function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0, 
     // Скрытый в админке бренд не показывается на сайте (товары остаются)
     brand: row.brand && row.brand.is_active !== false ? { handle: row.brand.handle, name: row.brand.name } : null,
     category: row.categories?.[0] ? { handle: row.categories[0].handle, name: row.categories[0].name } : null,
+    subtype: subtypeOf(row.categories?.[0]?.handle, row.title),
     gender: (meta.gender as string) ?? "men",
     color: (meta.color as string | null) ?? null,
     color_name: (meta.color_name as string | null) ?? null,

@@ -5,7 +5,7 @@ import { CatalogListing, SearchParams } from "@/components/catalog-listing"
 import { getCatalog, getTaxonomy } from "./catalog"
 import { COLOR_LANDINGS, colorBySlug, colorLinkLabel, colorTitle } from "./color-landing"
 import { formatPrice, plural } from "./format"
-import { hasFilterParams, LANDING_MIN_ITEMS, parseFilters, scopeItems, ListingScope } from "./listing"
+import { hasFilterParams, LANDING_MIN_ITEMS, parseFilters, scopeItems, subtypes, ListingScope } from "./listing"
 import { GENDERS, GenderSlug, genderInfo, routes } from "./routes"
 import { pageMeta } from "./seo"
 import { SITE_NAME } from "./site"
@@ -54,6 +54,13 @@ function brandChips(items: CatalogItem[], href: (brand: string) => string, activ
     .map(([handle, v]) => ({ label: v.name, href: href(handle), active: handle === activeBrand }))
 }
 
+/** Ссылки на подразделы — только если раздел действительно делится (подразделов с товарами не меньше двух) */
+function typeChips(items: CatalogItem[], g: GenderSlug, category: string, active?: string) {
+  const list = subtypes(items, category)
+  if (list.length < 2 && !active) return []
+  return list.map((t) => ({ label: t.name, href: routes.categoryType(g, category, t.slug), active: t.slug === active }))
+}
+
 function categoryChips(items: CatalogItem[], href: (cat: string) => string, active?: string) {
   const counts = new Map<string, { name: string; count: number }>()
   for (const i of items) {
@@ -85,7 +92,9 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
   const cat = p.category ? taxonomy.categories.find((c) => c.handle === p.category) : undefined
   if (p.category && !cat) return null
   const brand = p.brand ? taxonomy.brands.find((b) => b.handle === p.brand) : undefined
-  if (p.brand && !brand) return null
+  // Третья часть адреса /men/<раздел>/<…> — бренд или подраздел (худи, свитшоты, пуховики…)
+  const type = p.brand && !brand && cat ? subtypes(items, cat.handle).find((t) => t.slug === p.brand) : undefined
+  if (p.brand && !brand && !(kind === "categoryBrand" && type)) return null
 
   switch (kind) {
     case "gender": {
@@ -110,7 +119,8 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
         title: cat!.seo_title ?? `${cat!.name} ${g!.forWhom} — купить в интернет-магазине`,
         description: cat!.seo_description ?? describe(h1, scoped),
         crumbs: [{ name: g!.name, href: routes.gender(g!.slug) }, { name: cat!.name, href: routes.category(g!.slug, cat!.handle) }],
-        chips: brandChips(scoped, (b) => routes.categoryBrand(g!.slug, cat!.handle, b)),
+        // Сначала подразделы (если раздел поделён), затем популярные бренды
+        chips: [...typeChips(scoped, g!.slug, cat!.handle), ...brandChips(scoped, (b) => routes.categoryBrand(g!.slug, cat!.handle, b))],
         genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.category(x.slug, cat!.handle), active: x.slug === g!.slug })),
         intro: cat!.description, seoText: cat!.seo_text,
         related: colorLinks(scoped, g!.slug, cat!.handle),
@@ -140,6 +150,25 @@ async function resolve(kind: string, p: Record<string, string>): Promise<Ctx | n
       }
     }
     case "categoryBrand": {
+      if (type) {
+        const scope = { gender: g!.slug, category: cat!.handle, type: type.slug }
+        const scoped = scopeItems(items, scope)
+        if (!scoped.length) return null
+        const parent = scopeItems(items, { gender: g!.slug, category: cat!.handle })
+        const h1 = `${type.name} ${g!.adjective}`
+        return {
+          scope, basePath: routes.categoryType(g!.slug, cat!.handle, type.slug), h1,
+          title: `${type.name} ${g!.forWhom} — купить оригинал в интернет-магазине`,
+          description: describe(h1, scoped),
+          crumbs: [
+            { name: g!.name, href: routes.gender(g!.slug) },
+            { name: cat!.name, href: routes.category(g!.slug, cat!.handle) },
+            { name: type.name, href: routes.categoryType(g!.slug, cat!.handle, type.slug) },
+          ],
+          chips: [{ label: `Все: ${cat!.name.toLowerCase()}`, href: routes.category(g!.slug, cat!.handle) }, ...typeChips(parent, g!.slug, cat!.handle, type.slug)],
+          genderLinks: GENDERS.map((x) => ({ label: x.name, href: routes.categoryType(x.slug, cat!.handle, type.slug), active: x.slug === g!.slug })),
+        }
+      }
       const scope = { gender: g!.slug, category: cat!.handle, brand: brand!.handle }
       const scoped = scopeItems(items, scope)
       const h1 = `${cat!.name} ${brand!.name}`
@@ -270,6 +299,7 @@ export async function listingPaths(): Promise<{ path: string; count: number }[]>
       for (const b of taxonomy.brands) {
         add(routes.categoryBrand(g.slug, c.handle, b.handle), { gender: g.slug, category: c.handle, brand: b.handle })
       }
+      for (const t of subtypes(items, c.handle)) add(routes.categoryType(g.slug, c.handle, t.slug), { gender: g.slug, category: c.handle, type: t.slug })
       for (const col of COLOR_LANDINGS) {
         add(routes.categoryColor(g.slug, c.handle, col.slug), { gender: g.slug, category: c.handle, color: col.code })
       }

@@ -16,6 +16,8 @@ export const routes = {
   gender: (g: GenderSlug) => `/${g}`,
   category: (g: GenderSlug, category: string) => `/${g}/${category}`,
   categoryBrand: (g: GenderSlug, category: string, brand: string) => `/${g}/${category}/${brand}`,
+  /** Подраздел: тот же вид адреса, что «раздел + бренд» — адреса подразделов и брендов не пересекаются */
+  categoryType: (g: GenderSlug, category: string, type: string) => `/${g}/${category}/${type}`,
   categoryColor: (g: GenderSlug, category: string, color: string) => `/${g}/${category}/color/${color}`,
   brands: () => "/brands",
   brand: (brand: string) => `/brands/${brand}`,

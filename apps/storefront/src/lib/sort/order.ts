@@ -7,12 +7,12 @@ import { arrange, ArrangeConfig, pinsFor, StorePin } from "./arrange"
  */
 export type SortData = { version: string; arrange: ArrangeConfig; pins: StorePin[] }
 
-export type ListingKeyScope = { gender?: string; category?: string; brand?: string; color?: string; onlyNew?: boolean; onlyOutlet?: boolean; q?: string }
+export type ListingKeyScope = { gender?: string; category?: string; type?: string; brand?: string; color?: string; onlyNew?: boolean; onlyOutlet?: boolean; q?: string }
 
 /** Ключ листинга: all, new, outlet, gender:men, cat:kurtki, brand:calvin-klein и сочетания через «/». По нему привязаны закрепления и события */
 export function listingKey(scope: ListingKeyScope): string {
   const parts = [
-    scope.gender && `gender:${scope.gender}`, scope.category && `cat:${scope.category}`, scope.brand && `brand:${scope.brand}`,
+    scope.gender && `gender:${scope.gender}`, scope.category && `cat:${scope.category}`, scope.type && `type:${scope.type}`, scope.brand && `brand:${scope.brand}`,
     scope.color && `color:${scope.color}`, scope.onlyNew && "new", scope.onlyOutlet && "outlet", scope.q && "search",
   ].filter(Boolean)
   return parts.length ? parts.join("/") : "all"

@@ -77,8 +77,8 @@ export function HeaderView({ nav }: { nav: Awaited<ReturnType<typeof getNav>> })
                     <div>
                       <Link href={routes.gender(g.slug)} className="eyebrow mb-5 inline-block text-muted hover:text-foreground">Все категории</Link>
                       <ul className="columns-2 gap-12 text-[15px] leading-9">
-                        {g.categories.map((c) => (
-                          <li key={c.handle} className="break-inside-avoid whitespace-nowrap"><Link href={routes.category(g.slug, c.handle)} className="hover:opacity-60">{c.name}</Link></li>
+                        {g.links.map((c) => (
+                          <li key={c.key} className="break-inside-avoid whitespace-nowrap"><Link href={c.href} className="hover:opacity-60">{c.name}</Link></li>
                         ))}
                       </ul>
                     </div>

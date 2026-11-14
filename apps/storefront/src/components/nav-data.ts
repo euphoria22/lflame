@@ -1,13 +1,15 @@
 import { safeMenuSettings } from "@/lib/blog"
 import { getCatalog, getTaxonomy } from "@/lib/catalog"
-import { scopeItems } from "@/lib/listing"
+import { scopeItems, subtypes } from "@/lib/listing"
 import { GENDERS, GenderSlug, routes } from "@/lib/routes"
 import type { CatalogItem } from "@/lib/types"
 
 export type NavCategory = { handle: string; name: string; count: number }
 export type NavBrand = { handle: string; name: string; count: number }
 export type NavTile = { label: string; href: string; image: string | null }
-export type NavGender = { slug: GenderSlug; name: string; categories: NavCategory[]; brands: NavBrand[]; tiles: NavTile[] }
+/** Пункт меню раздела: категория или подраздел (вместо поделённой категории — её подразделы) */
+export type NavLink = { key: string; name: string; href: string }
+export type NavGender = { slug: GenderSlug; name: string; categories: NavCategory[]; links: NavLink[]; brands: NavBrand[]; tiles: NavTile[] }
 
 /** Плитки по умолчанию, пока в CMS ничего не выбрано (осень — зима). */
 const DEFAULT_TILES = [
@@ -48,9 +50,16 @@ export async function getNav(): Promise<{ genders: NavGender[]; brands: NavBrand
         brands.set(i.brand.handle, b)
       }
     }
+    const sorted = [...cats.values()].sort((a, b) => (rank.get(a.handle) ?? 0) - (rank.get(b.handle) ?? 0) || a.name.localeCompare(b.name))
     return {
       slug: g.slug,
       name: g.name,
+      links: sorted.flatMap((c) => {
+        const types = subtypes(scoped, c.handle)
+        return types.length >= 2
+          ? types.map((t) => ({ key: `${c.handle}/${t.slug}`, name: t.name, href: routes.categoryType(g.slug, c.handle, t.slug) }))
+          : [{ key: c.handle, name: c.name, href: routes.category(g.slug, c.handle) }]
+      }),
       categories: [...cats.values()].sort((a, b) => (rank.get(a.handle) ?? 0) - (rank.get(b.handle) ?? 0) || a.name.localeCompare(b.name)),
       brands: [...brands.values()].sort((a, b) => b.count - a.count).slice(0, 14).sort((a, b) => a.name.localeCompare(b.name)),
       // Плитки — сезонные категории из CMS («Меню сайта»); фото не задано — берём товар из категории

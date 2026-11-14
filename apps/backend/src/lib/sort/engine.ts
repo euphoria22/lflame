@@ -340,7 +340,7 @@ export async function storeSort(container: MedusaContainer, now = new Date()): P
 export const isNewItem = (i: CatalogItem, now: Date) => i.new_manual || (!i.initial_import && now.getTime() - Date.parse(i.created_at) < NEW_DAYS * DAY)
 
 /**
- * Карточки листинга по ключу: all, new, outlet, gender:men, cat:kurtki, brand:calvin-klein, color:black
+ * Карточки листинга по ключу: all, new, outlet, gender:men, cat:kurtki, type:puhoviki, brand:calvin-klein, color:black
  * и их сочетания через «/» (gender:men/cat:kurtki). Как на витрине: только в наличии.
  */
 export function listingItems(items: CatalogItem[], key: string, now: Date): CatalogItem[] {
@@ -352,6 +352,7 @@ export function listingItems(items: CatalogItem[], key: string, now: Date): Cata
     const g = get("gender")
     if (g && i.gender !== g && i.gender !== "unisex") return false
     if (get("cat") && i.category?.handle !== get("cat")) return false
+    if (get("type") && i.subtype?.slug !== get("type")) return false
     if (get("brand") && i.brand?.handle !== get("brand")) return false
     if (get("color") && i.color !== get("color")) return false
     if (has("outlet") && !i.outlet) return false
