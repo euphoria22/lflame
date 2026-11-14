@@ -9,7 +9,7 @@ type Row = {
   id: string; handle: string; title: string; thumbnail: string | null; brand: string | null; category: string | null
   price: number; compare_at: number | null; promo: { price: number; label: string; pct: number } | null; in_stock: boolean; preorder: boolean
   sizes_in_stock: number; sizes_total: number; images: number; has_description: boolean; sales: number; is_new: boolean
-  posts: Post[]; link: string | null; recommendation: { score: number; reasons: string[] } | null
+  posts: Post[]; link: string | null; recommendation: { score: number; reasons: string[]; order?: number } | null
 }
 type Overview = {
   configured: { channel: string | null; token: boolean }
@@ -112,7 +112,8 @@ const TelegramPage = () => {
     if (!data) return []
     const words = q.toLowerCase().split(/\s+/).filter(Boolean)
     const rows = data.rows.filter((r) => !words.length || words.every((w) => `${r.title} ${r.brand ?? ""}`.toLowerCase().includes(w)))
-    if (view === "rec") return rows.filter((r) => r.recommendation).sort((a, b) => b.recommendation!.score - a.recommendation!.score)
+    // Порядок с сервера: по баллу, но бренды и разделы вперемешку
+    if (view === "rec") return rows.filter((r) => r.recommendation).sort((a, b) => (a.recommendation!.order ?? 1e9) - (b.recommendation!.order ?? 1e9))
     if (view === "never") return rows.filter((r) => !r.posts.length).sort((a, b) => (b.recommendation?.score ?? -999) - (a.recommendation?.score ?? -999))
     if (view === "posted") return rows.filter((r) => r.posts.length).sort((a, b) => lastAt(b).localeCompare(lastAt(a)))
     return rows
@@ -244,8 +245,9 @@ const TelegramPage = () => {
         </div>
         {view === "rec" && (
           <Text size="small" className="px-6 pb-3 text-ui-fg-subtle">
-            Выше — то, что полезнее выложить сейчас: ещё не выкладывали или давно, новинки, вещи по сезону, скидки, хорошо продаётся, остались последние размеры.
-            Не предлагаем: нет в наличии, меньше 2 фото, выкладывали в последние 2 недели. Бренды, которые уже были в последние 3 дня, — ниже.
+            Сверху — что выложить следующим. Главное: большой остаток (особенно новая партия) и спрос — продажи самой вещи и всего раздела за 60 дней.
+            Дальше: давно не выкладывали, новинки, скидки, сезон. Порядок вперемешку: бренд не повторяется ближе 3 постов, раздел — ближе 2, цвета одной модели не рядом.
+            Не предлагаем: нет в наличии, нет фото, выкладывали в последние 2 недели. Количество фото не влияет.
           </Text>
         )}
 

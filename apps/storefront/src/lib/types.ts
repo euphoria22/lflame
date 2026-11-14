@@ -33,6 +33,8 @@ export type CatalogItem = {
   /** Сортировка «Популярные»: продажи за 60 дней, фото, описание, закрепление, итоговый балл */
   sales?: number
   images_count?: number
+  /** Остаток для сортировки 0…1 (товар и вся модель; 1 — от 40 шт.) */
+  stock_level?: number
   has_description?: boolean
   pinned?: boolean
   rank?: number

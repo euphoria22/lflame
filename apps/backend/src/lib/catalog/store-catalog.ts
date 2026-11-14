@@ -1,6 +1,7 @@
 import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, getVariantAvailability } from "@medusajs/framework/utils"
 import { sortSizes } from "./sizes"
+import { modelKeys } from "./model-key"
 import { salesByMoyskladId } from "../moysklad/sales"
 
 /**
@@ -36,6 +37,14 @@ export type CatalogItem = {
   preorder_date: string | null
   /** Для сортировки «Популярные»: продажи за 60 дней (магазин + сайт), фото, описание, закрепление */
   sales: number
+  /**
+   * Остаток для сортировки, 0…1 (логарифм: 1 — от 40 штук). Смесь остатка товара и всей модели (все цвета):
+   * много пришло — товар поднимаем. Точное число витрине не отдаём
+   */
+  stock_level: number
+  /** Точный остаток товара и модели, шт. — только внутри сервера (Telegram), из ответа витрине убирается */
+  stock_units?: number
+  model_units?: number
   images_count: number
   has_description: boolean
   pinned: boolean
@@ -153,7 +162,7 @@ function toVariants(row: Row, stock: Map<string, number>): CatalogVariant[] {
     .map(({ rank: _rank, ...v }) => v)
 }
 
-function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0): CatalogItem {
+function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0, units = 0): CatalogItem {
   const images = [...(row.images ?? [])].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((i) => i.url)
   const inStock = variants.filter((v) => v.available > 0)
   const pool = (inStock.length ? inStock : variants).filter((v) => v.price > 0)
@@ -178,6 +187,8 @@ function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0):
     preorder: Boolean(meta.preorder),
     preorder_date: meta.preorder && typeof meta.preorder_date === "string" ? meta.preorder_date : null,
     sales,
+    stock_level: 0,
+    stock_units: units,
     images_count: images.length,
     has_description: Boolean(row.description && row.description.trim() && !/^Оригинальный товар/i.test(row.description.trim())),
     pinned: meta.pinned === true,
@@ -245,7 +256,23 @@ export async function loadCatalogItems(container: MedusaContainer): Promise<Cata
   const visible = rows.filter((r) => r.sales_channels?.some((s) => s.id === channel))
   const stock = await availability(container, visible.flatMap((r) => (r.variants ?? []).map((v) => v.id)), channel)
   const [start, sales] = await Promise.all([catalogStart(container), salesByMoyskladId(container)])
-  return visible.map((r) => toItem(r, toVariants(r, stock), start, sales.get(r.external_id ?? "") ?? 0)).filter((i) => i.price > 0)
+  const units = (r: Row) => (r.variants ?? []).reduce((sum, v) => sum + (stock.get(v.id) ?? 0), 0)
+  const items = visible.map((r) => toItem(r, toVariants(r, stock), start, sales.get(r.external_id ?? "") ?? 0, units(r))).filter((i) => i.price > 0)
+  // Остаток модели — все цвета вместе: «пришло 40 свитшотов одной модели»
+  const keys = modelKeys(items)
+  const byModel = new Map<string, number>()
+  for (const i of items) byModel.set(keys.get(i.id)!, (byModel.get(keys.get(i.id)!) ?? 0) + (i.stock_units ?? 0))
+  for (const i of items) {
+    i.model_units = byModel.get(keys.get(i.id)!) ?? 0
+    i.stock_level = stockLevel(i.stock_units ?? 0, i.model_units)
+  }
+  return items
+}
+
+/** Остаток в шкалу 0…1: 1 шт. — 0.19, 10 — 0.65, 40 и больше — 1; округление до 0.1 (точное число наружу не уходит) */
+export function stockLevel(units: number, modelUnits: number): number {
+  const f = (n: number) => Math.min(1, Math.log1p(Math.max(0, n)) / Math.log1p(40))
+  return Math.round((0.6 * f(units) + 0.4 * f(modelUnits)) * 10) / 10
 }
 
 /**

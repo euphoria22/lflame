@@ -6,7 +6,8 @@ import { activeAutoPromos, autoPrice, promoProducts } from "../promotions/auto-p
 import { telegramApi, TelegramError } from "../notify/telegram"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
-import { buildCaption, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
+import { modelKeys } from "../catalog/model-key"
+import { buildCaption, categoryDemand, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
 
 /**
  * Посты о товарах в Telegram-канале магазина (TELEGRAM_CHANNEL_ID: @имя_канала или -100…).
@@ -190,8 +191,11 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
   const now = new Date()
   const chat = channelId()
   const promos = await promoPrices(container, items)
-  const allPosts = items.flatMap((i) => (metaById.get(i.id)?.posts ?? []).map((p) => ({ ...p, brand: i.brand?.name ?? null })))
+  const keyOf = modelKeys(items)
+  const allPosts = items.flatMap((i) => (metaById.get(i.id)?.posts ?? []).map((p) => ({ ...p, brand: i.brand?.name ?? null, category: i.category?.name ?? null, model: keyOf.get(i.id) ?? i.id })))
   const recentBrands = new Set(allPosts.filter((p) => now.getTime() - Date.parse(p.at) < 3 * DAY && p.brand).map((p) => p.brand!))
+  // Спрос по разделам — по всем товарам, включая распроданные
+  const demand = categoryDemand(items.map((i) => ({ category_handle: i.category?.handle ?? null, sales: i.sales })))
 
   const rows: OverviewRow[] = items.map((i) => {
     const posts = metaById.get(i.id)?.posts ?? []
@@ -200,16 +204,24 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
       id: i.id, handle: i.handle, title: i.title, thumbnail: i.thumbnail, brand: i.brand?.name ?? null, category: i.category?.name ?? null,
       price: i.price, compare_at: i.compare_at, promo: promos.get(i.id) ?? null, in_stock: i.in_stock, preorder: i.preorder, preorder_date: i.preorder_date,
       sizes_in_stock: i.sizes.filter((s) => s.in_stock).length, sizes_total: i.sizes.length,
-      images: i.images_count, has_description: i.has_description, sales: i.sales,
+      images: i.images_count, has_description: i.has_description, sales: i.sales, stock_units: i.stock_units ?? 0, model_units: i.model_units ?? 0,
       is_new: i.new_manual || (!i.initial_import && age <= 21), created_at: i.created_at, posts,
     }
     const last = posts.at(-1)
     return {
       ...rec,
       link: last && chat ? postLink(chat, last.id) : null,
-      recommendation: recommend({ ...rec, category_handle: i.category?.handle ?? null }, { now, recentBrands }),
+      recommendation: recommend({ ...rec, category_handle: i.category?.handle ?? null }, { now, recentBrands, demand }),
     }
   })
+
+  // Очерёдность вперемешку: бренды, разделы и модели не идут подряд — с учётом последних постов канала
+  const recent = [...allPosts].sort((a, b) => a.at.localeCompare(b.at)).slice(-8)
+  const ranked = rows.filter((r) => r.recommendation)
+    .map((r) => ({ id: r.id, brand: r.brand, category: r.category, model: keyOf.get(r.id) ?? r.id, score: r.recommendation!.score }))
+    .sort((a, b) => b.score - a.score)
+  const rowById = new Map(rows.map((r) => [r.id, r]))
+  mixOrder(ranked, recent).forEach((r, n) => { rowById.get(r.id)!.recommendation!.order = n + 1 })
 
   const since = (d: number) => allPosts.filter((p) => now.getTime() - Date.parse(p.at) < d * DAY).length
   const posted = rows.filter((r) => r.posts.length).length
@@ -262,12 +274,10 @@ export async function queueTick(container: MedusaContainer, log: Logger, now = n
     const q = await readQueue(container)
     const slot = dueSlot(q.schedule, now, q.last_at)
     if (!slot) return
-    let id = q.items[0] ?? null
+    let id: string | null = q.items[0] ?? null
     let fromQueue = Boolean(id)
     if (!id && q.schedule.auto) {
-      const best = (await telegramOverview(container)).rows
-        .filter((r) => r.recommendation)
-        .sort((a, b) => b.recommendation!.score - a.recommendation!.score)[0]
+      const best = (await telegramOverview(container)).rows.find((r) => r.recommendation?.order === 1)
       id = best?.id ?? null
       fromQueue = false
     }

@@ -1,4 +1,4 @@
-import { buildCaption, CAPTION_LIMIT, inSeason, postLink, postPhotos, postState, PostProduct, RecItem, recommend, tgMetaOf, visibleLength } from "../post"
+import { buildCaption, CAPTION_LIMIT, categoryDemand, inSeason, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, tgMetaOf, visibleLength } from "../post"
 
 const product: PostProduct = {
   handle: "hudi-calvin-klein-terry",
@@ -96,7 +96,7 @@ describe("рекомендации", () => {
   const base: RecItem & { category_handle: string | null } = {
     id: "p1", handle: "h", title: "T", thumbnail: null, brand: "Calvin Klein", category: "Куртки", category_handle: "kurtki",
     price: 10000, compare_at: null, promo: null, in_stock: true, preorder: false, sizes_in_stock: 4, sizes_total: 5, images: 4,
-    has_description: true, sales: 0, is_new: false, created_at: "2026-01-01T00:00:00Z", posts: [],
+    has_description: true, sales: 0, stock_units: 3, model_units: 3, is_new: false, created_at: "2026-01-01T00:00:00Z", posts: [],
   }
   const ctx = { now, recentBrands: new Set<string>() }
 
@@ -107,9 +107,10 @@ describe("рекомендации", () => {
     expect(never.score).toBeGreaterThan(old.score)
   })
 
-  it("не предлагаем: нет в наличии, мало фото, выкладывали на этой неделе", () => {
+  it("не предлагаем: нет в наличии, нет фото, выкладывали на этой неделе; число фото не влияет", () => {
     expect(recommend({ ...base, in_stock: false }, ctx)).toBeNull()
-    expect(recommend({ ...base, images: 1 }, ctx)).toBeNull()
+    expect(recommend({ ...base, images: 0 }, ctx)).toBeNull()
+    expect(recommend({ ...base, images: 1 }, ctx)!.score).toBe(recommend({ ...base, images: 8 }, ctx)!.score)
     expect(recommend({ ...base, posts: [{ id: 1, at: "2026-11-10T00:00:00Z" }] }, ctx)).toBeNull()
   })
 
@@ -127,6 +128,37 @@ describe("рекомендации", () => {
   it("бренд был в последние дни — ниже", () => {
     const r = recommend(base, { now, recentBrands: new Set(["Calvin Klein"]) })!
     expect(r.score).toBeLessThan(recommend(base, ctx)!.score)
+  })
+
+  it("большой остаток и новая партия — сильно выше", () => {
+    const big = recommend({ ...base, stock_units: 12, model_units: 40, is_new: true }, ctx)!
+    expect(big.reasons).toEqual(expect.arrayContaining(["новое поступление, большая партия", "на складе 12 шт., всего модели 40 шт."]))
+    expect(big.score - recommend({ ...base, is_new: true }, ctx)!.score).toBeGreaterThan(30)
+  })
+
+  it("раздел хорошо продаётся — выше даже не в сезон", () => {
+    const demand = categoryDemand([
+      { category_handle: "bele", sales: 120 }, { category_handle: "futbolki-i-longslivy", sales: 60 }, { category_handle: "kurtki", sales: 5 },
+    ])
+    const c = { ...ctx, demand }
+    const underwear = recommend({ ...base, category: "Нижнее бельё", category_handle: "bele" }, c)!
+    const jacket = recommend(base, c)!
+    expect(underwear.reasons).toEqual(expect.arrayContaining(["раздел продаётся: 120 шт. за 60 дн."]))
+    expect(underwear.score).toBeGreaterThan(jacket.score)
+  })
+
+  it("порядок вперемешку: бренд и раздел не идут подряд, учитываются последние посты", () => {
+    const it = (id: string, brand: string, category: string, score: number) => ({ id, brand, category, model: id, score })
+    const sorted = [it("a", "CK", "Свитеры", 90), it("b", "CK", "Свитеры", 89), it("c", "CK", "Куртки", 88), it("d", "TH", "Свитеры", 70), it("e", "Nike", "Бельё", 60)]
+    const ids = mixOrder(sorted).map((x) => x.id)
+    expect(ids[0]).toBe("a")
+    expect(ids[1]).not.toBe("b")
+    expect(ids[1]).not.toBe("c")
+    // Последний пост — CK: первым идёт другой бренд
+    expect(mixOrder(sorted, [{ brand: "CK", category: "Свитеры", model: "x" }])[0].brand).not.toBe("CK")
+    // Одна модель в разных цветах не рядом
+    const colors = [{ ...it("r", "A", "X", 9), model: "m" }, { ...it("g", "A", "X", 8), model: "m" }, it("z", "B", "Y", 1)]
+    expect(mixOrder(colors).map((x) => x.id)).toEqual(["r", "z", "g"])
   })
 
   it("сезон: зимой куртки, летом шорты", () => {
