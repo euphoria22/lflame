@@ -2,6 +2,7 @@ import { readFileSync } from "fs"
 import { join } from "path"
 import { arrange, ArrangeItem } from "../arrange"
 import { DEFAULT_CONFIG, mergeConfig, validateConfig } from "../config"
+import { parseWarmth } from "../engine"
 import { CardInput, scoreCards, sizeKey, sizeScore } from "../score"
 import { blend, collectionFactor, matrixRow, seasonState, seasonZ } from "../season"
 
@@ -209,5 +210,16 @@ describe("настройки", () => {
     expect(c.novelty_days).toBe(45)
     expect(c.brand_priority.ck).toBe(0.9)
     expect(c.penalties.brand).toBe(0.6)
+  })
+})
+
+describe("утеплённость из МоегоСклада", () => {
+  it("значения поля", () => {
+    expect(parseWarmth("Утеплённая")).toBe("warm")
+    expect(parseWarmth("зимняя")).toBe("warm")
+    expect(parseWarmth("Демисезон")).toBe("demi")
+    expect(parseWarmth("Лёгкая")).toBe("light")
+    expect(parseWarmth("")).toBeNull()
+    expect(parseWarmth(null)).toBeNull()
   })
 })

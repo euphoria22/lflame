@@ -102,7 +102,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
         </div>
         <div>
           <Label weight="plus">Утеплённость</Label>
-          <Text size="small" className="mb-2 text-ui-fg-subtle">Для сортировки каталога по сезону — верхняя одежда и обувь. Утеплённая куртка зимой выше демисезонной, даже если обе в разделе «Куртки».</Text>
+          <Text size="small" className="mb-2 text-ui-fg-subtle">Для сортировки каталога по сезону — верхняя одежда и обувь. Обычно берётся из поля «Утеплённость» товара в МоёмСкладе; здесь — запасной вариант, если в МС поле пустое. Утеплённая куртка зимой выше демисезонной, даже если обе в разделе «Куртки».</Text>
           <Select value={warmth || "none"} disabled={busy} onValueChange={(v) => save({ warmth: v === "none" ? null : v })}>
             <Select.Trigger><Select.Value /></Select.Trigger>
             <Select.Content>

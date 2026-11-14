@@ -130,9 +130,20 @@ export async function eventSums(container: MedusaContainer, now = new Date(), da
 // ——— Данные из МоегоСклада: закупка и коллекция ———
 
 const collectionAttr = () => process.env.MOYSKLAD_ATTR_COLLECTION?.trim() || "Коллекция"
+const warmthAttr = () => process.env.MOYSKLAD_ATTR_WARMTH?.trim() || "Утеплённость"
+const sameName = (a: string, b: string) => a.trim().toLowerCase().replace(/ё/g, "е") === b.trim().toLowerCase().replace(/ё/g, "е")
+
+/** Значение поля «Утеплённость» в МС: «Утеплённая» / «Зимняя», «Демисезон», «Лёгкая» / «Летняя» */
+export function parseWarmth(raw: string | null | undefined): Warmth | null {
+  const t = String(raw ?? "").toLowerCase().replace(/ё/g, "е")
+  if (/утепл|зим|тепл/.test(t)) return "warm"
+  if (/деми|межсезон/.test(t)) return "demi"
+  if (/легк|лет/.test(t)) return "light"
+  return null
+}
 
 /** Закупочные цены и коллекции из МС (раз в сутки перед пересчётом). МС недоступен — остаются прежние */
-export async function refreshCardData(container: MedusaContainer): Promise<{ products: number; with_cost: number; with_collection: number } | null> {
+export async function refreshCardData(container: MedusaContainer): Promise<{ products: number; with_cost: number; with_collection: number; with_warmth: number } | null> {
   const ms: MoyskladModuleService = container.resolve(MOYSKLAD_MODULE)
   if (!ms.api.isConfigured()) return null
   const all = await ms.api.listAll<MsProduct>("entity/product")
@@ -140,25 +151,27 @@ export async function refreshCardData(container: MedusaContainer): Promise<{ pro
   const { data } = await query.graph({ entity: "product", fields: ["id", "external_id"], pagination: { take: 100000 } })
   const byExternal = new Map((data as { id: string; external_id?: string | null }[]).filter((p) => p.external_id).map((p) => [p.external_id!, p.id]))
   const existing = new Map((await svc(container).listSortCardCosts({}, { take: 100000 })).map((r) => [r.product_id, r]))
-  const create: { product_id: string; cost_price: number | null; collection: string | null }[] = []
-  const update: { id: string; cost_price: number | null; collection: string | null }[] = []
-  let cost = 0, coll = 0
+  const create: { product_id: string; cost_price: number | null; collection: string | null; warmth: string | null }[] = []
+  const update: { id: string; cost_price: number | null; collection: string | null; warmth: string | null }[] = []
+  let cost = 0, coll = 0, warm = 0
   for (const p of all) {
     const id = byExternal.get(p.id)
     if (!id) continue
     const row = {
       cost_price: p.buyPrice?.value ? Math.round(p.buyPrice.value) / 100 : null,
-      collection: attrValue(p.attributes?.find((a) => a.name === collectionAttr())?.value),
+      collection: attrValue(p.attributes?.find((a) => sameName(a.name, collectionAttr()))?.value),
+      warmth: parseWarmth(attrValue(p.attributes?.find((a) => sameName(a.name, warmthAttr()))?.value)),
     }
+    if (row.warmth) warm++
     if (row.cost_price) cost++
     if (row.collection) coll++
     const ex = existing.get(id)
     if (!ex) create.push({ product_id: id, ...row })
-    else if (ex.cost_price !== row.cost_price || ex.collection !== row.collection) update.push({ id: ex.id, ...row })
+    else if (ex.cost_price !== row.cost_price || ex.collection !== row.collection || ex.warmth !== row.warmth) update.push({ id: ex.id, ...row })
   }
   if (create.length) await svc(container).createSortCardCosts(create)
   if (update.length) await svc(container).updateSortCardCosts(update)
-  return { products: all.length, with_cost: cost, with_collection: coll }
+  return { products: all.length, with_cost: cost, with_collection: coll, with_warmth: warm }
 }
 
 // ——— Карточки для расчёта ———
@@ -168,11 +181,11 @@ const SIZE_GROUP: Record<string, string> = {
   dzhinsy: "bottom", bryuki: "bottom", shorty: "bottom", obuv: "shoes",
 }
 
-export type CardExtra = { cost: Map<string, number | null>; collection: Map<string, string | null> }
+export type CardExtra = { cost: Map<string, number | null>; collection: Map<string, string | null>; warmth: Map<string, string | null> }
 
 export async function cardExtra(container: MedusaContainer): Promise<CardExtra> {
   const rows = await svc(container).listSortCardCosts({}, { take: 100000 })
-  return { cost: new Map(rows.map((r) => [r.product_id, r.cost_price])), collection: new Map(rows.map((r) => [r.product_id, r.collection])) }
+  return { cost: new Map(rows.map((r) => [r.product_id, r.cost_price])), collection: new Map(rows.map((r) => [r.product_id, r.collection])), warmth: new Map(rows.map((r) => [r.product_id, r.warmth])) }
 }
 
 /** Карточки каталога в виде входа для расчёта балла; ручные бусты и понижения уже перемножены */
@@ -198,7 +211,8 @@ export function buildCards(items: CatalogItem[], extra: CardExtra, events: Event
     const ev = events.byProduct.get(i.id)
     return {
       id: i.id, category: i.category?.handle ?? null, brand: i.brand?.handle ?? null,
-      row: matrixRow(i.category?.handle ?? null, i.title), warmth: (i.warmth as Warmth | null) ?? null, collection,
+      row: matrixRow(i.category?.handle ?? null, i.title), // Утеплённость: из поля товара в МоёмСкладе; не заполнено — из карточки товара в админке
+      warmth: ((extra.warmth.get(i.id) ?? i.warmth) as Warmth | null) ?? null, collection,
       // Стартовый ассортимент пришёл одной загрузкой: дата приёмки неизвестна — новизны нет. Флажок «Новинка» — как только что принятый
       age_days: i.new_manual ? 0 : i.initial_import ? null : Math.max(0, (now.getTime() - Date.parse(i.created_at)) / DAY),
       orders_30d: orders.get(i.model ?? i.id) ?? 0,
