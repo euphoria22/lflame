@@ -1,4 +1,4 @@
-import { diversify } from "./ranking"
+import { listingKey, smartOrder, SortData } from "./sort/order"
 import { sizeKeyRank, sizeKeys, sizeLabel } from "./size-groups"
 import type { CatalogItem } from "./types"
 import type { GenderSlug } from "./routes"
@@ -135,25 +135,33 @@ export function scopeItems(items: CatalogItem[], scope: ListingScope): CatalogIt
 // Сначала новинки (в т.ч. отмеченные вручную), затем по дате появления на сайте
 const byNew = (a: CatalogItem, b: CatalogItem) => Number(isNew(b)) - Number(isNew(a)) || b.created_at.localeCompare(a.created_at)
 
-function sortItems(items: CatalogItem[], sort: SortKey): CatalogItem[] {
+/** Что нужно для сортировки по умолчанию: ключ листинга, настройки с сервера, версия порядка из запроса следующей страницы */
+export type SortContext = { key: string; sort: SortData | null; version?: string; filterSig?: string; search?: boolean }
+
+function sortItems(items: CatalogItem[], sort: SortKey, ctx?: SortContext): { items: CatalogItem[]; version: string } {
   const arr = [...items]
+  const plain = (list: CatalogItem[]) => ({ items: list, version: "" })
   switch (sort) {
     case "new":
-      return arr.sort(byNew)
+      return plain(arr.sort(byNew))
     case "price_asc":
-      return arr.sort((a, b) => a.price - b.price)
+      return plain(arr.sort((a, b) => a.price - b.price))
     case "price_desc":
-      return arr.sort((a, b) => b.price - a.price)
+      return plain(arr.sort((a, b) => b.price - a.price))
     case "discount": {
       const d = (i: CatalogItem) => (i.compare_at ? 1 - i.price / i.compare_at : 0)
-      return arr.sort((a, b) => d(b) - d(a))
+      return plain(arr.sort((a, b) => d(b) - d(a)))
     }
     default:
-      // «Популярные»: балл (продажи, размеры, свежесть, карточка, скидка, сезон, закрепление — lib/ranking.ts),
-      // затем раскладка: одна модель разных цветов не рядом, бренды в первых рядах чередуются
-      return diversify(arr.sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0) || byNew(a, b)))
+      // Текстовый поиск: умная раскладка не применяется — просто по баллу
+      if (ctx?.search) return plain(arr.sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || byNew(a, b)))
+      // По умолчанию — умная сортировка: балл карточки с сервера, разведение соседей, закрепления (lib/sort)
+      return smartOrder(arr, ctx?.key ?? "all", ctx?.sort ?? null, { filterSig: ctx?.filterSig, version: ctx?.version })
   }
 }
+
+/** Контекст сортировки листинга по его области */
+export const sortContext = (scope: ListingScope, sort: SortData | null, version?: string): SortContext => ({ key: listingKey(scope), sort, version, search: Boolean(scope.q) })
 
 type Facet = { value: string; label: string; count: number }
 
@@ -171,6 +179,10 @@ export type ListingResult = {
   }
   /** Названия брендов и категорий области — для подписей выбранных фильтров */
   names: Record<string, string>
+  /** Версия порядка умной сортировки — передаётся в запрос следующей страницы */
+  version: string
+  /** Позиция первой карточки страницы в листинге (с 1) — для событий показа и клика */
+  offset: number
 }
 
 function matches(i: CatalogItem, f: ListingFilters, skip?: "category" | "brand" | "size" | "color" | "price"): boolean {
@@ -198,8 +210,9 @@ function count<T>(items: CatalogItem[], key: (i: CatalogItem) => T[], label: (v:
   return [...map.values()]
 }
 
-export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingResult {
-  const filtered = sortItems(scoped.filter((i) => matches(i, f)), f.sort)
+export function runListing(scoped: CatalogItem[], f: ListingFilters, ctx?: SortContext): ListingResult {
+  const sorted = sortItems(scoped.filter((i) => matches(i, f)), f.sort, ctx && { ...ctx, filterSig: filtersToQuery({ ...f, page: 1 }) })
+  const filtered = sorted.items
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const page = Math.min(Math.max(1, f.page), pages)
 
@@ -236,6 +249,8 @@ export function runListing(scoped: CatalogItem[], f: ListingFilters): ListingRes
   }
   return {
     names,
+    version: sorted.version,
+    offset: (page - 1) * PAGE_SIZE,
     items: filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     total: filtered.length,
     page,
@@ -256,6 +271,7 @@ export function scopeToQuery(scope: ListingScope): string {
   if (scope.gender) p.set("s_gender", scope.gender)
   if (scope.category) p.set("s_category", scope.category)
   if (scope.brand) p.set("s_brand", scope.brand)
+  if (scope.color) p.set("s_color", scope.color)
   if (scope.onlyNew) p.set("s_new", "1")
   if (scope.onlyOutlet) p.set("s_outlet", "1")
   if (scope.q) p.set("s_q", scope.q)
@@ -268,6 +284,7 @@ export function scopeFromQuery(p: URLSearchParams): ListingScope {
     gender: g === "men" || g === "women" ? g : undefined,
     category: p.get("s_category") ?? undefined,
     brand: p.get("s_brand") ?? undefined,
+    color: p.get("s_color") ?? undefined,
     onlyNew: p.get("s_new") === "1",
     onlyOutlet: p.get("s_outlet") === "1",
     q: p.get("s_q") ?? undefined,

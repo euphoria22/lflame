@@ -7,13 +7,13 @@ import { ProductRail } from "@/components/product-rail"
 import { HomeBlog } from "@/components/home-blog"
 import { HomeHeroBlock } from "@/components/home-hero"
 import { safeHomeHero } from "@/lib/blog"
-import { getCatalog } from "@/lib/catalog"
+import { getCatalog, getSort } from "@/lib/catalog"
 import { discountPercent, plural } from "@/lib/format"
 import { scopeItems } from "@/lib/listing"
 import { routes } from "@/lib/routes"
 import { pageMeta } from "@/lib/seo"
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site"
-import { diversify } from "@/lib/ranking"
+import { smartOrder, SortData } from "@/lib/sort/order"
 import type { CatalogItem } from "@/lib/types"
 
 export const metadata: Metadata = pageMeta({
@@ -27,21 +27,23 @@ function heroPick(items: CatalogItem[], gender: "men" | "women"): CatalogItem | 
   const own = items.filter((i) => i.in_stock && i.gender === gender && i.thumbnail)
   const preferred = ["kurtki", "hudi-i-svitshoty", "svitery-i-kardigany", "futbolki-i-longslivy"]
   for (const cat of preferred) {
-    const hit = popular(own.filter((i) => i.category?.handle === cat))[0]
+    const hit = byScore(own.filter((i) => i.category?.handle === cat))[0]
     if (hit) return hit
   }
-  return popular(own)[0]
+  return byScore(own)[0]
 }
 
-/** Как сортировка «Популярные» в каталоге: балл (продажи, размеры, сезон…) и разнесение моделей и брендов */
-const popular = (items: CatalogItem[]) => diversify([...items].sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0)))
+const byScore = (items: CatalogItem[]) => [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+
+/** Как сортировка по умолчанию в каталоге: балл карточки и разведение соседей (lib/sort) */
+const popular = (items: CatalogItem[], sort: SortData | null) => smartOrder(items, "all", sort).items
 
 /**
  * Главная (ТЗ, п. 6.1). Структура: баннер-кампания (или разделы), новинки, бренды, блог, распродажа, популярное.
  * Баннеры и блоки будут управляться из CMS (ТЗ, п. 9); пока изображения берутся из каталога.
  */
 export default async function HomePage() {
-  const [items, hero] = await Promise.all([getCatalog(), safeHomeHero()])
+  const [items, hero, sort] = await Promise.all([getCatalog(), safeHomeHero(), getSort()])
   const all = scopeItems(items, {})
   const fresh = scopeItems(items, { onlyNew: true }).sort((a, b) => b.created_at.localeCompare(a.created_at))
   const outlet = scopeItems(items, { onlyOutlet: true })
@@ -100,7 +102,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <ProductRail title="Популярное" items={popular(all).slice(8)} href={routes.gender("men")} />
+      <ProductRail title="Популярное" items={popular(all, sort).slice(8)} href={routes.gender("men")} />
     </>
   )
 }

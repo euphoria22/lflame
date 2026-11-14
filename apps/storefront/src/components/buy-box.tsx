@@ -1,5 +1,6 @@
 "use client"
 
+import { trackCart } from "@/lib/track"
 import { useEffect, useRef, useState } from "react"
 
 import { formatPrice } from "@/lib/format"
@@ -13,7 +14,7 @@ import { SizeGuide } from "./size-guide"
  * Выбор размера и кнопка «В корзину» (ТЗ, п. 6.3).
  * На телефоне снизу закреплена стеклянная панель с ценой и кнопкой.
  */
-export function BuyBox({ variants, price, preorder = false, sizeChart = null }: { variants: CatalogVariant[]; price: number; preorder?: boolean; sizeChart?: SizeChart | null }) {
+export function BuyBox({ variants, price, preorder = false, sizeChart = null, productId }: { productId?: string; variants: CatalogVariant[]; price: number; preorder?: boolean; sizeChart?: SizeChart | null }) {
   const [selected, setSelected] = useState<string | null>(() => {
     const available = variants.filter((v) => v.available > 0)
     return available.length === 1 && variants.length === 1 ? available[0].id : null
@@ -67,6 +68,8 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null }: 
     setAdding(true)
     const ok = await cart.add(target.id)
     setAdding(false)
+    // Для умной сортировки: корзина после перехода из листинга
+    if (ok && productId) trackCart(productId)
     if (!ok) setMessage(cart.error ?? "Не получилось добавить в корзину")
   }
 

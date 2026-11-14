@@ -1,5 +1,6 @@
 "use client"
 
+import { trackCart } from "@/lib/track"
 import { useState } from "react"
 
 import { useCart } from "./cart-context"
@@ -13,7 +14,7 @@ export function QuickSizes({ sizes }: { sizes: { size: string; variant_id?: stri
       {sizes.map((s) => (
         <li key={s.size}>
           <button type="button" disabled={!s.variant_id || adding !== null} aria-label={`Добавить размер ${s.size} в корзину`}
-            onClick={async () => { if (!s.variant_id) return; setAdding(s.size); await add(s.variant_id); setAdding(null) }}
+            onClick={async () => { if (!s.variant_id) return; setAdding(s.size); if (await add(s.variant_id)) trackCart(); setAdding(null) }}
             className="block min-w-10 rounded-full px-2.5 py-1.5 text-center text-[12px] transition-colors hover:bg-foreground hover:text-background disabled:opacity-60">
             {adding === s.size ? "…" : s.size}
           </button>

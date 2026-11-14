@@ -1,7 +1,7 @@
 import Link from "next/link"
 
-import { getCatalog } from "@/lib/catalog"
-import { ListingFilters, ListingScope, PAGE_SIZE, parseFilters, runListing, scopeItems } from "@/lib/listing"
+import { getCatalog, getSort } from "@/lib/catalog"
+import { ListingFilters, ListingScope, PAGE_SIZE, parseFilters, runListing, scopeItems, sortContext } from "@/lib/listing"
 import { SITE_URL } from "@/lib/site"
 import { routes } from "@/lib/routes"
 import { Breadcrumbs, Crumb } from "./breadcrumbs"
@@ -9,6 +9,7 @@ import { FilterPanel } from "./filter-panel"
 import { JsonLd } from "./json-ld"
 import { Pagination } from "./pagination"
 import { ProductCard } from "./product-card"
+import { TrackedGrid } from "./tracked-grid"
 
 const GRID = "grid-lines grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
 const CELL = "[&:nth-child(2n)]:border-r-0 md:[&:nth-child(2n)]:border-r md:[&:nth-child(3n)]:border-r-0 xl:[&:nth-child(3n)]:border-r xl:[&:nth-child(4n)]:border-r-0"
@@ -66,9 +67,12 @@ export async function CatalogListing(props: CatalogListingProps) {
 }
 
 async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, filters, h1, genderLinks, related }: CatalogListingProps & { filters: ListingFilters }) {
-  const items = await getCatalog()
+  const [items, sort] = await Promise.all([getCatalog(), getSort()])
   const scoped = scopeItems(items, scope)
-  const result = runListing(scoped, filters)
+  const ctx = sortContext(scope, sort)
+  const result = runListing(scoped, filters, ctx)
+  // События показа и клика пишутся только для сортировки по умолчанию: по ним считается «Интерес»
+  const track = filters.sort === "popular" && !scope.q ? ctx.key : null
 
   return (
     <>
@@ -79,13 +83,13 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
         <div>
           <FilterPanel mode="toolbar" basePath={basePath} filters={filters} facets={result.facets} names={result.names} total={result.total} showBrands={showBrandFilter} showCategories={!scope.category} genderLinks={genderLinks} />
           {result.items.length ? (
-            <ul className={GRID}>
+            <TrackedGrid className={GRID} listing={track} visit={result.page === 1}>
               {result.items.map((item, i) => (
-                <li key={item.id} className={CELL}>
+                <li key={item.id} className={CELL} data-pid={item.id} data-pos={result.offset + i + 1}>
                   <ProductCard item={item} priority={i < 4} />
                 </li>
               ))}
-            </ul>
+            </TrackedGrid>
           ) : (
             <div className="border-t border-line px-6 py-24 text-center">
               <p className="text-[17px]">Ничего не нашлось</p>
@@ -93,7 +97,7 @@ async function ListingBody({ scope, basePath, seoText, showBrandFilter = true, f
             </div>
           )}
           <Pagination key={`${basePath}${result.page}`} basePath={basePath} filters={filters} page={result.page} pages={result.pages}
-            scope={scope} gridClass={`${GRID} border-t-0`} cellClass={CELL} />
+            scope={scope} gridClass={`${GRID} border-t-0`} cellClass={CELL} version={result.version} listing={track} />
         </div>
       </div>
 

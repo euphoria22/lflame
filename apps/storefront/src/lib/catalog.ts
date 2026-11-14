@@ -1,7 +1,7 @@
 import "server-only"
 import { cacheLife, cacheTag } from "next/cache"
 
-import { rankItems } from "./ranking"
+import type { SortData } from "./sort/order"
 import type { CatalogItem, CatalogProduct, Taxonomy } from "./types"
 
 /** Сколько дней товар считается новинкой. */
@@ -57,7 +57,22 @@ export async function getCatalog(): Promise<CatalogItem[]> {
     ...i,
     is_new: Boolean(i.new_manual) || (!i.initial_import && now - new Date(i.created_at).getTime() < NEW_DAYS * 86400 * 1000),
   }))
-  return rankItems(withNew, new Date(now))
+  return withNew
+}
+
+/**
+ * Умная сортировка: настройки разведения соседей, действующие закрепления и версия порядка.
+ * Сервер недоступен — null: листинги сортируются по дате поступления.
+ */
+export async function getSort(): Promise<SortData | null> {
+  "use cache"
+  cacheTag("catalog")
+  cacheLife({ stale: 60, revalidate: 300, expire: 86400 })
+  try {
+    return await store<SortData>("/store/catalog/sort")
+  } catch {
+    return null
+  }
 }
 
 export async function getTaxonomy(): Promise<Taxonomy> {

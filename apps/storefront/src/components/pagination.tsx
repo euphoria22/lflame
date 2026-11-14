@@ -6,16 +6,17 @@ import { useState } from "react"
 import { filtersToQuery, ListingFilters, ListingScope, scopeToQuery, withQuery } from "@/lib/listing"
 import type { CatalogItem } from "@/lib/types"
 import { ProductCard } from "./product-card"
+import { TrackedGrid } from "./tracked-grid"
 
-type Props = { basePath: string; filters: ListingFilters; page: number; pages: number; scope: ListingScope; gridClass: string; cellClass: string }
+type Props = { basePath: string; filters: ListingFilters; page: number; pages: number; scope: ListingScope; gridClass: string; cellClass: string; version?: string; listing?: string | null }
 
 /**
  * «Показать ещё товары» + номера страниц, как у Brandshop (обратная связь 08.11.2026).
  * Номера — настоящие ссылки ?page=N для поисковиков (ТЗ, п. 7.4); кнопка догружает
  * следующую страницу под текущей и обновляет адрес.
  */
-export function Pagination({ basePath, filters, page, pages, scope, gridClass, cellClass }: Props) {
-  const [extra, setExtra] = useState<CatalogItem[]>([])
+export function Pagination({ basePath, filters, page, pages, scope, gridClass, cellClass, version, listing = null }: Props) {
+  const [extra, setExtra] = useState<(CatalogItem & { pos: number })[]>([])
   const [last, setLast] = useState(page)
   const [loading, setLoading] = useState(false)
 
@@ -27,9 +28,10 @@ export function Pagination({ basePath, filters, page, pages, scope, gridClass, c
     try {
       const next = last + 1
       const qs = filtersToQuery({ ...filters, page: next }).replace(/^\?/, "")
-      const res = await fetch(`/api/listing?${scopeToQuery(scope)}&${qs}`)
-      const data = (await res.json()) as { items: CatalogItem[] }
-      setExtra((x) => [...x, ...data.items])
+      // v — версия порядка: страницы догружаются в том порядке, в котором покупатель начал листать
+      const res = await fetch(`/api/listing?${scopeToQuery(scope)}&${qs}${version ? `&v=${encodeURIComponent(version)}` : ""}`)
+      const data = (await res.json()) as { items: CatalogItem[]; offset: number }
+      setExtra((x) => [...x, ...data.items.map((it, i) => ({ ...it, pos: data.offset + i + 1 }))])
       setLast(next)
       window.history.replaceState(null, "", href(next))
     } finally {
@@ -43,9 +45,9 @@ export function Pagination({ basePath, filters, page, pages, scope, gridClass, c
   return (
     <>
       {extra.length > 0 && (
-        <ul className={gridClass}>
-          {extra.map((item) => <li key={item.id} className={cellClass}><ProductCard item={item} /></li>)}
-        </ul>
+        <TrackedGrid className={gridClass} listing={listing}>
+          {extra.map((item) => <li key={item.id} className={cellClass} data-pid={item.id} data-pos={item.pos}><ProductCard item={item} /></li>)}
+        </TrackedGrid>
       )}
       <div className="px-4 pb-4 pt-10 md:px-6">
         {last < pages && (

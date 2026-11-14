@@ -60,7 +60,7 @@ export function ProductInfo({ product, sizeChart }: { product: CatalogProduct; s
 
       <div className="mt-7">
         <TrackView id={product.handle} name={product.title} price={product.price} brand={product.brand?.name} category={product.category?.name} />
-        <BuyBox variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />
+        <BuyBox productId={product.id} variants={product.variants} price={product.price} preorder={product.preorder} sizeChart={sizeChart} />
       </div>
 
       {/* Условия — три короткие ссылки на страницы «Доставка», «Оплата», «Обмен и возврат» */}
