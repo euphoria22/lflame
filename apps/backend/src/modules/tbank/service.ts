@@ -1,4 +1,5 @@
-import { AbstractPaymentProvider, BigNumber, MedusaError, PaymentActions } from "@medusajs/framework/utils"
+import { container } from "@medusajs/framework"
+import { AbstractPaymentProvider, BigNumber, ContainerRegistrationKeys, MedusaError, PaymentActions } from "@medusajs/framework/utils"
 import type {
   AuthorizePaymentInput,
   AuthorizePaymentOutput,
@@ -150,11 +151,49 @@ class TbankPaymentProviderService extends AbstractPaymentProvider<Options> {
     return { data: { ...input.data, Status: s.Status } }
   }
 
+  /**
+   * Возврат. Medusa вызывает его и сама, если после оплаты не удалось создать заказ (откат оформления:
+   * «Refunded due to cart completion failure»). Такой автоматический возврат блокируем: деньги остаются у магазина,
+   * в Telegram — тревога, корзина остаётся оплаченной, и повторное оформление (уведомление Т-Кассы или возврат покупателя
+   * на сайт) создаст заказ. Возвраты по существующим заказам (из админки) проходят как обычно.
+   */
   async refundPayment(input: RefundPaymentInput): Promise<RefundPaymentOutput> {
     this.ensureConfigured()
     const amount = new BigNumber(input.amount).numeric
-    const r = await tbankCall(this.cfg, "Cancel", { PaymentId: String(input.data?.PaymentId), Amount: kopecks(amount) })
+    const d = (input.data ?? {}) as SessionInput & { PaymentId?: string }
+    if (await this.paidWithoutOrder(d.session_id)) {
+      this.logger.error(`Т-Касса: автоматический возврат платежа ${d.PaymentId} без заказа заблокирован — оплата прошла, заказ не создался`)
+      await sendTelegram(
+        `🚨 <b>Оплата прошла, а заказ не создался</b>\n` +
+        `Сумма: ${amount} ₽ · платёж Т-Кассы ${esc(d.PaymentId ?? "—")}\n` +
+        `Покупатель: ${esc(d.email ?? "—")}${d.phone ? `, ${esc(d.phone)}` : ""}\n` +
+        `Деньги НЕ возвращены автоматически. Проверьте заказы в админке через пару минут: сайт попробует оформить заказ ещё раз. ` +
+        `Если заказа нет — свяжитесь с покупателем: оформите заказ вручную или верните деньги в личном кабинете Т-Кассы.`,
+        this.logger
+      ).catch(() => null)
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Автоматический возврат оплаты без заказа отключён: магазин свяжется с покупателем")
+    }
+    const r = await tbankCall(this.cfg, "Cancel", { PaymentId: String(d.PaymentId), Amount: kopecks(amount) })
     return { data: { ...input.data, Status: r.Status } }
+  }
+
+  /**
+   * Оплата не привязана ни к одному заказу — значит, возврат запустил откат оформления, а не сотрудник.
+   * Не удалось проверить — считаем, что заказ есть (возвраты из админки не должны ломаться).
+   */
+  private async paidWithoutOrder(sessionId?: string): Promise<boolean> {
+    if (!sessionId) return false
+    try {
+      const query = container.resolve(ContainerRegistrationKeys.QUERY)
+      const { data: sessions } = await query.graph({ entity: "payment_session", fields: ["payment_collection_id"], filters: { id: sessionId } })
+      const pc = (sessions[0] as { payment_collection_id?: string } | undefined)?.payment_collection_id
+      if (!pc) return false
+      const { data: links } = await query.graph({ entity: "order_payment_collection", fields: ["order_id"], filters: { payment_collection_id: pc } })
+      return !links.length
+    } catch (e) {
+      this.logger.warn(`Т-Касса: не удалось проверить заказ по оплате ${sessionId}: ${(e as Error).message}`)
+      return false
+    }
   }
 
   /**
