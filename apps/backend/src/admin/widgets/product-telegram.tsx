@@ -14,10 +14,17 @@ const date = (iso: string) => new Date(iso).toLocaleString("ru-RU", { day: "nume
 const ProductTelegramWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) => {
   const [nets, setNets] = useState<Record<Net, NetData> | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  // Фото для постов: все фото товара и выбранные по порядку (пусто — все подряд, как на сайте)
+  const [images, setImages] = useState<string[]>([])
+  const [picked, setPicked] = useState<string[]>([])
+  const [saved, setSaved] = useState<string[]>([])
 
   const load = useCallback(async () => {
     const r = await fetch(`/admin/telegram/product/${product.id}`, { credentials: "include" })
-    const d = (await r.json()) as { nets?: Record<Net, NetData>; posts: Post[]; configured: boolean }
+    const d = (await r.json()) as { nets?: Record<Net, NetData>; posts: Post[]; configured: boolean; images?: string[]; photos?: string[] }
+    setImages(d.images ?? [])
+    setPicked(d.photos ?? [])
+    setSaved(d.photos ?? [])
     setNets(d.nets ?? { tg: { configured: d.configured, posts: d.posts ?? [] }, vk: { configured: false, posts: [] } })
   }, [product.id])
   useEffect(() => { load().catch(() => setNets({ tg: { configured: false, posts: [] }, vk: { configured: false, posts: [] } })) }, [load])
@@ -45,10 +52,46 @@ const ProductTelegramWidget = ({ data: product }: DetailWidgetProps<AdminProduct
     toast.success(`Добавлено в очередь ${NET_NAME[net]} — выйдет по расписанию (раздел «Соцсети»)`)
   })
 
+  const toggle = (url: string) => setPicked((p) => (p.includes(url) ? p.filter((x) => x !== url) : p.length >= 10 ? p : [...p, url]))
+  const savePhotos = (photos: string[]) => run("photos", async () => {
+    await call(`/admin/telegram/product/${product.id}`, { photos })
+    toast.success(photos.length ? `Фото для постов сохранены: ${photos.length}` : "Фото для постов — все подряд, как на сайте")
+  })
+  const changed = picked.join("|") !== saved.join("|")
+
   if (nets === null || product.status !== "published") return null
   return (
     <Container className="divide-y p-0">
       <div className="px-6 py-4"><Heading level="h2">Соцсети</Heading></div>
+      {images.length > 1 && (
+        <div className="px-6 py-3">
+          <Text size="small" weight="plus">Фото в посте</Text>
+          <Text size="xsmall" className="mb-2 text-ui-fg-subtle">
+            {picked.length
+              ? `Выбрано ${picked.length}: в пост пойдут только они, в этом порядке. Нажмите на фото, чтобы убрать.`
+              : "Нажимайте на фото по порядку, в каком они должны идти в посте (до 10). Не выбрано — все фото подряд, как на сайте."}
+          </Text>
+          <div className="grid grid-cols-4 gap-1.5">
+            {images.map((url) => {
+              const n = picked.indexOf(url)
+              return (
+                <button key={url} type="button" onClick={() => toggle(url)}
+                  className={`relative aspect-[3/4] overflow-hidden rounded-md border-2 bg-ui-bg-subtle ${n >= 0 ? "border-ui-fg-interactive" : "border-transparent opacity-60 hover:opacity-100"}`}>
+                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  {n >= 0 && <span className="absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-ui-fg-interactive text-[11px] font-medium text-white">{n + 1}</span>}
+                </button>
+              )
+            })}
+          </div>
+          {(changed || saved.length > 0) && (
+            <div className="mt-2 flex gap-1">
+              {changed && <Button size="small" isLoading={busy === "photos"} disabled={!!busy} onClick={() => savePhotos(picked)}>Сохранить</Button>}
+              {changed && <Button size="small" variant="transparent" disabled={!!busy} onClick={() => setPicked(saved)}>Отменить</Button>}
+              {!changed && saved.length > 0 && <Button size="small" variant="transparent" disabled={!!busy} onClick={() => { setPicked([]); savePhotos([]) }}>Сбросить — все подряд</Button>}
+            </div>
+          )}
+        </div>
+      )}
       {(["tg", "vk"] as Net[]).map((net) => {
         const n = nets[net]
         return (

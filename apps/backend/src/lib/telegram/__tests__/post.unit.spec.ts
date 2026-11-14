@@ -1,4 +1,4 @@
-import { buildCaption, CAPTION_LIMIT, categoryDemand, inSeason, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, tgMetaOf, visibleLength } from "../post"
+import { buildCaption, CAPTION_LIMIT, categoryDemand, inSeason, mixOrder, postImages, postLink, postPhotos, postState, PostProduct, RecItem, recommend, tgMetaOf, visibleLength } from "../post"
 
 const product: PostProduct = {
   handle: "hudi-calvin-klein-terry",
@@ -182,3 +182,13 @@ describe("рекомендации", () => {
   })
 })
 
+
+describe("фото для поста", () => {
+  const imgs = ["a.jpg", "b.jpg", "c.jpg", "d.jpg"]
+  it("выбранные вручную — по порядку; удалённые с товара пропускаются; не выбрано — все", () => {
+    expect(postImages({ social_photos: ["c.jpg", "a.jpg"] }, imgs)).toEqual(["c.jpg", "a.jpg"])
+    expect(postImages({ social_photos: ["x.jpg", "b.jpg"] }, imgs)).toEqual(["b.jpg"])
+    expect(postImages({ social_photos: ["x.jpg"] }, imgs)).toEqual(imgs)
+    expect(postImages(null, imgs)).toEqual(imgs)
+  })
+})

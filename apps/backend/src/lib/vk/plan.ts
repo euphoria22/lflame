@@ -4,7 +4,7 @@ import { site } from "../notify/templates"
 import {
   contact, downloadPhoto, PlannedPost, postProduct, promoPrices, readMeta, readQueue, saveTg, telegramOverview, TgQueueState, updateQueue,
 } from "../telegram/channel"
-import { postPhotos, postState, tgMetaOf } from "../telegram/post"
+import { postImages, postPhotos, postState, tgMetaOf } from "../telegram/post"
 import { nextSlots } from "../telegram/schedule"
 import { ensureVkGroupId, uploadWallPhotos, vkApi, vkConfigured } from "./client"
 import { buildVkText } from "./post"
@@ -161,8 +161,9 @@ async function createPostponed(container: MedusaContainer, productId: string, ow
   const p = await postProduct(container, row.handle)
   if (!p) throw new Error("Товар не опубликован на сайте")
   if (!p.images.length) throw new Error("У товара нет фото")
-  const urls = postPhotos(p.images, site())
-  const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, p.images[i] ?? u)))).filter((b): b is Blob => b !== null)
+  const images = postImages(row.metadata, p.images)
+  const urls = postPhotos(images, site())
+  const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, images[i] ?? u)))).filter((b): b is Blob => b !== null)
   if (!files.length) throw new Error("Не удалось скачать фото товара")
   const att = (await uploadWallPhotos(files)).join(",")
   if (!att) throw new Error("ВКонтакте не принял фото")

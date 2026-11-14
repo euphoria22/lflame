@@ -112,6 +112,15 @@ export function buildCaption(p: PostProduct, opts: { site: string; contact: stri
   return [...head, ...quote, "", foot].join("\n").replace(/\n{3,}/g, "\n\n")
 }
 
+/**
+ * Фото для поста: выбранные вручную в карточке товара (metadata.social_photos, по порядку) —
+ * если их нет или ни одного уже нет у товара, все фото в порядке сайта.
+ */
+export function postImages(meta: Record<string, unknown> | null | undefined, images: string[]): string[] {
+  const picked = Array.isArray(meta?.social_photos) ? (meta!.social_photos as unknown[]).filter((u): u is string => typeof u === "string" && images.includes(u)) : []
+  return picked.length ? picked : images
+}
+
 /** Фото для альбома: до 10 штук через сжатие сайта (оригиналы бывают больше лимита Telegram 5 МБ) */
 export const postPhotos = (images: string[], site: string) =>
   images.slice(0, MAX_PHOTOS).map((src) => `${site}/_next/image?url=${encodeURIComponent(src)}&w=1080&q=85`)

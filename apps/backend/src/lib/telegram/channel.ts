@@ -12,7 +12,7 @@ import { modelKeys } from "../catalog/model-key"
 import { SORT_MODULE } from "../../modules/sort"
 import SortModuleService from "../../modules/sort/service"
 import { activeConfig } from "../sort/engine"
-import { BaseScore, buildCaption, categoryDemand, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
+import { BaseScore, buildCaption, postImages, categoryDemand, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
 
 /**
  * Посты о товарах в Telegram-канале магазина (TELEGRAM_CHANNEL_ID: @имя_канала или -100…).
@@ -127,8 +127,9 @@ async function publishVk(container: MedusaContainer, productId: string): Promise
   const p = await postProduct(container, row.handle)
   if (!p) throw new Error("Товар не опубликован на сайте")
   if (!p.images.length) throw new Error("У товара нет фото")
-  const urls = postPhotos(p.images, site())
-  const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, p.images[i] ?? u)))).filter((b): b is Blob => b !== null)
+  const images = postImages(row.metadata, p.images)
+  const urls = postPhotos(images, site())
+  const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, images[i] ?? u)))).filter((b): b is Blob => b !== null)
   if (!files.length) throw new Error("Не удалось скачать фото товара")
   const group = await ensureVkGroupId()
   const att = (await uploadWallPhotos(files)).join(",")
@@ -151,7 +152,8 @@ export async function publishProduct(container: MedusaContainer, productId: stri
   if (!p.images.length) throw new Error("У товара нет фото")
 
   const caption = buildCaption(p, { site: site(), contact: contact() })
-  const sent = await sendAlbum(chat, postPhotos(p.images, site()), p.images, caption)
+  const images = postImages(row.metadata, p.images)
+  const sent = await sendAlbum(chat, postPhotos(images, site()), images, caption)
   const id = sent[0].message_id
   const tg = tgMetaOf(row.metadata)
   await saveTg(container, productId, { posts: [...tg.posts, { id, at: new Date().toISOString() }], state: postState(p) })
