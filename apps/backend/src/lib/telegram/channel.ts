@@ -7,7 +7,10 @@ import { telegramApi, TelegramError } from "../notify/telegram"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
 import { modelKeys } from "../catalog/model-key"
-import { buildCaption, categoryDemand, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
+import { SORT_MODULE } from "../../modules/sort"
+import SortModuleService from "../../modules/sort/service"
+import { activeConfig } from "../sort/engine"
+import { BaseScore, buildCaption, categoryDemand, mixOrder, postLink, postPhotos, postState, PostProduct, RecItem, recommend, Recommendation, TgMeta, tgMetaOf } from "./post"
 
 /**
  * Посты о товарах в Telegram-канале магазина (TELEGRAM_CHANNEL_ID: @имя_канала или -100…).
@@ -195,6 +198,16 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
   const allPosts = items.flatMap((i) => (metaById.get(i.id)?.posts ?? []).map((p) => ({ ...p, brand: i.brand?.name ?? null, category: i.category?.name ?? null, model: keyOf.get(i.id) ?? i.id })))
   const recentBrands = new Set(allPosts.filter((p) => now.getTime() - Date.parse(p.at) < 3 * DAY && p.brand).map((p) => p.brand!))
   // Спрос по разделам — по всем товарам, включая распроданные
+  // Балл умной сортировки каталога (центральная зона) — основа рекомендации; веса — из настроек «Сортировка»
+  const [{ config }, scoreRows] = await Promise.all([
+    activeConfig(container),
+    (container.resolve(SORT_MODULE) as SortModuleService).listSortProductScores({ zone: "central" }, { take: 1_000_000 }).catch(() => [] as never[]),
+  ])
+  const base = new Map<string, BaseScore>()
+  for (const r of scoreRows) {
+    base.set(r.product_id, { score: r.score, components: { N: r.n, S: r.s, I: r.i, R: r.r, Z: r.z, M: r.m }, multipliers: (r.multipliers as unknown as BaseScore["multipliers"]) ?? [] })
+  }
+  const maxScore = Math.max(0, ...scoreRows.map((r) => r.score))
   const demand = categoryDemand(items.map((i) => ({ category_handle: i.category?.handle ?? null, sales: i.sales })))
 
   const rows: OverviewRow[] = items.map((i) => {
@@ -211,7 +224,7 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
     return {
       ...rec,
       link: last && chat ? postLink(chat, last.id) : null,
-      recommendation: recommend({ ...rec, category_handle: i.category?.handle ?? null }, { now, recentBrands, demand }),
+      recommendation: recommend({ ...rec, category_handle: i.category?.handle ?? null, base: base.get(i.id) ?? null }, { now, recentBrands, demand, tg: config.telegram, maxScore }),
     }
   })
 
@@ -221,7 +234,7 @@ export async function telegramOverview(container: MedusaContainer): Promise<Over
     .map((r) => ({ id: r.id, brand: r.brand, category: r.category, model: keyOf.get(r.id) ?? r.id, score: r.recommendation!.score }))
     .sort((a, b) => b.score - a.score)
   const rowById = new Map(rows.map((r) => [r.id, r]))
-  mixOrder(ranked, recent).forEach((r, n) => { rowById.get(r.id)!.recommendation!.order = n + 1 })
+  mixOrder(ranked, recent, config.telegram).forEach((r, n) => { rowById.get(r.id)!.recommendation!.order = n + 1 })
 
   const since = (d: number) => allPosts.filter((p) => now.getTime() - Date.parse(p.at) < d * DAY).length
   const posted = rows.filter((r) => r.posts.length).length

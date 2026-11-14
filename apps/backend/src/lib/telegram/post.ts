@@ -1,4 +1,5 @@
 import type { PromoPrice } from "../promotions/auto-price"
+import type { TelegramRecConfig } from "../sort/config"
 
 /**
  * Пост о товаре в Telegram-канале магазина: подпись к альбому и подсказки, что выложить.
@@ -167,81 +168,91 @@ export function categoryDemand(items: { category_handle: string | null; sales: n
   return new Map([...sum].map(([k, v]) => [k, { sales: v, level: max ? Math.log1p(v) / Math.log1p(max) : 0 }]))
 }
 
-export type RecContext = { now: Date; recentBrands: Set<string>; demand?: Map<string, { sales: number; level: number }> }
+/** Балл карточки из умной сортировки каталога (центральная зона): компоненты и сработавшие множители */
+export type BaseScore = { score: number; components: { N: number; S: number; I: number; R: number; Z: number; M: number }; multipliers: { code: string; label: string; value: number }[] }
+
+export type RecContext = {
+  now: Date
+  recentBrands: Set<string>
+  demand?: Map<string, { sales: number; level: number }>
+  /** Веса из настроек «Сортировка» и лучший балл каталога (для шкалы 0…1) */
+  tg?: TelegramRecConfig
+  maxScore?: number
+}
+
+export const DEFAULT_TG: TelegramRecConfig = { score: 50, stock: 25, demand: 15, never_posted: 20, old_post: 15, promo: 8, recent_brand: 15, cooldown_days: 14, brand_gap: 3, category_gap: 2, model_gap: 8 }
 
 /**
  * Оценка товара для поста: чем выше — тем полезнее выложить сейчас. Причины — человеческим языком.
- * Главное — остаток (много пришло — надо продавать) и спрос: продажи товара и всего его раздела
- * (бельё и футболки продаются круглый год). Дальше — давно не выкладывали, новинка, скидка, сезон.
- * Количество фото не влияет. Не предлагаем: нет в наличии, нет фото, выкладывали меньше 14 дней назад.
+ * Основа — балл умной сортировки каталога (новизна, продажи, интерес, размеры, сезон, маржа, ручные бусты, режим «Распродажа»).
+ * К нему добавляется то, что нужно только постам: большой остаток (товар и вся модель), спрос раздела,
+ * давность поста, действующая акция. Веса — в настройках «Сортировка». Количество фото не влияет.
+ * Не предлагаем: нет в наличии, нет фото, выкладывали меньше cooldown_days дней назад.
  */
-export function recommend(item: RecItem & { category_handle: string | null }, ctx: RecContext): Recommendation | null {
+export function recommend(item: RecItem & { category_handle: string | null; base?: BaseScore | null }, ctx: RecContext): Recommendation | null {
   if (!item.in_stock && !item.preorder) return null
   if (item.images < 1) return null
+  const w = ctx.tg ?? DEFAULT_TG
   const reasons: string[] = []
   let score = 0
   const last = item.posts.length ? Math.max(...item.posts.map((p) => Date.parse(p.at))) : null
   const days = last ? (ctx.now.getTime() - last) / DAY : null
-  if (days !== null && days < 14) return null
+  if (days !== null && days < w.cooldown_days) return null
+
+  // Балл каталога: доля от лучшего балла
+  const b = item.base
+  if (b && ctx.maxScore && ctx.maxScore > 0) {
+    score += w.score * Math.min(1, b.score / ctx.maxScore)
+    reasons.push(`балл каталога ${b.score.toFixed(2)}`)
+    if (b.components.N >= 0.3) reasons.push("новинка")
+    if (b.components.Z >= 0.8) reasons.push("по сезону")
+    if (b.components.I >= 0.7) reasons.push("высокий интерес на сайте")
+    for (const m of b.multipliers) if (m.code === "manual" || m.code === "sale") reasons.push(`${m.label} ×${Number(m.value.toFixed(2))}`)
+  }
 
   // Остаток: товар и вся модель
-  const stock = 0.6 * stockScale(item.stock_units) + 0.4 * stockScale(item.model_units)
-  score += 40 * stock
+  score += w.stock * (0.6 * stockScale(item.stock_units) + 0.4 * stockScale(item.model_units))
   if (item.model_units > item.stock_units && item.model_units >= 10) reasons.push(`на складе ${item.stock_units} шт., всего модели ${item.model_units} шт.`)
   else if (item.stock_units >= 5) reasons.push(`на складе ${item.stock_units} шт.`)
-
-  const age = (ctx.now.getTime() - Date.parse(item.created_at)) / DAY
-  const fresh = item.is_new || age <= 21
-  if (fresh) {
-    score += 15
-    // Новое поступление большой партией — главный кандидат
-    if (item.model_units >= 10) { score += 15; reasons.push("новое поступление, большая партия") }
-    else reasons.push("новинка")
-  }
 
   // Спрос раздела — независимо от сезона
   const demand = item.category_handle ? ctx.demand?.get(item.category_handle) : undefined
   if (demand) {
-    score += 30 * demand.level
+    score += w.demand * demand.level
     if (demand.level >= 0.6 && demand.sales >= 5) reasons.push(`раздел продаётся: ${demand.sales} шт. за 30 дн.`)
   }
-  if (item.sales > 0) { score += Math.min(item.sales, 10) * 2.5; reasons.push(`продаж за 30 дней: ${item.sales}`) }
+  if (item.sales > 0) reasons.push(`продаж за 30 дней: ${item.sales}`)
 
-  if (days === null) { score += 20; reasons.push("ещё не выкладывали") }
-  else { score += Math.min(days, 90) / 4; reasons.push(`последний пост ${Math.floor(days)} дн. назад`) }
+  if (days === null) { score += w.never_posted; reasons.push("ещё не выкладывали") }
+  else { score += (w.old_post * Math.min(days, 90)) / 90; reasons.push(`последний пост ${Math.floor(days)} дн. назад`) }
 
-  if (inSeason(item.category_handle, ctx.now.getMonth() + 1)) { score += 10; reasons.push("по сезону") }
-  // Скидка — от старой цены до итоговой с учётом акции
+  // Скидка — от старой цены до итоговой с учётом акции (в очки входит через режим «Распродажа» и акцию)
   const final = item.promo?.price ?? item.price
   const base = item.compare_at && item.compare_at > item.price ? item.compare_at : item.price
-  if (final < base) {
-    const off = Math.round((1 - final / base) * 100)
-    score += 5 + Math.min(off, 80) / 4
-    reasons.push(`скидка ${off}%`)
-  }
-  if (item.promo) { score += 8; reasons.push(`акция «${item.promo.label}» −${item.promo.pct}%`) }
-  if (item.sizes_total >= 3 && item.sizes_in_stock <= 2) { score += 5; reasons.push("остались последние размеры") }
-  if (item.preorder) { score += 5; reasons.push(arrival(item.preorder_date) ? `предзаказ, ждём ${arrival(item.preorder_date)}` : "предзаказ") }
-  if (!item.has_description) { score -= 3; reasons.push("нет описания") }
-  if (item.brand && ctx.recentBrands.has(item.brand)) { score -= 15; reasons.push("бренд уже был в последние 3 дня") }
+  if (final < base) reasons.push(`скидка ${Math.round((1 - final / base) * 100)}%`)
+  if (item.promo) { score += w.promo; reasons.push(`акция «${item.promo.label}» −${item.promo.pct}%`) }
+  if (item.sizes_total >= 3 && item.sizes_in_stock <= 2) reasons.push("остались последние размеры")
+  if (item.preorder) reasons.push(arrival(item.preorder_date) ? `предзаказ, ждём ${arrival(item.preorder_date)}` : "предзаказ")
+  if (!item.has_description) reasons.push("нет описания")
+  if (item.brand && ctx.recentBrands.has(item.brand)) { score -= w.recent_brand; reasons.push("бренд уже был в последние 3 дня") }
   return { score: Math.round(score), reasons }
 }
 
 type Mixable = { id: string; brand: string | null; category: string | null; model: string; score: number }
 
 /**
- * Порядок постов: по баллу, но вперемешку. Подряд не идут: один бренд (не ближе 3 постов),
- * один раздел (не ближе 2), одна модель в разных цветах (не ближе 8). Учитываются и последние посты канала
+ * Порядок постов: по баллу, но вперемешку. Подряд не идут: один бренд (по умолчанию не ближе 3 постов),
+ * один раздел (не ближе 2), одна модель в разных цветах (не ближе 8) — числа из настроек «Сортировка». Учитываются и последние посты канала
  * (recent — от старых к новым). Нет подходящего — ослабляем правила по очереди: сначала раздел, потом бренд.
  */
-export function mixOrder<T extends Mixable>(sorted: T[], recent: Omit<Mixable, "id" | "score">[] = []): T[] {
+export function mixOrder<T extends Mixable>(sorted: T[], recent: Omit<Mixable, "id" | "score">[] = [], gaps: { brand_gap: number; category_gap: number; model_gap: number } = DEFAULT_TG): T[] {
   const rest = [...sorted]
   const out: T[] = []
   const seq: Omit<Mixable, "id" | "score">[] = [...recent]
-  const tail = (n: number) => seq.slice(-n)
+  const tail = (n: number) => (n > 0 ? seq.slice(-n) : [])
   const rules: ((c: T) => boolean)[] = [
-    (c) => !tail(8).some((p) => p.model === c.model) && (!c.brand || !tail(3).some((p) => p.brand === c.brand)) && (!c.category || !tail(2).some((p) => p.category === c.category)),
-    (c) => !tail(8).some((p) => p.model === c.model) && (!c.brand || !tail(3).some((p) => p.brand === c.brand)),
+    (c) => !tail(gaps.model_gap).some((p) => p.model === c.model) && (!c.brand || !tail(gaps.brand_gap).some((p) => p.brand === c.brand)) && (!c.category || !tail(gaps.category_gap).some((p) => p.category === c.category)),
+    (c) => !tail(gaps.model_gap).some((p) => p.model === c.model) && (!c.brand || !tail(gaps.brand_gap).some((p) => p.brand === c.brand)),
     (c) => !tail(1).some((p) => p.model === c.model || (c.brand && p.brand === c.brand)),
   ]
   while (rest.length) {

@@ -100,10 +100,14 @@ describe("рекомендации", () => {
   }
   const ctx = { now, recentBrands: new Set<string>() }
 
-  it("не выкладывали + по сезону — выше, чем давно выложенный", () => {
+  const sc = (score: number, over: Partial<{ N: number; Z: number; I: number }> = {}, multipliers: { code: string; label: string; value: number }[] = []) =>
+    ({ score, components: { N: 0, S: 0, I: 0, R: 1, Z: 0.5, M: 0.5, ...over }, multipliers })
+  const full = { ...ctx, maxScore: 0.8 }
+
+  it("не выкладывали — выше, чем давно выложенный", () => {
     const never = recommend(base, ctx)!
     const old = recommend({ ...base, posts: [{ id: 1, at: "2026-10-01T00:00:00Z" }] }, ctx)!
-    expect(never.reasons).toEqual(expect.arrayContaining(["ещё не выкладывали", "по сезону"]))
+    expect(never.reasons).toContain("ещё не выкладывали")
     expect(never.score).toBeGreaterThan(old.score)
   })
 
@@ -114,15 +118,26 @@ describe("рекомендации", () => {
     expect(recommend({ ...base, posts: [{ id: 1, at: "2026-11-10T00:00:00Z" }] }, ctx)).toBeNull()
   })
 
-  it("скидка, новинка, последние размеры, продажи — причины и плюс к оценке", () => {
-    const r = recommend({ ...base, compare_at: 20000, is_new: true, sizes_in_stock: 1, sales: 3 }, ctx)!
-    expect(r.reasons).toEqual(expect.arrayContaining(["новинка", "скидка 50%", "остались последние размеры", "продаж за 30 дней: 3"]))
-    expect(r.score).toBeGreaterThan(recommend(base, ctx)!.score)
+  it("основа — балл каталога: выше балл — выше рекомендация; причины из компонентов и ручных правил", () => {
+    const hi = recommend({ ...base, base: sc(0.8, { N: 0.7, Z: 0.9 }, [{ code: "manual", label: "буст бренда ×1.3", value: 1.3 }]) }, full)!
+    const lo = recommend({ ...base, base: sc(0.2) }, full)!
+    expect(hi.score - lo.score).toBeGreaterThan(30)
+    expect(hi.reasons).toEqual(expect.arrayContaining(["балл каталога 0.80", "новинка", "по сезону", "буст бренда ×1.3 ×1.3"]))
+    expect(lo.reasons).not.toContain("по сезону")
   })
 
-  it("акция считается в скидке и даёт причину", () => {
+  it("веса из настроек: балл каталога можно выключить, остаток — усилить", () => {
+    const tg = { score: 0, stock: 100, demand: 0, never_posted: 0, old_post: 0, promo: 0, recent_brand: 0, cooldown_days: 0, brand_gap: 3, category_gap: 2, model_gap: 8 }
+    const a = recommend({ ...base, base: sc(0.8), stock_units: 40, model_units: 40 }, { ...full, tg })!
+    const b = recommend({ ...base, base: sc(0.1), stock_units: 40, model_units: 40, posts: [{ id: 1, at: "2026-11-12T00:00:00Z" }] }, { ...full, tg })!
+    expect(a.score).toBe(100)
+    expect(b.score).toBe(100)
+  })
+
+  it("акция даёт очки и причину, скидка — причину", () => {
     const r = recommend({ ...base, compare_at: 30000, promo: { price: 7500, label: "11.11", pct: 25 } }, ctx)!
     expect(r.reasons).toEqual(expect.arrayContaining(["скидка 75%", "акция «11.11» −25%"]))
+    expect(r.score).toBeGreaterThan(recommend(base, ctx)!.score)
   })
 
   it("бренд был в последние дни — ниже", () => {
@@ -130,10 +145,10 @@ describe("рекомендации", () => {
     expect(r.score).toBeLessThan(recommend(base, ctx)!.score)
   })
 
-  it("большой остаток и новая партия — сильно выше", () => {
-    const big = recommend({ ...base, stock_units: 12, model_units: 40, is_new: true }, ctx)!
-    expect(big.reasons).toEqual(expect.arrayContaining(["новое поступление, большая партия", "на складе 12 шт., всего модели 40 шт."]))
-    expect(big.score - recommend({ ...base, is_new: true }, ctx)!.score).toBeGreaterThan(30)
+  it("большой остаток модели — выше", () => {
+    const big = recommend({ ...base, stock_units: 12, model_units: 40 }, ctx)!
+    expect(big.reasons).toContain("на складе 12 шт., всего модели 40 шт.")
+    expect(big.score).toBeGreaterThan(recommend(base, ctx)!.score + 10)
   })
 
   it("раздел хорошо продаётся — выше даже не в сезон", () => {
@@ -142,9 +157,8 @@ describe("рекомендации", () => {
     ])
     const c = { ...ctx, demand }
     const underwear = recommend({ ...base, category: "Нижнее бельё", category_handle: "bele" }, c)!
-    const jacket = recommend(base, c)!
-    expect(underwear.reasons).toEqual(expect.arrayContaining(["раздел продаётся: 120 шт. за 30 дн."]))
-    expect(underwear.score).toBeGreaterThan(jacket.score)
+    expect(underwear.reasons).toContain("раздел продаётся: 120 шт. за 30 дн.")
+    expect(underwear.score).toBeGreaterThan(recommend(base, c)!.score)
   })
 
   it("порядок вперемешку: бренд и раздел не идут подряд, учитываются последние посты", () => {

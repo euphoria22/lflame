@@ -86,6 +86,20 @@ export type SortConfig = {
   size_demand: Record<string, Record<string, number>>
   /** Новый балл записывается, если отличается больше чем на столько (доля) */
   write_threshold: number
+  /** Рекомендации постов в Telegram: балл каталога + то, что нужно только постам */
+  telegram: TelegramRecConfig
+}
+
+/**
+ * Очки рекомендации = score × (балл каталога / лучший балл) + stock × остаток + demand × спрос раздела
+ * + never_posted (ещё не выкладывали) или old_post × (дней с поста / 90) + promo (идёт акция) − recent_brand (бренд был в последние 3 дня).
+ */
+export type TelegramRecConfig = {
+  score: number; stock: number; demand: number; never_posted: number; old_post: number; promo: number; recent_brand: number
+  /** Не предлагать товар столько дней после поста */
+  cooldown_days: number
+  /** Чередование: бренд, раздел и цвета одной модели — не ближе стольких постов */
+  brand_gap: number; category_gap: number; model_gap: number
 }
 
 export const DEFAULT_CONFIG: SortConfig = {
@@ -123,6 +137,7 @@ export const DEFAULT_CONFIG: SortConfig = {
   quota: { every: 6, last: 48, max_impressions: 200 },
   size_demand: { top: { XS: 0.05, S: 0.2, M: 0.3, L: 0.25, XL: 0.15, XXL: 0.05 } },
   write_threshold: 0.05,
+  telegram: { score: 50, stock: 25, demand: 15, never_posted: 20, old_post: 15, promo: 8, recent_brand: 15, cooldown_days: 14, brand_gap: 3, category_gap: 2, model_gap: 8 },
 }
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v)
@@ -175,6 +190,7 @@ export function validateConfig(raw: unknown): { value?: SortConfig; error?: stri
   if (c.novelty_days <= 0 || c.smoothing < 0 || c.blend_days < 0) return { error: "Новизна, сглаживание и переход: положительные числа" }
   if (Object.values(c.brand_priority).some((v) => !in01(v))) return { error: "Приоритет бренда: от 0 до 1" }
   if (c.multipliers.sale_cap < 1 || c.multipliers.one_size <= 0 || c.multipliers.preorder <= 0 || c.multipliers.overstock <= 0) return { error: "Множители: положительные числа, предел распродажи не меньше 1" }
+  if (Object.values(c.telegram).some((v) => v < 0)) return { error: "Рекомендации Telegram: числа не меньше 0" }
   if (!Number.isInteger(c.quota.every) || c.quota.every < 2 || c.quota.last < 0) return { error: "Квота: шаг — целое от 2" }
   return { value: c }
 }

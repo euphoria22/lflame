@@ -258,6 +258,17 @@ function SettingsTab({ data, draft, setDraft, reload, toPreview }: { data: Data;
         ))}
       </Section>
 
+      <Section title="Рекомендации постов в Telegram" hint="Основа — балл каталога (доля от лучшего балла), к нему добавляется то, что нужно только постам. Числа — сколько очков даёт каждый признак. Буст бренда и режим «Распродажа» действуют через балл каталога.">
+        <Field label="Балл каталога" hint="Новизна, продажи, интерес, размеры, сезон, маржа, ручные правила"><Num step={5} value={draft.telegram.score} onChange={(v) => set(["telegram", "score"], v)} /></Field>
+        <Field label="Большой остаток" hint="Товар и вся модель во всех цветах; максимум — от 40 штук"><Num step={5} value={draft.telegram.stock} onChange={(v) => set(["telegram", "stock"], v)} /></Field>
+        <Field label="Спрос раздела" hint="Продажи всех товаров раздела за 30 дней: бельё и футболки продаются круглый год"><Num step={5} value={draft.telegram.demand} onChange={(v) => set(["telegram", "demand"], v)} /></Field>
+        <Field label="Ещё не выкладывали / давно выкладывали (за 90 дней)"><div className="flex gap-2"><Num step={5} value={draft.telegram.never_posted} onChange={(v) => set(["telegram", "never_posted"], v)} /><Num step={5} value={draft.telegram.old_post} onChange={(v) => set(["telegram", "old_post"], v)} /></div></Field>
+        <Field label="Идёт автоматическая акция"><Num step={1} value={draft.telegram.promo} onChange={(v) => set(["telegram", "promo"], v)} /></Field>
+        <Field label="Штраф: бренд уже был в последние 3 дня"><Num step={5} value={draft.telegram.recent_brand} onChange={(v) => set(["telegram", "recent_brand"], v)} /></Field>
+        <Field label="Не предлагать после поста, дней"><Num step={1} value={draft.telegram.cooldown_days} onChange={(v) => set(["telegram", "cooldown_days"], v)} /></Field>
+        <Field label="Чередование: бренд, раздел, цвета одной модели — не ближе стольких постов"><div className="flex gap-2"><Num step={1} value={draft.telegram.brand_gap} onChange={(v) => set(["telegram", "brand_gap"], v)} /><Num step={1} value={draft.telegram.category_gap} onChange={(v) => set(["telegram", "category_gap"], v)} /><Num step={1} value={draft.telegram.model_gap} onChange={(v) => set(["telegram", "model_gap"], v)} /></div></Field>
+      </Section>
+
       <Section title="Приоритет бренда" hint="От 0 до 1, по умолчанию 0.5. Входит в компонент «Маржа».">
         <div className="grid grid-cols-2 gap-x-8 md:grid-cols-3">
           {data.brands.map((b) => (
