@@ -6,6 +6,7 @@ import { activeAutoPromos, autoPrice, promoProducts } from "../promotions/auto-p
 import { telegramApi, TelegramError } from "../notify/telegram"
 import { ensureVkGroupId, uploadWallPhotos, vkApi, vkConfigured, vkGroupId, vkPostLink } from "../vk/client"
 import { buildVkText } from "../vk/post"
+import { MAX_PHOTOS, preparePostPhotos } from "../social/photos"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
 import { modelKeys } from "../catalog/model-key"
@@ -101,9 +102,26 @@ export async function downloadPhoto(url: string, original: string): Promise<Blob
   return null
 }
 
-/** Альбом с подписью у первого фото; фото — файлами. Нескачавшиеся фото пропускаем. */
-export async function sendAlbum(chat: string, photos: string[], originals: string[], caption: string): Promise<{ message_id: number }[]> {
-  const files = (await Promise.all(photos.map((u, i) => downloadPhoto(u, originals[i] ?? u)))).filter((b): b is Blob => b !== null)
+/**
+ * Фото для поста: скачиваем до 10 фото товара (в порядке сайта) и собираем ровную сетку (lib/social/photos.ts):
+ * каталожные на белом фоне — первым рядом, на модели — вторым, поровну (3+3 или 2+2), все 4:5.
+ * Не удалось обработать — берём первые фото как есть.
+ */
+export async function postFiles(images: string[]): Promise<Blob[]> {
+  const urls = postPhotos(images, site())
+  const raw = (await Promise.all(urls.map((u, i) => downloadPhoto(u, images[i] ?? u)))).filter((b): b is Blob => b !== null)
+  if (!raw.length) throw new Error("Не удалось скачать фото товара")
+  try {
+    const ready = await preparePostPhotos(await Promise.all(raw.map(async (b) => Buffer.from(await b.arrayBuffer()))))
+    if (ready.length) return ready
+  } catch {
+    // обработка не удалась — фото как на сайте
+  }
+  return raw.slice(0, MAX_PHOTOS)
+}
+
+/** Альбом с подписью у первого фото; фото — файлами. */
+export async function sendAlbum(chat: string, files: Blob[], caption: string): Promise<{ message_id: number }[]> {
   if (!files.length) throw new Error("Не удалось скачать фото товара")
   const form = new FormData()
   form.append("chat_id", chat)
@@ -127,9 +145,7 @@ async function publishVk(container: MedusaContainer, productId: string): Promise
   const p = await postProduct(container, row.handle)
   if (!p) throw new Error("Товар не опубликован на сайте")
   if (!p.images.length) throw new Error("У товара нет фото")
-  const urls = postPhotos(p.images, site())
-  const files = (await Promise.all(urls.map((u, i) => downloadPhoto(u, p.images[i] ?? u)))).filter((b): b is Blob => b !== null)
-  if (!files.length) throw new Error("Не удалось скачать фото товара")
+  const files = await postFiles(p.images)
   const group = await ensureVkGroupId()
   const att = (await uploadWallPhotos(files)).join(",")
   if (!att) throw new Error("ВКонтакте не принял фото")
@@ -151,7 +167,7 @@ export async function publishProduct(container: MedusaContainer, productId: stri
   if (!p.images.length) throw new Error("У товара нет фото")
 
   const caption = buildCaption(p, { site: site(), contact: contact() })
-  const sent = await sendAlbum(chat, postPhotos(p.images, site()), p.images, caption)
+  const sent = await sendAlbum(chat, await postFiles(p.images), caption)
   const id = sent[0].message_id
   const tg = tgMetaOf(row.metadata)
   await saveTg(container, productId, { posts: [...tg.posts, { id, at: new Date().toISOString() }], state: postState(p) })
