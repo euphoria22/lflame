@@ -153,7 +153,7 @@ export function scoreCards(cards: CardInput[], zone: Zone, ctx: ScoreContext): C
     if (c.preorder) mult.push({ code: "preorder", label: "предзаказ", value: x.preorder })
     const daily = c.orders_30d / 30
     if (c.in_stock && !c.preorder && (c.age_days === null || c.age_days > x.overstock_min_age) && c.stock_units > 0 && (daily === 0 || c.stock_units / daily > x.overstock_days)) {
-      mult.push({ code: "overstock", label: `запаса больше чем на ${x.overstock_days} дней`, value: x.overstock })
+      mult.push({ code: "overstock", label: `запас больше ${x.overstock_days} дн.`, value: x.overstock })
     }
     if (c.manual !== 1) mult.push({ code: "manual", label: c.manual_notes.join("; ") || "ручное правило", value: c.manual })
     if (ctx.sale && c.compare_at && c.compare_at > c.price) {
