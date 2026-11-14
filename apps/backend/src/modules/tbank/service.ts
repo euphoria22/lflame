@@ -23,6 +23,7 @@ import type {
   UpdatePaymentOutput,
   WebhookActionResult,
 } from "@medusajs/framework/types"
+import { esc, sendTelegram } from "../../lib/notify/telegram"
 import { buildReceipt, kopecks, ReceiptLine, TbankConfig, tbankCall, tbankVerify } from "../../lib/payments/tbank-client"
 
 type Options = { terminalKey?: string; password?: string; apiUrl?: string; taxation?: string; notificationUrl?: string }
@@ -156,13 +157,33 @@ class TbankPaymentProviderService extends AbstractPaymentProvider<Options> {
     return { data: { ...input.data, Status: r.Status } }
   }
 
+  /**
+   * Отмена платежа. Medusa вызывает её и при откате оформления заказа: если после оплаты заказ не создался,
+   * платёж «отменяется». Списанные деньги (CONFIRMED) так возвращать нельзя — покупатель заплатил, а заказа нет.
+   * Поэтому отменяем только незавершённый или удержанный платёж; по списанному — сообщение в Telegram,
+   * решение (создать заказ вручную или вернуть деньги) принимает магазин. Возврат по заказу — refundPayment.
+   */
   async cancelPayment(input: CancelPaymentInput): Promise<CancelPaymentOutput> {
     if (!input.data?.PaymentId || !this.cfg.terminalKey) return { data: input.data }
+    const d = input.data as SessionInput & { PaymentId: string; Amount?: number }
     try {
-      const r = await tbankCall(this.cfg, "Cancel", { PaymentId: String(input.data.PaymentId) })
+      const s = await this.state(input.data)
+      if (s.Status === "CONFIRMED") {
+        this.logger.error(`Т-Касса: платёж ${d.PaymentId} оплачен, но заказ не создан — деньги НЕ возвращаем автоматически`)
+        await sendTelegram(
+          `🚨 <b>Оплата прошла, а заказ не создался</b>\n` +
+          `Сумма: ${Number(d.Amount ?? s.Amount ?? 0) / 100} ₽ · платёж Т-Кассы ${esc(d.PaymentId)}\n` +
+          `Покупатель: ${esc(d.email ?? "—")}${d.phone ? `, ${esc(d.phone)}` : ""}\n` +
+          `Деньги списаны и автоматически не возвращены. Свяжитесь с покупателем: оформите заказ вручную или верните деньги в личном кабинете Т-Кассы.`,
+          this.logger
+        ).catch(() => null)
+        return { data: { ...input.data, Status: s.Status } }
+      }
+      if (["CANCELED", "REVERSED", "REFUNDED", "REJECTED", "DEADLINE_EXPIRED"].includes(String(s.Status))) return { data: { ...input.data, Status: s.Status } }
+      const r = await tbankCall(this.cfg, "Cancel", { PaymentId: String(d.PaymentId) })
       return { data: { ...input.data, Status: r.Status } }
     } catch (e) {
-      this.logger.warn(`Т-Касса: отмена платежа ${input.data.PaymentId} не удалась: ${(e as Error).message}`)
+      this.logger.warn(`Т-Касса: отмена платежа ${d.PaymentId} не удалась: ${(e as Error).message}`)
       return { data: input.data }
     }
   }
