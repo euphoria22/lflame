@@ -21,7 +21,7 @@ import { BaseScore, buildCaption, categoryDemand, mixOrder, postLink, postPhotos
  * когда меняется цена или размеры в наличии.
  */
 export const channelId = () => process.env.TELEGRAM_CHANNEL_ID?.trim() || null
-const contact = () => process.env.TELEGRAM_ORDER_CONTACT?.trim() || "@laflammehelp"
+export const contact = () => process.env.TELEGRAM_ORDER_CONTACT?.trim() || "@laflammehelp"
 
 /** Соцсеть: tg — Telegram-канал, vk — сообщество ВКонтакте. У каждой своя очередь, расписание и история постов в товаре */
 export type Net = "tg" | "vk"
@@ -33,20 +33,20 @@ export const postUrl = (net: Net, id: number) => (net === "vk" ? vkPostLink(id) 
 
 type Logger = { info: (m: string) => void; warn: (m: string) => void }
 
-async function readMeta(container: MedusaContainer, id: string) {
+export async function readMeta(container: MedusaContainer, id: string) {
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "product", fields: ["id", "handle", "metadata"], filters: { id } })
   return data[0] as { id: string; handle: string; metadata: Record<string, unknown> | null } | undefined
 }
 
-async function saveTg(container: MedusaContainer, id: string, tg: TgMeta, net: Net = "tg") {
+export async function saveTg(container: MedusaContainer, id: string, tg: TgMeta, net: Net = "tg") {
   const row = await readMeta(container, id)
   if (!row) return
   await updateProductsWorkflow(container).run({ input: { products: [{ id, metadata: { ...(row.metadata ?? {}), [net]: tg } }] } })
 }
 
 /** Цены по действующим автоматическим акциям для товаров (id → цена акции) */
-async function promoPrices(container: MedusaContainer, items: { id: string; price: number }[]) {
+export async function promoPrices(container: MedusaContainer, items: { id: string; price: number }[]) {
   const promos = await activeAutoPromos(container)
   const out = new Map<string, ReturnType<typeof autoPrice>>()
   if (!promos.length || !items.length) return out
@@ -58,7 +58,7 @@ async function promoPrices(container: MedusaContainer, items: { id: string; pric
   return out
 }
 
-async function postProduct(container: MedusaContainer, handle: string): Promise<PostProduct | null> {
+export async function postProduct(container: MedusaContainer, handle: string): Promise<PostProduct | null> {
   const p = await loadCatalogProduct(container, handle)
   if (!p || p.discontinued) return null
   const promo = (await promoPrices(container, [p])).get(p.id) ?? null
@@ -164,7 +164,8 @@ export async function publishProduct(container: MedusaContainer, productId: stri
  */
 export async function refreshPosts(container: MedusaContainer, log: Logger): Promise<number> {
   let edited = 0
-  for (const net of NETS) {
+  // ВКонтакте: опубликованные посты не правим (алгоритмы ленты), отложенные обновляет планировщик (lib/vk/plan.ts)
+  for (const net of ["tg"] as Net[]) {
     if (!netConfigured(net)) continue
     try {
       edited += await refreshNet(container, log, net)
@@ -281,7 +282,11 @@ export async function telegramOverview(container: MedusaContainer, net: Net = "t
   })
 
   // Очерёдность вперемешку: бренды, разделы и модели не идут подряд — с учётом последних постов канала
-  const recent = [...allPosts].sort((a, b) => a.at.localeCompare(b.at)).slice(-8)
+  // ВКонтакте: записи в отложке — тоже «последние посты» (чтобы бренды и разделы чередовались через всю неделю)
+  const planned = net === "vk" ? (await readQueue(container, "vk")).planned ?? [] : []
+  const itemById = new Map(items.map((i) => [i.id, i]))
+  const plannedPosts = planned.map((p) => ({ at: p.at, brand: itemById.get(p.product_id)?.brand?.name ?? null, category: itemById.get(p.product_id)?.category?.name ?? null, model: keyOf.get(p.product_id) ?? p.product_id }))
+  const recent = [...allPosts, ...plannedPosts].sort((a, b) => a.at.localeCompare(b.at)).slice(-8)
   const ranked = rows.filter((r) => r.recommendation)
     .map((r) => ({ id: r.id, brand: r.brand, category: r.category, model: keyOf.get(r.id) ?? r.id, score: r.recommendation!.score }))
     .sort((a, b) => b.score - a.score)
@@ -302,7 +307,14 @@ export async function telegramOverview(container: MedusaContainer, net: Net = "t
 
 // ——— Очередь по расписанию: хранится в metadata магазина, выкладывается по слотам (задача раз в минуту) ———
 
-export type TgQueueState = { schedule: TgSchedule; items: string[]; last_at: string | null; last_error: string | null }
+/** Отложенный пост ВКонтакте: товар, номер записи, время выхода, «отпечаток» цены и размеров, вложения, из рекомендаций ли */
+export type PlannedPost = { product_id: string; post_id: number; at: string; state: string; att: string; auto: boolean }
+
+export type TgQueueState = {
+  schedule: TgSchedule; items: string[]; last_at: string | null; last_error: string | null
+  /** ВКонтакте: отложенные записи, на сколько дней вперёд заполнять, товары, которые не ставить до даты (убраны вручную) */
+  planned?: PlannedPost[]; horizon_days?: number; skip?: Record<string, string>
+}
 
 async function store(container: MedusaContainer) {
   const stores = (await container.resolve(Modules.STORE).listStores({}, { take: 1 })) as { id: string; metadata?: Record<string, unknown> | null }[]
@@ -321,6 +333,11 @@ export async function readQueue(container: MedusaContainer, net: Net = "tg"): Pr
     items: Array.isArray(raw.items) ? raw.items.filter((x): x is string => typeof x === "string") : [],
     last_at: raw.last_at ?? null,
     last_error: raw.last_error ?? null,
+    ...(net === "vk" ? {
+      planned: Array.isArray(raw.planned) ? raw.planned.filter((x) => x && typeof x.post_id === "number" && typeof x.product_id === "string") : [],
+      horizon_days: Number.isInteger(raw.horizon_days) && raw.horizon_days! >= 1 && raw.horizon_days! <= 14 ? raw.horizon_days : 7,
+      skip: raw.skip && typeof raw.skip === "object" ? raw.skip : {},
+    } : {}),
   }
 }
 
@@ -340,7 +357,8 @@ const ticking: Record<Net, boolean> = { tg: false, vk: false }
 
 /** Раз в минуту: наступил слот — выложить первый товар очереди (или лучшую рекомендацию, если включено). */
 export async function queueTick(container: MedusaContainer, log: Logger, now = new Date(), net: Net = "tg"): Promise<void> {
-  if (ticking[net] || !netConfigured(net)) return
+  // ВКонтакте выкладывается отложенными записями заранее — см. lib/vk/plan.ts
+  if (net === "vk" || ticking[net] || !netConfigured(net)) return
   ticking[net] = true
   try {
     const q = await readQueue(container, net)

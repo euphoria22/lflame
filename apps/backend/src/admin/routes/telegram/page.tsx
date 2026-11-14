@@ -15,7 +15,12 @@ type Overview = {
   configured: { channel: string | null; token: boolean }
   totals: { products: number; posted: number; never: number; posts: number; last7: number; last30: number }
   rows: Row[]
-  queue: { schedule: Schedule; items: string[]; last_at: string | null; last_error: string | null; slots: string[] }
+  queue: {
+    schedule: Schedule; items: string[]; last_at: string | null; last_error: string | null; slots: string[]
+    /** ВКонтакте: отложенные записи и на сколько дней вперёд заполнять */
+    planned?: { product_id: string; post_id: number; at: string; auto: boolean; link: string | null }[]
+    horizon_days?: number
+  }
 }
 type Schedule = { start: string; end: string; every: number; tz: string; auto: boolean; enabled: boolean }
 
@@ -32,11 +37,13 @@ const lastAt = (r: Row) => (r.posts.length ? r.posts[r.posts.length - 1].at : ""
 const slot = (iso: string, tz: string) => new Date(iso).toLocaleString("ru-RU", { timeZone: tz, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
 
 /** Расписание: с — до (время магазина), интервал, рекомендации при пустой очереди, пауза */
-const ScheduleBlock = ({ value, onSaved, net }: { value: Schedule; onSaved: () => Promise<void>; net: Net }) => {
+const ScheduleBlock = ({ value, onSaved, net, horizon }: { value: Schedule; onSaved: () => Promise<void>; net: Net; horizon?: number }) => {
   const [v, setV] = useState(value)
+  const [days, setDays] = useState(horizon ?? 7)
+  useEffect(() => { setDays(horizon ?? 7) }, [horizon])
   const [saving, setSaving] = useState(false)
   useEffect(() => { setV(value) }, [value])
-  const changed = JSON.stringify(v) !== JSON.stringify(value)
+  const changed = JSON.stringify(v) !== JSON.stringify(value) || (net === "vk" && days !== (horizon ?? 7))
   const perDay = (() => {
     const m = (x: string) => { const [h, mm] = x.split(":").map(Number); return h * 60 + mm }
     return v.every > 0 && m(v.end) >= m(v.start) ? Math.floor((m(v.end) - m(v.start)) / v.every) + 1 : 0
@@ -44,7 +51,7 @@ const ScheduleBlock = ({ value, onSaved, net }: { value: Schedule; onSaved: () =
   const save = async () => {
     setSaving(true)
     try {
-      const r = await fetch("/admin/telegram/schedule", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...v, net }) })
+      const r = await fetch("/admin/telegram/schedule", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...v, net, ...(net === "vk" ? { horizon_days: days } : {}) }) })
       const d = (await r.json().catch(() => ({}))) as { message?: string }
       if (!r.ok) throw new Error(d.message ?? "Не сохранилось")
       toast.success("Расписание сохранено")
@@ -74,9 +81,15 @@ const ScheduleBlock = ({ value, onSaved, net }: { value: Schedule; onSaved: () =
           <Label size="small">Раз в, минут</Label>
           <Input size="small" type="number" min={5} step={5} value={String(v.every)} onChange={(e) => setV({ ...v, every: Number(e.target.value) })} className="w-24" />
         </div>
+        {net === "vk" && (
+          <div className="flex flex-col gap-1">
+            <Label size="small">Отложка вперёд, дней</Label>
+            <Input size="small" type="number" min={1} max={14} value={String(days)} onChange={(e) => setDays(Number(e.target.value))} className="w-24" />
+          </div>
+        )}
         <div className="flex items-center gap-2 pb-1.5">
           <Switch id="tg-auto" checked={v.auto} onCheckedChange={(auto) => setV({ ...v, auto })} />
-          <Label size="small" htmlFor="tg-auto">Очередь пуста — выкладывать рекомендации</Label>
+          <Label size="small" htmlFor="tg-auto">{net === "vk" ? "Заполнять свободные слоты рекомендациями" : "Очередь пуста — выкладывать рекомендации"}</Label>
         </div>
         <div className="flex items-center gap-2 pb-1.5">
           <Switch id="tg-on" checked={v.enabled} onCheckedChange={(enabled) => setV({ ...v, enabled })} />
@@ -84,6 +97,43 @@ const ScheduleBlock = ({ value, onSaved, net }: { value: Schedule; onSaved: () =
         </div>
         <Button size="small" className="ml-auto" disabled={!changed} isLoading={saving} onClick={save}>Сохранить</Button>
       </div>
+    </Container>
+  )
+}
+
+/** ВКонтакте: отложенные записи на неделю — время, товар, из рекомендаций или вручную; «Убрать» освобождает слот для следующего товара */
+const PlannedBlock = ({ data, byId, busy, onRemove, onSync }: { data: Overview; byId: Map<string, Row>; busy: string | null; onRemove: (postId: number) => void; onSync: () => void }) => {
+  const planned = data.queue.planned ?? []
+  const tz = data.queue.schedule.tz
+  return (
+    <Container className="p-0">
+      <div className="flex items-center justify-between px-6 py-4">
+        <div>
+          <Heading level="h2">Отложенные записи · {planned.length}</Heading>
+          <Text size="small" className="text-ui-fg-subtle">
+            Посты уже лежат в «Отложенных записях» сообщества и выйдут сами — их видно и можно поправить прямо во ВКонтакте.
+            До выхода сайт заменит проданный товар и обновит цену; вышедшие посты больше не меняются. Отложка пополняется раз в 10 минут.
+          </Text>
+          {data.queue.last_error && <Text size="small" className="text-ui-fg-error">Последняя ошибка: {data.queue.last_error}</Text>}
+        </div>
+        <Button size="small" variant="secondary" isLoading={busy === "planned"} disabled={!!busy} onClick={onSync}>Обновить сейчас</Button>
+      </div>
+      {!planned.length && <Text size="small" className="border-t border-ui-border-base px-6 py-3 text-ui-fg-subtle">Пока пусто: добавьте товары в очередь или включите заполнение рекомендациями.</Text>}
+      {planned.map((p) => {
+        const r = byId.get(p.product_id)
+        return (
+          <div key={p.post_id} className="flex items-center gap-3 border-t border-ui-border-base px-6 py-2">
+            <Text size="small" className="w-36 shrink-0 text-ui-fg-subtle">{slot(p.at, tz)}</Text>
+            <span className="h-10 w-8 shrink-0 overflow-hidden rounded bg-ui-bg-component">
+              {r?.thumbnail && <img src={r.thumbnail} alt="" className="h-full w-full object-cover" loading="lazy" />}
+            </span>
+            <a href={`/app/products/${p.product_id}`} className="min-w-0 flex-1 truncate text-sm hover:underline">{r?.title ?? "Товар снят с сайта — запись будет удалена"}</a>
+            <Badge size="2xsmall" color={p.auto ? "grey" : "blue"}>{p.auto ? "рекомендация" : "вручную"}</Badge>
+            {p.link && <a href={p.link} target="_blank" rel="noopener noreferrer" className="shrink-0 text-ui-fg-interactive txt-small hover:underline">Во ВКонтакте</a>}
+            <Button size="small" variant="transparent" disabled={!!busy} onClick={() => window.confirm("Убрать запись из отложки? Слот займёт следующий товар, этот не будет предлагаться 14 дней.") && onRemove(p.post_id)}>Убрать</Button>
+          </div>
+        )
+      })}
     </Container>
   )
 }
@@ -203,15 +253,18 @@ const TelegramPage = () => {
         )}
       </Container>
 
-      {data && <ScheduleBlock value={data.queue.schedule} onSaved={load} net={net} />}
+      {data && <ScheduleBlock value={data.queue.schedule} onSaved={load} net={net} horizon={data.queue.horizon_days} />}
 
-      {data && (
+      {data && net === "vk" && <PlannedBlock data={data} byId={byId} busy={busy} onRemove={(postId) => run("planned", async () => { await call("/admin/telegram/planned", { remove: postId }) })} onSync={() => run("planned", async () => { await call("/admin/telegram/planned", { sync: true }); toast.success("Отложка обновлена") })} />}
+
+      {data && (net === "tg" || data.queue.items.length > 0) && (
         <Container className="p-0">
           <div className="flex items-center justify-between px-6 py-4">
             <div>
-              <Heading level="h2">Очередь · {data.queue.items.length}</Heading>
+              <Heading level="h2">{net === "vk" ? "Ждут отложки" : "Очередь"} · {data.queue.items.length}</Heading>
               <Text size="small" className="text-ui-fg-subtle">
-                {data.queue.items.length
+                {net === "vk" ? "Уйдут в отложенные записи на ближайшие свободные слоты в течение 10 минут"
+                  : data.queue.items.length
                   ? `Следующий пост: ${slot(data.queue.slots[0], data.queue.schedule.tz)}`
                   : data.queue.schedule.auto ? "Очередь пуста — в каждый слот выйдет лучшая рекомендация" : "Очередь пуста — добавьте товары из списка ниже"}
                 {data.queue.last_at ? ` · последний пост по расписанию: ${slot(data.queue.last_at, data.queue.schedule.tz)}` : ""}
@@ -226,7 +279,7 @@ const TelegramPage = () => {
             const r = byId.get(id)
             return (
               <div key={id} className="flex items-center gap-3 border-t border-ui-border-base px-6 py-2">
-                <Text size="small" className="w-36 shrink-0 text-ui-fg-subtle">{data.queue.slots[i] ? slot(data.queue.slots[i], data.queue.schedule.tz) : ""}</Text>
+                <Text size="small" className="w-36 shrink-0 text-ui-fg-subtle">{net === "tg" && data.queue.slots[i] ? slot(data.queue.slots[i], data.queue.schedule.tz) : ""}</Text>
                 <span className="h-10 w-8 shrink-0 overflow-hidden rounded bg-ui-bg-component">
                   {r?.thumbnail && <img src={r.thumbnail} alt="" className="h-full w-full object-cover" loading="lazy" />}
                 </span>

@@ -1,5 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { asNet, updateQueue } from "../../../../lib/telegram/channel"
+import { vkPlanTick } from "../../../../lib/vk/plan"
 
 type Body = { net?: string; add?: string[]; remove?: string[]; move?: { id: string; to: "up" | "down" | "top" }; clear?: boolean }
 const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [])
@@ -21,5 +23,7 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
     }
     return { ...cur, items }
   }, asNet(req.body?.net))
+  // ВКонтакте: добавленные товары сразу уходят в отложку на свободные слоты
+  if (asNet(req.body?.net) === "vk" && add.length) void vkPlanTick(req.scope, req.scope.resolve(ContainerRegistrationKeys.LOGGER)).catch(() => null)
   res.json({ items: q.items })
 }
