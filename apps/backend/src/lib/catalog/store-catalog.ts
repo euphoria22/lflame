@@ -2,7 +2,7 @@ import { MedusaContainer } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, getVariantAvailability } from "@medusajs/framework/utils"
 import { sortSizes } from "./sizes"
 import { modelKeys } from "./model-key"
-import { salesByMoyskladId } from "../moysklad/sales"
+import { salesByMoyskladId, salesUnitsByMoyskladId } from "../moysklad/sales"
 
 /**
  * Данные каталога для витрины (ТЗ, п. 6.2, 6.3).
@@ -45,6 +45,16 @@ export type CatalogItem = {
   /** Точный остаток товара и модели, шт. — только внутри сервера (Telegram), из ответа витрине убирается */
   stock_units?: number
   model_units?: number
+  /** Только внутри сервера: товар МоегоСклада, продано за SALES_DAYS дней (сайт и розница, штук) */
+  external_id?: string | null
+  sales_units?: number
+  /** Модель без цвета (для разведения цветов одной модели в листинге) */
+  model?: string
+  /** Утеплённость (заполняется вручную в админке): warm, demi, light */
+  warmth?: string | null
+  /** Умная сортировка: балл карточки и признак «мало показов» (для квоты) — добавляются в ответе витрине */
+  score?: number
+  low_stats?: boolean
   images_count: number
   has_description: boolean
   pinned: boolean
@@ -162,7 +172,7 @@ function toVariants(row: Row, stock: Map<string, number>): CatalogVariant[] {
     .map(({ rank: _rank, ...v }) => v)
 }
 
-function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0, units = 0): CatalogItem {
+function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0, units = 0, salesUnits = 0): CatalogItem {
   const images = [...(row.images ?? [])].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((i) => i.url)
   const inStock = variants.filter((v) => v.available > 0)
   const pool = (inStock.length ? inStock : variants).filter((v) => v.price > 0)
@@ -189,6 +199,9 @@ function toItem(row: Row, variants: CatalogVariant[], start: number, sales = 0, 
     sales,
     stock_level: 0,
     stock_units: units,
+    external_id: row.external_id ?? null,
+    sales_units: salesUnits,
+    warmth: typeof meta.warmth === "string" && ["warm", "demi", "light"].includes(meta.warmth) ? meta.warmth : null,
     images_count: images.length,
     has_description: Boolean(row.description && row.description.trim() && !/^Оригинальный товар/i.test(row.description.trim())),
     pinned: meta.pinned === true,
@@ -255,15 +268,16 @@ export async function loadCatalogItems(container: MedusaContainer): Promise<Cata
   }
   const visible = rows.filter((r) => r.sales_channels?.some((s) => s.id === channel))
   const stock = await availability(container, visible.flatMap((r) => (r.variants ?? []).map((v) => v.id)), channel)
-  const [start, sales] = await Promise.all([catalogStart(container), salesByMoyskladId(container)])
+  const [start, sales, plain] = await Promise.all([catalogStart(container), salesByMoyskladId(container), salesUnitsByMoyskladId(container)])
   const units = (r: Row) => (r.variants ?? []).reduce((sum, v) => sum + (stock.get(v.id) ?? 0), 0)
-  const items = visible.map((r) => toItem(r, toVariants(r, stock), start, sales.get(r.external_id ?? "") ?? 0, units(r))).filter((i) => i.price > 0)
+  const items = visible.map((r) => toItem(r, toVariants(r, stock), start, sales.get(r.external_id ?? "") ?? 0, units(r), plain.get(r.external_id ?? "") ?? 0)).filter((i) => i.price > 0)
   // Остаток модели — все цвета вместе: «пришло 40 свитшотов одной модели»
   const keys = modelKeys(items)
   const byModel = new Map<string, number>()
   for (const i of items) byModel.set(keys.get(i.id)!, (byModel.get(keys.get(i.id)!) ?? 0) + (i.stock_units ?? 0))
   for (const i of items) {
-    i.model_units = byModel.get(keys.get(i.id)!) ?? 0
+    i.model = keys.get(i.id)!
+    i.model_units = byModel.get(i.model) ?? 0
     i.stock_level = stockLevel(i.stock_units ?? 0, i.model_units)
   }
   return items

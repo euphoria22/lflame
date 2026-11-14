@@ -3,7 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { applyPromoAttributes } from "../../../../lib/catalog/promo-attributes"
 
-type Body = { preorder?: boolean; no_loyalty?: boolean; no_discounts?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null; is_new?: boolean; pinned?: boolean; specs?: string | null }
+type Body = { preorder?: boolean; no_loyalty?: boolean; no_discounts?: boolean; preorder_date?: string | null; outlet?: boolean; outlet_note?: string | null; is_new?: boolean; pinned?: boolean; specs?: string | null; warmth?: string | null }
 
 /**
  * Флажки товара: «Предзаказ» (+ ожидаемая дата поступления) (пометка: товар в пути, продаётся по остатку из МС, как обычно)
@@ -31,6 +31,8 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
   }
   if (typeof b.is_new === "boolean") meta.is_new = b.is_new
   if (typeof b.pinned === "boolean") meta.pinned = b.pinned
+  // Утеплённость для умной сортировки (важнее категории): warm — утеплённая, demi — демисезон, light — лёгкая
+  if (b.warmth !== undefined) meta.warmth = ["warm", "demi", "light"].includes(String(b.warmth)) ? b.warmth : null
   if (typeof b.outlet === "boolean") meta.outlet = b.outlet
   if (b.outlet_note !== undefined) {
     const n = String(b.outlet_note ?? "").trim()
@@ -57,6 +59,6 @@ export async function POST(req: MedusaRequest<Body>, res: MedusaResponse) {
   res.json({
     preorder: Boolean(meta.preorder), no_loyalty: Boolean(meta.no_loyalty), no_discounts: !discountable, preorder_date: (meta.preorder_date as string | null) ?? null,
     outlet: Boolean(meta.outlet), outlet_note: (meta.outlet_note as string | null) ?? null, is_new: meta.is_new === true, pinned: meta.pinned === true,
-    specs: (meta.old_site_specs as string | null) ?? null,
+    specs: (meta.old_site_specs as string | null) ?? null, warmth: (meta.warmth as string | null) ?? null,
   })
 }

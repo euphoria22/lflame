@@ -211,3 +211,26 @@ export function arrange<T extends ArrangeItem>(input: T[], cfg: ArrangeConfig, p
   }
   return out
 }
+
+/** Действующее закрепление или дроп, как их отдаёт сервер */
+export type StorePin = { id: string; listing: string | null; position: number; kind: "pin" | "drop" }
+
+/**
+ * Закрепления для листинга с ключом key (all, new, cat:kurtki, gender:men/cat:kurtki, brand:calvin-klein…):
+ * закреплённые — на своих позициях, дропы — на первых свободных в «Новинках» и на странице своего бренда.
+ */
+export function pinsFor(pins: StorePin[], key: string, items: { id: string; brand: string | null }[]): Pin[] {
+  const parts = key.split("/")
+  const own = pins.filter((p) => p.kind === "pin" && p.listing === key).map((p) => ({ id: p.id, position: p.position, kind: "pin" as const }))
+  const brandOf = new Map(items.map((i) => [i.id, i.brand]))
+  const used = new Set(own.map((p) => p.position))
+  let next = 1
+  const drops = pins
+    .filter((p) => p.kind === "drop" && brandOf.has(p.id) && (parts.includes("new") || parts.includes(`brand:${brandOf.get(p.id)}`)))
+    .map((p) => {
+      while (used.has(next)) next++
+      used.add(next)
+      return { id: p.id, position: next, kind: "drop" as const }
+    })
+  return [...own, ...drops]
+}

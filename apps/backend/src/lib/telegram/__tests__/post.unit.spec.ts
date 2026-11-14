@@ -116,7 +116,7 @@ describe("рекомендации", () => {
 
   it("скидка, новинка, последние размеры, продажи — причины и плюс к оценке", () => {
     const r = recommend({ ...base, compare_at: 20000, is_new: true, sizes_in_stock: 1, sales: 3 }, ctx)!
-    expect(r.reasons).toEqual(expect.arrayContaining(["новинка", "скидка 50%", "остались последние размеры", "продаж за 60 дней: 3"]))
+    expect(r.reasons).toEqual(expect.arrayContaining(["новинка", "скидка 50%", "остались последние размеры", "продаж за 30 дней: 3"]))
     expect(r.score).toBeGreaterThan(recommend(base, ctx)!.score)
   })
 
@@ -143,7 +143,7 @@ describe("рекомендации", () => {
     const c = { ...ctx, demand }
     const underwear = recommend({ ...base, category: "Нижнее бельё", category_handle: "bele" }, c)!
     const jacket = recommend(base, c)!
-    expect(underwear.reasons).toEqual(expect.arrayContaining(["раздел продаётся: 120 шт. за 60 дн."]))
+    expect(underwear.reasons).toEqual(expect.arrayContaining(["раздел продаётся: 120 шт. за 30 дн."]))
     expect(underwear.score).toBeGreaterThan(jacket.score)
   })
 

@@ -159,7 +159,7 @@ const DAY = 86_400_000
 /** Остаток в шкалу 0…1: 1 шт. — 0.19, 10 — 0.65, 40 и больше — 1 */
 export const stockScale = (n: number) => Math.min(1, Math.log1p(Math.max(0, n)) / Math.log1p(40))
 
-/** Спрос по разделам: продажи всех товаров раздела за 60 дней (и тех, что уже распроданы); 0…1 от самого продаваемого раздела */
+/** Спрос по разделам: продажи всех товаров раздела за 30 дней (и тех, что уже распроданы); 0…1 от самого продаваемого раздела */
 export function categoryDemand(items: { category_handle: string | null; sales: number }[]): Map<string, { sales: number; level: number }> {
   const sum = new Map<string, number>()
   for (const i of items) if (i.category_handle) sum.set(i.category_handle, (sum.get(i.category_handle) ?? 0) + Math.max(0, i.sales))
@@ -203,9 +203,9 @@ export function recommend(item: RecItem & { category_handle: string | null }, ct
   const demand = item.category_handle ? ctx.demand?.get(item.category_handle) : undefined
   if (demand) {
     score += 30 * demand.level
-    if (demand.level >= 0.6 && demand.sales >= 5) reasons.push(`раздел продаётся: ${demand.sales} шт. за 60 дн.`)
+    if (demand.level >= 0.6 && demand.sales >= 5) reasons.push(`раздел продаётся: ${demand.sales} шт. за 30 дн.`)
   }
-  if (item.sales > 0) { score += Math.min(item.sales, 10) * 2.5; reasons.push(`продаж за 60 дней: ${item.sales}`) }
+  if (item.sales > 0) { score += Math.min(item.sales, 10) * 2.5; reasons.push(`продаж за 30 дней: ${item.sales}`) }
 
   if (days === null) { score += 20; reasons.push("ещё не выкладывали") }
   else { score += Math.min(days, 90) / 4; reasons.push(`последний пост ${Math.floor(days)} дн. назад`) }

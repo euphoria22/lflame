@@ -5,8 +5,8 @@ import MoyskladModuleService from "../../modules/moysklad/service"
 import { moyskladTime } from "./context"
 import { idFromHref } from "./types"
 
-/** За сколько дней считаются продажи для сортировки «Популярные». */
-export const SALES_DAYS = 60
+/** За сколько дней считаются продажи для сортировки каталога (orders_30d в ТЗ сортировки) и рекомендаций Telegram. */
+export const SALES_DAYS = 30
 
 type Position = { quantity: number; assortment?: { meta: { href: string; type: string }; product?: { meta: { href: string } } } }
 type SaleDoc = { positions?: { rows?: Position[]; meta?: { size: number; href: string } } }
@@ -109,4 +109,11 @@ export async function salesByMoyskladId(container: MedusaContainer): Promise<Map
   const ms: MoyskladModuleService = container.resolve(MOYSKLAD_MODULE)
   const rows = await ms.listMoyskladProductSales({}, { take: 100000 })
   return new Map(rows.map((r) => [r.moysklad_product_id, r.store_qty + 2 * r.site_qty]))
+}
+
+/** Продано штук по товару МоегоСклада: сайт и розница вместе, без весов (orders_30d) */
+export async function salesUnitsByMoyskladId(container: MedusaContainer): Promise<Map<string, number>> {
+  const ms: MoyskladModuleService = container.resolve(MOYSKLAD_MODULE)
+  const rows = await ms.listMoyskladProductSales({}, { take: 100000 })
+  return new Map(rows.map((r) => [r.moysklad_product_id, r.store_qty + r.site_qty]))
 }

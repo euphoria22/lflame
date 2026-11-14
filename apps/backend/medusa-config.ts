@@ -133,6 +133,7 @@ module.exports = defineConfig({
     { resolve: "./src/modules/account" },
     { resolve: "./src/modules/loyalty" },
     { resolve: "./src/modules/gift-card" },
+    { resolve: "./src/modules/sort" },
     {
       // Оплата (ТЗ, п. 5.4): при получении (системный провайдер) и онлайн через Т-Кассу
       resolve: "@medusajs/medusa/payment",

@@ -1,9 +1,9 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import type { AdminProduct, DetailWidgetProps } from "@medusajs/framework/types"
-import { Button, Container, Heading, Input, Label, Switch, Text, Textarea, toast } from "@medusajs/ui"
+import { Button, Container, Heading, Input, Label, Select, Switch, Text, Textarea, toast } from "@medusajs/ui"
 import { useState } from "react"
 
-type Flags = { preorder: boolean; no_loyalty: boolean; no_discounts: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean; pinned: boolean }
+type Flags = { preorder: boolean; no_loyalty: boolean; no_discounts: boolean; preorder_date: string | null; outlet: boolean; outlet_note: string | null; is_new: boolean; pinned: boolean; warmth: string | null }
 type Patch = Partial<Flags>
 
 /** Флажки товара для сайта: предзаказ (с ожидаемой датой поступления), Outlet (с описанием дефекта) и исключение из программы лояльности. */
@@ -19,6 +19,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
   const [outlet, setOutlet] = useState(Boolean(m.outlet))
   const [note, setNote] = useState(typeof m.outlet_note === "string" ? m.outlet_note : "")
   const [savedNote, setSavedNote] = useState(note)
+  const [warmth, setWarmth] = useState(typeof m.warmth === "string" ? m.warmth : "")
   const [busy, setBusy] = useState(false)
 
   const save = async (patch: Patch) => {
@@ -39,6 +40,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
       setOutlet(d.outlet)
       setNote(d.outlet_note ?? "")
       setSavedNote(d.outlet_note ?? "")
+      setWarmth(d.warmth ?? "")
       toast.success("Сохранено — на сайте обновится в течение минуты")
     } catch (e) {
       toast.error((e as Error).message)
@@ -73,7 +75,7 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
           <Switch id="lf-pinned" className="mt-0.5 shrink-0" checked={pinned} disabled={busy} onCheckedChange={(v) => save({ pinned: v })} />
           <div className="min-w-0 flex-1">
             <Label htmlFor="lf-pinned" weight="plus">Закрепить наверху</Label>
-            <Text size="small" className="text-ui-fg-subtle">В каталоге при сортировке «Популярные» товар показывается в первых рядах своих разделов.</Text>
+            <Text size="small" className="text-ui-fg-subtle">Балл товара в сортировке каталога умножается на 1.5 — он поднимается в своих разделах. Точную позицию задают правила в разделе «Сортировка».</Text>
           </div>
         </div>
         <div className="flex items-start gap-3">
@@ -97,6 +99,19 @@ const ProductFlagsWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
               </div>
             )}
           </div>
+        </div>
+        <div>
+          <Label weight="plus">Утеплённость</Label>
+          <Text size="small" className="mb-2 text-ui-fg-subtle">Для сортировки каталога по сезону — верхняя одежда и обувь. Утеплённая куртка зимой выше демисезонной, даже если обе в разделе «Куртки».</Text>
+          <Select value={warmth || "none"} disabled={busy} onValueChange={(v) => save({ warmth: v === "none" ? null : v })}>
+            <Select.Trigger><Select.Value /></Select.Trigger>
+            <Select.Content>
+              <Select.Item value="none">Не указана — по разделу</Select.Item>
+              <Select.Item value="warm">Утеплённая</Select.Item>
+              <Select.Item value="demi">Демисезон</Select.Item>
+              <Select.Item value="light">Лёгкая</Select.Item>
+            </Select.Content>
+          </Select>
         </div>
         <div className="flex items-start gap-3">
           <Switch id="lf-noloyalty" className="mt-0.5 shrink-0" checked={noLoyalty} disabled={busy} onCheckedChange={(v) => save({ no_loyalty: v })} />

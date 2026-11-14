@@ -17,6 +17,8 @@ export type MsProduct = {
   productFolder?: { meta: MsMeta }
   attributes?: MsAttribute[]
   salePrices?: MsSalePrice[]
+  /** Закупочная цена, копейки */
+  buyPrice?: { value: number }
   barcodes?: Record<string, string>[]
   weight?: number
   volume?: number
