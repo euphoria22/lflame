@@ -105,6 +105,14 @@ export async function POST(req: NextRequest) {
     if (gift > 0 && payment === "split") {
       return NextResponse.json({ error: "Яндекс Сплит нельзя совместить с подарочной картой — выберите оплату картой" }, { status: 400 })
     }
+    // Остаток — прямо перед оплатой: вещь могли продать в шоуруме, пока покупатель оформлял заказ.
+    // Иначе деньги спишутся, а заказ не создастся (Medusa проверяет остаток только после оплаты)
+    const stock = await storeFetch<{ ok: boolean; short: { title: string; size: string; available: number }[] }>(`/store/carts/${cart.id}/stock-check`, { method: "POST" }).catch(() => null)
+    if (stock && !stock.ok) {
+      const list = stock.short.map((x) => `${x.title}${x.size ? `, ${x.size}` : ""}${x.available ? ` (осталось ${x.available} шт.)` : ""}`).join("; ")
+      return NextResponse.json({ error: `Пока вы оформляли заказ, закончилось: ${list}. Уберите товар из корзины или выберите другой размер — оплата не списана.` }, { status: 409 })
+    }
+
     // Карта покрыла весь заказ — оплата не нужна
     if (due <= 0) {
       const done = await storeFetch<{ type: "order" | "cart"; order?: { id: string; display_id: number }; error?: { message: string } }>(`/store/carts/${cart.id}/complete`, { method: "POST" })
