@@ -1,4 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { loadVkAuth } from "../../../../../lib/vk/client"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { netConfigured, NETS, postUrl } from "../../../../../lib/telegram/channel"
 import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
@@ -6,6 +7,7 @@ import { tgMetaOf } from "../../../../../lib/telegram/post"
 
 /** Посты одного товара в Telegram и ВКонтакте — для блока «Соцсети» в карточке товара. */
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
+  await loadVkAuth()
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({ entity: "product", fields: ["id", "metadata", "images.url", "images.rank"], filters: { id: req.params.id } })
   const row = data[0] as { metadata: Record<string, unknown> | null; images?: { url: string; rank?: number }[] } | undefined

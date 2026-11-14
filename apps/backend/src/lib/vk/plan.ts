@@ -6,7 +6,7 @@ import {
 } from "../telegram/channel"
 import { postImages, postPhotos, postState, tgMetaOf } from "../telegram/post"
 import { nextSlots } from "../telegram/schedule"
-import { ensureVkGroupId, uploadWallPhotos, vkApi, vkConfigured } from "./client"
+import { ensureVkGroupId, loadVkAuth, uploadWallPhotos, vkApi, vkConfigured } from "./client"
 import { buildVkText } from "./post"
 
 /**
@@ -32,6 +32,7 @@ const sameSlot = (a: number, b: number) => Math.abs(a - b) < 2 * MIN
 let running = false
 
 export async function vkPlanTick(container: MedusaContainer, log: Logger, now = new Date()): Promise<{ created: number; removed: number; edited: number; published: number } | null> {
+  await loadVkAuth()
   if (running || !vkConfigured()) return null
   running = true
   const stats = { created: 0, removed: 0, edited: 0, published: 0 }

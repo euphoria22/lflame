@@ -4,7 +4,7 @@ import { updateProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { loadCatalogItems, loadCatalogProduct } from "../catalog/store-catalog"
 import { activeAutoPromos, autoPrice, promoProducts } from "../promotions/auto-price"
 import { telegramApi, TelegramError } from "../notify/telegram"
-import { ensureVkGroupId, uploadWallPhotos, vkApi, vkConfigured, vkGroupId, vkPostLink } from "../vk/client"
+import { ensureVkGroupId, loadVkAuth, uploadWallPhotos, vkApi, vkConfigured, vkGroupId, vkPostLink } from "../vk/client"
 import { buildVkText } from "../vk/post"
 import { site } from "../notify/templates"
 import { DEFAULT_SCHEDULE, dueSlot, TgSchedule, validateSchedule } from "./schedule"
@@ -121,7 +121,8 @@ export async function sendAlbum(chat: string, photos: string[], originals: strin
 
 /** Выложить товар во ВКонтакте: фото загружаются файлами, текст без разметки */
 async function publishVk(container: MedusaContainer, productId: string): Promise<{ id: number; link: string | null }> {
-  if (!vkConfigured()) throw new Error("ВКонтакте не настроен: VK_GROUP_ID и VK_ACCESS_TOKEN в настройках сервера")
+  await loadVkAuth()
+  if (!vkConfigured()) throw new Error("ВКонтакте не подключён — «Соцсети» → «ВКонтакте» → «Подключить»")
   const row = await readMeta(container, productId)
   if (!row) throw new Error("Товар не найден")
   const p = await postProduct(container, row.handle)
@@ -240,6 +241,7 @@ const DAY = 86_400_000
 
 export async function telegramOverview(container: MedusaContainer, net: Net = "tg"): Promise<Overview> {
   // Номер сообщества по короткому имени — для ссылок на посты
+  if (net === "vk") await loadVkAuth()
   if (net === "vk" && vkConfigured()) await ensureVkGroupId().catch(() => null)
   const items = await loadCatalogItems(container)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
@@ -300,7 +302,7 @@ export async function telegramOverview(container: MedusaContainer, net: Net = "t
   return {
     net,
     configured: net === "vk"
-      ? { channel: process.env.VK_GROUP_ID?.trim() ? `vk.com/${vkGroupId() ? `club${vkGroupId()}` : process.env.VK_GROUP_ID.trim().replace(/^.*\//, "")}` : null, token: Boolean(process.env.VK_ACCESS_TOKEN?.trim()) }
+      ? { channel: vkGroupId() ? `vk.com/club${vkGroupId()}` : null, token: vkConfigured() }
       : { channel: chat, token: Boolean(process.env.TELEGRAM_BOT_TOKEN) },
     totals: { products: rows.length, posted, never: rows.length - posted, posts: allPosts.length, last7: since(7), last30: since(30) },
     rows,

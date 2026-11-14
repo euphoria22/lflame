@@ -1,8 +1,10 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { loadVkAuth } from "../../../../lib/vk/client"
 import { asNet, NET_NAME, netConfigured, publishProduct, updateQueue } from "../../../../lib/telegram/channel"
 
 /** Выложить один товар прямо сейчас, вне расписания (ответ — ссылка на пост). Из очереди этой сети он убирается. */
 export async function POST(req: MedusaRequest<{ id?: string; net?: string }>, res: MedusaResponse) {
+  await loadVkAuth()
   const id = typeof req.body?.id === "string" ? req.body.id : null
   const net = asNet(req.body?.net)
   if (!id) { res.status(400).json({ message: "Не выбран товар" }); return }

@@ -101,6 +101,82 @@ const ScheduleBlock = ({ value, onSaved, net, horizon }: { value: Schedule; onSa
   )
 }
 
+type VkStatus = { connected: boolean; client_id: string | null; group: string | null; group_id: string | null; connected_at: string | null; by_env: boolean }
+
+/** Подключение ВКонтакте через VK ID: ID приложения, сообщество, «Подключить» — ключ сайт получает и продлевает сам */
+const VkConnectBlock = ({ onChanged }: { onChanged: () => void }) => {
+  const [st, setSt] = useState<VkStatus | null>(null)
+  const [clientId, setClientId] = useState("")
+  const [group, setGroup] = useState("laflammeru")
+  const [open, setOpen] = useState(false)
+  const load = useCallback(async () => {
+    const d = (await (await fetch("/admin/vk", { credentials: "include" })).json()) as VkStatus
+    setSt(d)
+    if (d.client_id) setClientId(d.client_id)
+    if (d.group) setGroup(d.group)
+  }, [])
+  useEffect(() => {
+    load().catch(() => null)
+    const q = new URLSearchParams(window.location.search)
+    if (q.get("vk") === "connected") toast.success("ВКонтакте подключён")
+    if (q.get("vk_error")) toast.error(`ВКонтакте: ${q.get("vk_error")}`)
+    if (q.get("vk") || q.get("vk_error")) window.history.replaceState(null, "", window.location.pathname)
+  }, [load])
+  if (!st) return null
+  const callback = `${window.location.origin}/admin/vk/callback`
+  const connect = () => {
+    window.location.href = `/admin/vk/connect?client_id=${encodeURIComponent(clientId.trim())}&group=${encodeURIComponent(group.trim())}`
+  }
+  const disconnect = async () => {
+    if (!window.confirm("Отключить ВКонтакте? Отложенные записи во ВКонтакте останутся, новые ставиться не будут.")) return
+    await fetch("/admin/vk", { method: "DELETE", credentials: "include" })
+    await load()
+    onChanged()
+  }
+  const showForm = !st.connected || open
+  return (
+    <Container className="px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Heading level="h2">Подключение</Heading>
+          <Text size="small" className="text-ui-fg-subtle">
+            {st.connected
+              ? `Подключено${st.group ? ` · сообщество ${st.group}` : ""}${st.connected_at ? ` · с ${new Date(st.connected_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}` : ""}${st.by_env ? " · ключ из настроек сервера" : " · ключ продлевается сам"}`
+              : "ВКонтакте не подключён"}
+          </Text>
+        </div>
+        {st.connected && !st.by_env && (
+          <div className="flex gap-1">
+            <Button size="small" variant="transparent" onClick={() => setOpen((o) => !o)}>{open ? "Скрыть" : "Переподключить"}</Button>
+            <Button size="small" variant="transparent" onClick={disconnect}>Отключить</Button>
+          </div>
+        )}
+      </div>
+      {showForm && !st.by_env && (
+        <div className="mt-3 flex flex-col gap-3">
+          <Text size="small" className="text-ui-fg-subtle">
+            1. В настройках приложения ВКонтакте (id.vk.com → ваше приложение) добавьте в «Доверенный Redirect URL» адрес:{" "}
+            <code className="rounded bg-ui-bg-subtle px-1 text-ui-fg-base">{callback}</code>
+            <br />2. Если в приложении есть раздел «Доступы» — включите стену, фотографии и сообщества.
+            <br />3. Укажите ID приложения и сообщество и нажмите «Подключить»: ВКонтакте спросит разрешение (войдите как владелец сообщества).
+          </Text>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <Label size="small">ID приложения</Label>
+              <Input size="small" className="w-40" placeholder="54898100" value={clientId} onChange={(e) => setClientId(e.target.value.replace(/\D/g, ""))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label size="small">Сообщество</Label>
+              <Input size="small" className="w-48" placeholder="laflammeru" value={group} onChange={(e) => setGroup(e.target.value)} />
+            </div>
+            <Button size="small" disabled={!clientId.trim() || !group.trim()} onClick={connect}>Подключить ВКонтакте</Button>
+          </div>
+        </div>
+      )}
+    </Container>
+  )
+}
+
 /** ВКонтакте: отложенные записи на неделю — время, товар, из рекомендаций или вручную; «Убрать» освобождает слот для следующего товара */
 const PlannedBlock = ({ data, byId, busy, onRemove, onSync }: { data: Overview; byId: Map<string, Row>; busy: string | null; onRemove: (postId: number) => void; onSync: () => void }) => {
   const planned = data.queue.planned ?? []
@@ -226,12 +302,15 @@ const TelegramPage = () => {
           {net === "vk"
             ? <>Посты о товарах в сообществе ВКонтакте{data?.configured.channel ? ` ${data.configured.channel}` : ""}: фото, цена, размеры в наличии, описание и ссылка на сайт (без жирного шрифта — ВКонтакте его не поддерживает).</>
             : <>Посты о товарах в канале{data?.configured.channel ? ` ${data.configured.channel}` : ""}: альбом с фото, цена, размеры в наличии, описание и ссылка на сайт.</>}
-          {" "}У каждой соцсети своя очередь, расписание и история. Когда меняется цена или продаётся размер, текст в уже выложенном посте обновляется сам (раз в 10 минут).
+          {" "}У каждой соцсети своя очередь, расписание и история.
+          {net === "vk"
+            ? " Посты заранее лежат в отложенных записях сообщества; вышедшие посты не меняются."
+            : " Когда меняется цена или продаётся размер, текст в уже выложенном посте обновляется сам (раз в 10 минут)."}
         </Text>
         {notReady && (
           <Text size="small" className="mt-2 text-ui-fg-error">
             {net === "vk"
-              ? "ВКонтакте не настроен: на сервере нужны VK_GROUP_ID (номер сообщества) и VK_ACCESS_TOKEN (ключ владельца сообщества)."
+              ? "ВКонтакте не подключён — заполните блок «Подключение» ниже."
               : "Канал не настроен: на сервере нужны TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL_ID, а бот — администратор канала."}
           </Text>
         )}
@@ -252,6 +331,8 @@ const TelegramPage = () => {
           </div>
         )}
       </Container>
+
+      {net === "vk" && <VkConnectBlock onChanged={() => { load().catch(() => null) }} />}
 
       {data && <ScheduleBlock value={data.queue.schedule} onSaved={load} net={net} horizon={data.queue.horizon_days} />}
 
