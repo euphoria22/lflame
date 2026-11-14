@@ -39,8 +39,11 @@ describe("подарочные карты: правила", () => {
     expect(amountAllowed(200000, S)).toBe(false)
     expect(amountAllowed(1000.5, S)).toBe(false)
   })
-  it("срок — год с покупки", () => {
-    expect(expiresAt(new Date("2026-11-13T10:00:00Z"), 12).toISOString()).toBe("2027-11-13T10:00:00.000Z")
+  it("срок — год с покупки, до конца дня по Омску", () => {
+    expect(expiresAt(new Date("2026-11-13T10:00:00Z"), 12).toISOString()).toBe("2027-11-13T17:59:59.000Z")
+    // 20:30 по Москве 13-го — в Омске уже 14-е
+    expect(expiresAt(new Date("2026-11-13T19:30:00Z"), 12).toISOString()).toBe("2027-11-14T17:59:59.000Z")
+    expect(expiresAt(new Date("2027-01-31T10:00:00Z"), 1).toISOString()).toBe("2027-02-28T17:59:59.000Z")
   })
   it("настройки", () => {
     expect(validateGiftSettings({ amounts: [5000, 3000, 3000] }).value?.amounts).toEqual([3000, 5000])

@@ -31,7 +31,7 @@ export function GiftCardBalance() {
     }
   }
 
-  const date = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+  const date = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Omsk" })
   return (
     <form onSubmit={check} className="max-w-xl">
       <div className="flex gap-2">
