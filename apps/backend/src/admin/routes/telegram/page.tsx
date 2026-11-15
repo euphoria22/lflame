@@ -101,7 +101,7 @@ const ScheduleBlock = ({ value, onSaved, net, horizon }: { value: Schedule; onSa
   )
 }
 
-type VkStatus = { connected: boolean; client_id: string | null; group: string | null; group_id: string | null; connected_at: string | null; by_env: boolean }
+type VkStatus = { connected: boolean; client_id: string | null; group: string | null; group_id: string | null; connected_at: string | null; by_env: boolean; scope: string | null; user_id: number | null }
 
 /** Подключение ВКонтакте через VK ID: ID приложения, сообщество, «Подключить» — ключ сайт получает и продлевает сам */
 const VkConnectBlock = ({ onChanged }: { onChanged: () => void }) => {
@@ -144,6 +144,12 @@ const VkConnectBlock = ({ onChanged }: { onChanged: () => void }) => {
               ? `Подключено${st.group ? ` · сообщество ${st.group}` : ""}${st.connected_at ? ` · с ${new Date(st.connected_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}` : ""}${st.by_env ? " · ключ из настроек сервера" : " · ключ продлевается сам"}`
               : "ВКонтакте не подключён"}
           </Text>
+          {st.connected && !st.by_env && (
+            <Text size="xsmall" className="text-ui-fg-subtle">
+              Права от ВКонтакте: {st.scope || "не сообщил"}{st.user_id ? ` · аккаунт id${st.user_id}` : ""}
+              {st.scope && !/\bwall\b/.test(st.scope) ? " — нет прав на стену: посты публиковаться не будут" : ""}
+            </Text>
+          )}
         </div>
         {st.connected && !st.by_env && (
           <div className="flex gap-1">

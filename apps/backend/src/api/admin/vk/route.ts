@@ -10,6 +10,7 @@ export async function GET(_req: MedusaRequest, res: MedusaResponse) {
     group: a.group ?? process.env.VK_GROUP_ID ?? null,
     group_id: vkGroupId(),
     user_id: a.user_id ?? null,
+    scope: a.scope ?? null,
     connected_at: a.connected_at ?? null,
     by_env: Boolean(process.env.VK_ACCESS_TOKEN?.trim()),
   })

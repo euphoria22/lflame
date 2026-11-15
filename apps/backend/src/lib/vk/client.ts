@@ -23,6 +23,8 @@ export type VkAuth = {
   expires_at?: number
   device_id?: string
   user_id?: number
+  /** Права, которые выдал ВКонтакте (через пробел) */
+  scope?: string
   /** Подключение в процессе: секрет PKCE и state */
   pending?: { verifier: string; state: string; redirect_uri: string; at: number }
   connected_at?: string
@@ -109,7 +111,7 @@ export async function vkConnectUrl(clientId: string, group: string, redirectUri:
   return `${VKID}/authorize?${q}`
 }
 
-type TokenResponse = { access_token?: string; refresh_token?: string; expires_in?: number; user_id?: number; error?: string; error_description?: string }
+type TokenResponse = { access_token?: string; refresh_token?: string; expires_in?: number; user_id?: number; scope?: string; error?: string; error_description?: string }
 
 async function tokenRequest(body: Record<string, string>): Promise<TokenResponse> {
   const r = await fetch(`${VKID}/oauth2/auth`, { method: "POST", body: new URLSearchParams(body), signal: AbortSignal.timeout(30_000) })
@@ -130,7 +132,7 @@ export async function vkFinishConnect(code: string, state: string, deviceId: str
   resolved = null
   await saveVkAuth({
     access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Date.now() + (t.expires_in ?? 3600) * 1000,
-    device_id: deviceId, user_id: t.user_id, pending: undefined, connected_at: new Date().toISOString(),
+    device_id: deviceId, user_id: t.user_id, scope: t.scope, pending: undefined, connected_at: new Date().toISOString(),
   })
 }
 
@@ -171,7 +173,7 @@ const HUMAN: Record<number, string> = {
   5: "ВКонтакте: доступ отозван или устарел — нажмите «Подключить ВКонтакте» в разделе «Соцсети» ещё раз",
   6: "ВКонтакте: слишком много запросов, пробуем позже",
   7: "ВКонтакте: у приложения нет прав на стену и фото — включите их в настройках приложения ВКонтакте (Доступы) и подключите заново",
-  15: "ВКонтакте: нет доступа к сообществу — ключ должен принадлежать администратору сообщества",
+  15: "ВКонтакте: нет доступа — у ключа нет прав на это действие или аккаунт не администратор сообщества",
   214: "ВКонтакте: публикация на стене сообщества запрещена",
   219: "ВКонтакте: в посте не может быть ссылки — уберите ссылку или проверьте сайт",
 }
@@ -186,7 +188,9 @@ export async function vkApi<T>(method: string, params: Record<string, string | n
     if (d.error) {
       // Слишком много запросов — ждём и повторяем
       if (d.error.error_code === 6 && attempt < 3) { await new Promise((res) => setTimeout(res, 1500 * attempt)); continue }
-      throw new VkError(HUMAN[d.error.error_code] ?? `ВКонтакте: ${d.error.error_msg} (код ${d.error.error_code})`, d.error.error_code)
+      // Подсказка + текст ВКонтакте и метод: по ним видно, чего не хватает (права ключа, админство в сообществе)
+      const hint = HUMAN[d.error.error_code]
+      throw new VkError(`${hint ?? "ВКонтакте"}. Ответ ВКонтакте (${method}): ${d.error.error_msg} (код ${d.error.error_code})`, d.error.error_code)
     }
     if (!r.ok || d.response === undefined) throw new Error(`ВКонтакте: ответ ${r.status}`)
     return d.response
