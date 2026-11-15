@@ -157,6 +157,7 @@ export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, scene
             <Button size="small" variant="transparent" onClick={() => { navigator.clipboard?.writeText(t.url); toast.success("Ссылка скопирована") }}>Ссылка</Button>
             <Button size="small" variant="transparent" isLoading={busy === `send${t.id}`} onClick={() => send(t.id)}>В рабочий чат</Button>
             <a href={t.url} target="_blank" rel="noreferrer" className="text-sm text-ui-fg-interactive">Открыть как консультант</a>
+            <a href={`${t.url}?print=1`} target="_blank" rel="noreferrer" className="text-sm text-ui-fg-interactive">Печать</a>
             <Button size="small" variant="transparent" onClick={() => remove(t.id)}>Удалить</Button>
           </div>
           {open?.id === t.id && (

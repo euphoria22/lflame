@@ -60,6 +60,13 @@ export type LevelRule = {
   shelf_cost: number
 }
 export type BrandRule = { level: Level; style?: string | null; anchor?: boolean }
+/** Образ или капсула, собранные мерчендайзером: ставятся первыми, остальное раскладывается вокруг */
+export type Look = { id: string; name: string; place: "mannequin" | "table" | "rail"; products: string[]; active: boolean }
+/** Повторяющийся чек-лист: по дням недели (0 — пн … 6 — вс) в заданное время приходит в рабочий чат */
+export type Checklist = { id: string; name: string; items: string[]; days: number[]; time: string; enabled: boolean }
+export type StandardKind = "all" | "rail" | "shelf" | "shoes" | "table"
+/** Стандарты магазина — добавляются к шагам задания по типу оборудования */
+export type Standards = Record<StandardKind, string[]>
 export type MerchSettings = {
   levels: Record<Level, LevelRule>
   brands: Record<string, BrandRule>
@@ -68,6 +75,9 @@ export type MerchSettings = {
   focus_density: number
   /** Выставлять последнюю единицу товара (склад общий с сайтом — её могут купить онлайн) */
   last_unit: boolean
+  standards: Standards
+  looks: Look[]
+  checklists: Checklist[]
 }
 
 export const LEVEL_NAME: Record<Level, string> = { bridge: "Bridge / middle", premium: "Премиум", luxury: "Люкс" }
@@ -86,6 +96,24 @@ export const DEFAULT_SETTINGS: MerchSettings = {
   default_level: "premium",
   focus_density: 0.75,
   last_unit: true,
+  standards: {
+    all: ["Вещи отпарены, без складок от упаковки", "Ценник и бирки спрятаны внутрь, защитный датчик — в одном месте у всей категории"],
+    rail: [
+      "Одна модель — все размеры подряд, от меньшего к большему (S → XL)",
+      "Вешалки одного вида, крючком в одну сторону; вещи лицом влево",
+      "Пуговица или молния застёгнута на треть, капюшон расправлен",
+      "Ровный шаг между моделями, штанга не забита: рука должна свободно двигаться",
+    ],
+    shelf: ["Сумки набиты бумагой, ремешки убраны внутрь", "Кепки — козырьком вперёд, по одной в ряд"],
+    shoes: ["Выставляется левый ботинок, носком к покупателю, под небольшим углом", "Шнурки заправлены, бумага внутри"],
+    table: ["Стопки по 3–5 штук, сгиб к покупателю, размеры снизу вверх — от большего к меньшему", "Не больше 3 цветов на столе, треть поверхности свободна"],
+  },
+  looks: [],
+  checklists: [
+    { id: "morning", name: "Утренний обход", items: ["Свет и музыка включены", "Штанги ровные, размеры на месте после вчерашнего дня", "Отпарить вещи на манекенах и у входа", "Пыль на столах и полках", "Примерочные: зеркала, крючки, пустые вешалки убраны"], days: [0, 1, 2, 3, 4, 5, 6], time: "11:30", enabled: false },
+    { id: "closing", name: "Закрытие", items: ["Вещи из примерочных развешаны на места", "Вешалки крючком в одну сторону", "Стопки на столах сложены заново", "Пустые вешалки убраны на склад"], days: [0, 1, 2, 3, 4, 5, 6], time: "20:45", enabled: false },
+    { id: "delivery", name: "После поставки", items: ["Новая поставка отпарена", "Новинки вывешены по заданию мерчендайзера", "Коробки и плёнка убраны из зала", "Фото новинок в зале — в рабочий чат"], days: [], time: "15:00", enabled: false },
+  ],
 }
 
 export function mergeSettings(raw: Partial<MerchSettings> | null | undefined): MerchSettings {
@@ -99,6 +127,9 @@ export function mergeSettings(raw: Partial<MerchSettings> | null | undefined): M
       luxury: { ...DEFAULT_SETTINGS.levels.luxury, ...(r.levels?.luxury ?? {}) },
     },
     brands: { ...(r.brands ?? {}) },
+    standards: { ...DEFAULT_SETTINGS.standards, ...(r.standards ?? {}) },
+    looks: r.looks ?? [],
+    checklists: r.checklists ?? DEFAULT_SETTINGS.checklists,
   }
 }
 
@@ -121,6 +152,25 @@ export function validateSettings(raw: unknown): MerchSettings {
     s.brands[b] = { level: r.level, style: r.style ? String(r.style).slice(0, 40) : null, anchor: !!r.anchor }
   }
   s.last_unit = !!s.last_unit
+  const lines = (v: unknown) => (Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 300)).filter(Boolean).slice(0, 30)
+  for (const k of ["all", "rail", "shelf", "shoes", "table"] as StandardKind[]) s.standards[k] = lines(s.standards[k])
+  if (!Array.isArray(s.looks) || s.looks.length > 100) throw new Error("Образов — не больше 100")
+  s.looks = s.looks.map((l) => {
+    const name = String(l.name ?? "").trim().slice(0, 80)
+    if (!name) throw new Error("У образа нет названия")
+    if (!["mannequin", "table", "rail"].includes(l.place)) throw new Error(`Образ «${name}»: неверное место`)
+    return { id: String(l.id || Math.random().toString(36).slice(2, 10)).slice(0, 20), name, place: l.place, products: (Array.isArray(l.products) ? l.products : []).map(String).slice(0, 12), active: !!l.active }
+  })
+  if (!Array.isArray(s.checklists) || s.checklists.length > 30) throw new Error("Чек-листов — не больше 30")
+  s.checklists = s.checklists.map((c) => {
+    const name = String(c.name ?? "").trim().slice(0, 80)
+    if (!name) throw new Error("У чек-листа нет названия")
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.time))) throw new Error(`Чек-лист «${name}»: время в виде 10:30`)
+    const items = lines(c.items)
+    if (!items.length) throw new Error(`Чек-лист «${name}»: нет пунктов`)
+    const days = (Array.isArray(c.days) ? c.days : []).map(Number).filter((d) => d >= 0 && d <= 6)
+    return { id: String(c.id || Math.random().toString(36).slice(2, 10)).slice(0, 20), name, items, days: [...new Set(days)].sort(), time: String(c.time), enabled: !!c.enabled && days.length > 0 }
+  })
   return s
 }
 
@@ -322,17 +372,19 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
   }
 
   /** Заполнить оборудование брендовыми блоками, капсулами внутри бренда */
-  const fill = (job: Job, cats: string[], place: Place): Slot[] => {
+  const fill = (job: Job, cats: string[], place: Place, pre: Slot[] = []): Slot[] => {
     const { e, cap, zone } = job
     const density = zone?.role === "focus" ? S.focus_density : 1
     // Штанга считается в метрах (плотность — по уровню бренда), полки — в «местах»
-    let left = place === "rail" ? cap.railM * density : cap.shelf
-    const total = left
     const cost = (p: MProduct) => place === "rail"
       ? facingsOf(p, place, S) / S.levels[levelOf(p, S)].hang_per_m
       : S.levels[levelOf(p, S)].shelf_cost
+    let left = (place === "rail" ? cap.railM * density : cap.shelf) - pre.reduce((a, s) => a + (byId.get(s.p) ? cost(byId.get(s.p)!) : 0), 0)
+    const total = place === "rail" ? cap.railM * density : cap.shelf
     const near = place === "shelf" ? neighbourBrands(e, e.type.startsWith("table") ? 2.2 : 1.5) : neighbourBrands(e, 2.5)
-    const out: Slot[] = []
+    // Образ мерчендайзера уже висит — продолжаем его бренд
+    for (const s of pre) { const b = brandOf(s.p) ?? "—"; near.set(b, (near.get(b) ?? 0) + 5); equipBrands.set(e.id, new Set([...(equipBrands.get(e.id) ?? []), b])) }
+    const out: Slot[] = [...pre]
     let blocks = 0
     // Новинки — в фокус: им двойной вес
     const weight = (p: MProduct) => Math.max(0.01, p.score) * (zone?.role === "focus" && p.fresh ? 2 : 1)
@@ -354,6 +406,7 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
         const uses = brandUses.get(brand) ?? 0
         const anchor = !!brandRule(brand)?.anchor
         value *= anchor && uses < 2 ? 1.2 : Math.pow(0.75, uses)
+        if (pre.some((s) => brandOf(s.p) === brand)) value *= 2
         if (place === "shelf") {
           // Полка и стол продолжают бренд соседней стойки, иначе — её стиль
           if (near.has(brand)) value *= 3
@@ -401,6 +454,41 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
   }
 
   const byStrength = (a: Job, b: Job) => b.s - a.s
+  // Образы мерчендайзера — первыми: манекен + вещи образа на ближайшей стойке, образ на столе, капсула в начале стойки
+  const seeded = new Map<string, Slot[]>()
+  const busy = new Set<string>()
+  const lookItems = (l: Look) => l.products.map((id) => byId.get(id)).filter((p): p is MProduct => !!p && p.sizes.length > 0 && !placed.has(p.id) && !p.outlet)
+  const seed = (railJob: Job, ps: MProduct[]) => {
+    const list = ps.filter((p) => p.cat && railJob.cap.railCats.includes(p.cat))
+    if (!list.length) return
+    seeded.set(railJob.e.id, [...(seeded.get(railJob.e.id) ?? []), ...list.map((p, i) => ({ p: p.id, n: facingsOf(p, "rail", S), place: "rail" as Place, ...(i === 0 ? { face: true } : {}) }))])
+    list.forEach((p) => placed.add(p.id))
+  }
+  const freeRail = (near?: EquipLike) => jobs
+    .filter((j) => RAIL_TYPES.has(j.e.type) && j.zone?.role !== "entry" && j.zone?.role !== "sale" && (!near || dist(j.e, near) <= 2.5))
+    .sort((a, b) => (near ? dist(a.e, near) - dist(b.e, near) : b.s - a.s))[0]
+  for (const l of (S.looks ?? []).filter((x) => x.active)) {
+    const ps = lookItems(l)
+    if (!ps.length) continue
+    if (l.place === "mannequin") {
+      const m = jobs.filter((j) => j.e.type === "mannequin" && !busy.has(j.e.id)).sort(byStrength)[0]
+      if (!m) continue
+      busy.add(m.e.id)
+      result[m.e.id] = ps.slice(0, 4).map((p) => ({ p: p.id, n: 1, place: "rail" as Place }))
+      const r = freeRail(m.e)
+      if (r) seed(r, ps)
+    } else if (l.place === "table") {
+      const t = jobs.filter((j) => (j.e.type.startsWith("table") || j.e.type === "podium") && !busy.has(j.e.id) && j.zone?.role !== "sale").sort(byStrength)[0]
+      if (!t) continue
+      busy.add(t.e.id)
+      const list = ps.filter((p) => p.cat && t.cap.shelfCats.includes(p.cat)).slice(0, t.cap.shelf)
+      result[t.e.id] = list.map((p) => ({ p: p.id, n: 1, place: "shelf" as Place }))
+      list.forEach((p) => placed.add(p.id))
+    } else {
+      const r = jobs.filter((j) => RAIL_TYPES.has(j.e.type) && !seeded.has(j.e.id) && j.zone?.role !== "entry" && j.zone?.role !== "sale").sort(byStrength)[0]
+      if (r) seed(r, ps)
+    }
+  }
   const rails = jobs.filter((j) => RAIL_TYPES.has(j.e.type)).sort(byStrength)
   const shelves = jobs.filter((j) => !RAIL_TYPES.has(j.e.type) && j.e.type !== "mannequin").sort(byStrength)
   const mannequins = jobs.filter((j) => j.e.type === "mannequin").sort(byStrength)
@@ -408,17 +496,19 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
   // 1. Штанги. В зоне входа (адаптация) стойки не заполняются
   for (const job of rails) {
     if (job.zone?.role === "entry") continue
-    const slots = fill(job, job.cap.railCats, "rail")
+    const slots = fill(job, job.cap.railCats, "rail", seeded.get(job.e.id) ?? [])
     if (job.cap.shelf > 0) slots.push(...fill(job, job.cap.shelfCats, "shelf"))
     if (slots.length) result[job.e.id] = slots
   }
   // 2. Полки, столы, стеллажи — с оглядкой на соседние стойки
   for (const job of shelves) {
+    if (job.e.id in result) continue
     const slots = fill(job, job.cap.shelfCats, "shelf")
     if (slots.length) result[job.e.id] = slots
   }
   // 3. Манекены: образ одного бренда из вещей соседних стоек (в радиусе 2,5 м) — покупатель найдёт их рядом
   for (const { e } of mannequins) {
+    if (e.id in result) continue
     const nearIds = items.filter((o) => o.id !== e.id && dist(o, e) <= 2.5).flatMap((o) => (result[o.id] ?? []).map((s) => byId.get(s.p)).filter(Boolean) as MProduct[])
     const pool = nearIds.length ? nearIds : avail
     const outers = pool.filter((p) => p.cat && ["kurtki", "hudi-i-svitshoty", "svitery-i-kardigany"].includes(p.cat) && p.sizes.length >= 2).sort((a, b) => b.score - a.score)

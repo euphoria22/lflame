@@ -52,6 +52,18 @@ export const STAFF_PAGE = `<!doctype html>
   .busy { opacity:.5; pointer-events:none }
   .err { color:var(--red); padding:20px; text-align:center }
   .who { display:flex; gap:8px; margin-bottom:12px } .who input { flex:1; border:1px solid var(--line); border-radius:12px; padding:12px; font:inherit; background:#fff }
+  .pbox { display:none }
+  @media print {
+    body { background:#fff; font-size:12px }
+    header { position:static; background:#fff; color:#000; padding:0 0 8px; border-bottom:2px solid #000 }
+    .bar, .prog, .who, .actions, .toast, .chip { display:none !important }
+    main { padding:8px 0; max-width:none }
+    .step { break-inside:avoid; border:1px solid #999; border-radius:6px; margin-bottom:10px }
+    .render { max-height:260px; object-fit:contain; background:#fff }
+    .num { background:#fff !important; color:#000; border:2px solid #000 }
+    .pbox { display:inline-block; width:16px; height:16px; border:2px solid #000; border-radius:3px; margin-left:auto; flex:none }
+    .row img { width:44px; height:55px }
+  }
   .toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#111; color:#fff; padding:10px 16px; border-radius:12px; font-size:14px; display:none; z-index:10 }
 </style>
 </head>
@@ -65,6 +77,8 @@ export const STAFF_PAGE = `<!doctype html>
   var base = "/staff/merch/" + token
   var main = document.getElementById("main")
   var task = null
+  var printMode = /[?&]print=1/.test(location.search)
+  var printed = false
   var who = ""
   try { who = localStorage.getItem("lf_merch_who") || "" } catch (e) {}
 
@@ -75,7 +89,7 @@ export const STAFF_PAGE = `<!doctype html>
   function row(p, rm) {
     var q = rm ? "убрать" : p.place === "rail" ? (p.n + " " + plural(p.n, "вешалка", "вешалки", "вешалок")) : (p.n > 1 ? p.n + " места" : "1 место")
     if (p.face && !rm) q = "лицом · " + q
-    return '<div class="row' + (rm ? " rm" : "") + '">' + (p.thumb ? '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' : '<img alt="">') +
+    return '<div class="row' + (rm ? " rm" : "") + '">' + (p.thumb ? '<img loading="' + (printMode ? "eager" : "lazy") + '" src="' + esc(p.thumb) + '" alt="">' : '<img alt="">') +
       '<div class="i"><div class="b">' + esc(p.brand || "") + '</div><div class="n">' + esc(p.title) + '</div>' +
       (p.sizes && p.sizes.length && !rm ? '<div class="s">Размеры: ' + esc(p.sizes.join(", ")) + (p.color ? " · " + esc(p.color) : "") + '</div>' : "") + '</div>' +
       '<div class="q">' + q + '</div></div>'
@@ -92,8 +106,8 @@ export const STAFF_PAGE = `<!doctype html>
     task.steps.forEach(function (s, i) {
       var chip = s.review === "ok" ? '<span class="chip ok">Принято</span>' : s.review === "redo" ? '<span class="chip redo">Переделать</span>' : s.done_at ? '<span class="chip wait">Ждёт проверки</span>' : ""
       h += '<section class="step' + (s.done_at ? " done" : "") + '" id="' + esc(s.id) + '">'
-      h += '<div class="head"><div class="num">' + (s.done_at ? "✓" : i + 1) + '</div><div><div class="t">' + esc(s.title) + '</div><div class="w">' + esc(s.where) + '</div>' + chip + '</div></div>'
-      if (s.render) h += '<img class="render" loading="lazy" src="' + esc(s.render) + '" alt="Как должно выглядеть">'
+      h += '<div class="head"><div class="num">' + (s.done_at ? "✓" : i + 1) + '</div><div><div class="t">' + esc(s.title) + '</div><div class="w">' + esc(s.where) + '</div>' + chip + '</div><span class="pbox"></span></div>'
+      if (s.render) h += '<img class="render" loading="' + (printMode ? "eager" : "lazy") + '" src="' + esc(s.render) + '" alt="Как должно выглядеть">'
       if (s.comment) h += '<div class="comment"><b>Замечание мерчендайзера</b>' + esc(s.comment) + '</div>'
       if (s.text && s.text.length) h += '<ul class="text">' + s.text.map(function (t) { return "<li>" + esc(t) + "</li>" }).join("") + '</ul>'
       if (s.remove && s.remove.length) h += '<div class="sub">Убрать на склад</div><div class="list">' + s.remove.map(function (p) { return row(p, true) }).join("") + '</div>'
@@ -107,6 +121,7 @@ export const STAFF_PAGE = `<!doctype html>
       h += '</section>'
     })
     main.innerHTML = h
+    if (printMode && !printed) { printed = true; setTimeout(function () { window.print() }, 1200) }
     var w = document.getElementById("who")
     w.addEventListener("change", function () { who = w.value.trim(); try { localStorage.setItem("lf_merch_who", who) } catch (e) {} })
   }

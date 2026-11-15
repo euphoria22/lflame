@@ -75,3 +75,16 @@ describe("уровни и капсулы", () => {
     expect(first.some((p) => p.color === "red")).toBe(false)
   })
 })
+
+describe("образы мерчендайзера", () => {
+  it("манекен — из образа, вещи образа висят на ближайшей стойке первыми, лицом вперёд", () => {
+    const ps = [prod("A", "kurtki", 0.2, "green"), prod("A", "bryuki", 0.2, "black"), ...Array.from({ length: 8 }, (_, i) => prod("B", "kurtki", 0.9 - i * 0.01))]
+    const S: MerchSettings = { ...DEFAULT_SETTINGS, looks: [{ id: "l1", name: "Образ", place: "mannequin", products: [ps[0].id, ps[1].id], active: true }] }
+    const man = { id: "man", type: "mannequin", x: 3, y: 3, w: 0.5, d: 0.35, h: 1.85 }
+    const rack = { id: "rack", type: "rack_base", x: 4, y: 3, w: 1.4, d: 0.45, h: 1.65 }
+    const r = autofill([man, rack], [], room, ps, {}, { settings: S })
+    expect(r.man.map((s) => s.p)).toEqual([ps[0].id, ps[1].id])
+    expect(r.rack[0]).toMatchObject({ p: ps[0].id, face: true })
+    expect(r.rack.some((s) => s.p === ps[1].id)).toBe(true)
+  })
+})

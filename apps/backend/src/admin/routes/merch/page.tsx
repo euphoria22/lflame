@@ -7,6 +7,8 @@ import { extents, Plan } from "../../lib/merch/plan"
 import type { CameraPreset, MerchScene, ProductLook, ViewMode } from "../../lib/merch/scene"
 import { autofill, COLOR_HEX, DEFAULT_SETTINGS, kindOf, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
 import { RulesBlock } from "../../lib/merch/rules-ui"
+import { ChecklistsBlock, LooksBlock, StandardsBlock } from "../../lib/merch/extra-ui"
+import { checkLayout } from "../../../lib/merch/checks"
 import { EquipProducts } from "../../lib/merch/products-ui"
 import { TasksBlock } from "../../lib/merch/tasks-ui"
 
@@ -309,6 +311,10 @@ const MerchPage = () => {
   }
   const usedIds = useMemo(() => new Set(Object.values(data?.assign ?? {}).flat().map((s) => s.p)), [data?.assign])
   const placedCount = usedIds.size
+  // Проверка расстановки: проходы, вход, пересечения
+  const warnings = useMemo(() => (data ? checkLayout(data.items, data.room, Object.fromEntries(CATALOG.map((c) => [c.type, c.name]))) : []), [data])
+  const warnIds = useMemo(() => new Set(warnings.flatMap((w) => w.ids)), [warnings])
+  const [showWarn, setShowWarn] = useState(false)
 
   const totals = useMemo(() => {
     if (!data) return null
@@ -329,7 +335,7 @@ const MerchPage = () => {
   const setOpening = (id: string, p: Partial<Opening>) => setRoom({ openings: room.openings.map((o) => (o.id === id ? { ...o, ...p } : o)) })
   const cur = layouts.find((l) => l.id === curId)
 
-  const planEl = <Plan data={data} selected={selected} showZones={showZones} onSelect={setSelected} onChange={change} />
+  const planEl = <Plan data={data} selected={selected} showZones={showZones} onSelect={setSelected} onChange={change} warnIds={showWarn ? warnIds : undefined} />
   const sceneEl = <Scene3D data={data} selected={selected} clothes={clothes} zones={showZones} looks={looks} sceneRef={sceneRef}
     onSelect={setSelected} onMove={(id, x, y) => patchItem(id, { x, y })} />
 
@@ -563,6 +569,18 @@ const MerchPage = () => {
             <Text size="small" className="text-ui-fg-subtle">Нажмите на оборудование или зону — здесь появятся размеры и настройки.</Text>
           )}
 
+          <div className="mt-2 flex flex-col gap-1 border-t border-ui-border-base pt-3">
+            <div className="flex items-center justify-between">
+              <Text size="small" weight="plus">Проверка расстановки</Text>
+              {warnings.length > 0 && <Button size="small" variant="transparent" onClick={() => setShowWarn(!showWarn)}>{showWarn ? "Скрыть на плане" : "Показать на плане"}</Button>}
+            </div>
+            {warnings.length === 0 && <Text size="xsmall" className="text-ui-fg-subtle">Замечаний нет: проходы, вход и подходы к кассе и примерочным свободны.</Text>}
+            {warnings.slice(0, 12).map((w, i) => (
+              <button key={i} type="button" className={`text-left text-xs ${w.level === "error" ? "text-ui-fg-error" : "text-ui-fg-subtle"}`}
+                onClick={() => { setShowWarn(true); setSelected(w.ids[0]) }}>{w.level === "error" ? "⛔ " : "⚠️ "}{w.text}</button>
+            ))}
+            {warnings.length > 12 && <Text size="xsmall" className="text-ui-fg-muted">…и ещё {warnings.length - 12}</Text>}
+          </div>
           {totals && (
             <div className="mt-2 flex flex-col gap-1 border-t border-ui-border-base pt-3">
               <Text size="small" weight="plus">В зале</Text>
@@ -576,6 +594,9 @@ const MerchPage = () => {
         </Container>
       </div>
       <RulesBlock settings={settings} products={products} onSaved={setSettings} />
+      <LooksBlock settings={settings} products={products} onSaved={setSettings} />
+      <StandardsBlock settings={settings} onSaved={setSettings} />
+      <ChecklistsBlock settings={settings} onSaved={setSettings} />
       {curId && <TasksBlock layoutId={curId} layoutName={name} isCurrent={!!cur?.is_current} data={data} dirty={dirty} sceneRef={sceneRef} ensure3d={ensure3d} />}
     </div>
   )

@@ -14,6 +14,8 @@ type Props = {
   onSelect: (id: string | null) => void
   /** live — во время перетаскивания (без записи в историю отмены) */
   onChange: (d: LayoutData, live?: boolean) => void
+  /** Оборудование с замечаниями проверки — обводится красным */
+  warnIds?: Set<string>
 }
 
 const FINISH_COLOR: Record<string, string> = { brick: "#b4583a", white: "#d4d4d0", concrete: "#9b9a95", glass: "#9fc2d8" }
@@ -27,7 +29,7 @@ export function extents(it: Item) {
   return { hx: (it.w * c + it.d * s) / 2, hy: (it.w * s + it.d * c) / 2 }
 }
 
-export function Plan({ data, selected, showZones, onSelect, onChange }: Props) {
+export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }: Props) {
   const svg = useRef<SVGSVGElement>(null)
   const drag = useRef<{ kind: "item" | "zone" | "resize"; id: string; dx: number; dy: number; start: LayoutData } | null>(null)
   const [hover, setHover] = useState<string | null>(null)
@@ -156,15 +158,16 @@ export function Plan({ data, selected, showZones, onSelect, onChange }: Props) {
         const sel = selected === it.id
         const col = GROUP_COLOR[t.group]
         const track = it.type === "track"
+        const warn = warnIds?.has(it.id)
         return (
           <g key={it.id} transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`} style={{ cursor: "move" }}
             onPointerDown={(e) => startItem(e, it)} onPointerEnter={() => setHover(it.id)} onPointerLeave={() => setHover(null)}>
             {track ? (
               <line x1={-it.w / 2} y1={0} x2={it.w / 2} y2={0} stroke="#18181b" strokeOpacity={sel ? 0.9 : 0.35} strokeWidth={sel ? 0.08 : 0.04} strokeDasharray="0.25 0.15" />
             ) : t.round ? (
-              <ellipse rx={it.w / 2} ry={it.d / 2} fill={col} fillOpacity={sel ? 0.55 : 0.32} stroke={sel ? "#1d4ed8" : col} strokeWidth={sel ? 0.06 : 0.025} />
+              <ellipse rx={it.w / 2} ry={it.d / 2} fill={col} fillOpacity={sel ? 0.55 : 0.32} stroke={sel ? "#1d4ed8" : warn ? "#dc2626" : col} strokeWidth={sel ? 0.06 : warn ? 0.05 : 0.025} />
             ) : (
-              <rect x={-it.w / 2} y={-it.d / 2} width={it.w} height={it.d} rx={0.03} fill={col} fillOpacity={sel ? 0.55 : 0.32} stroke={sel ? "#1d4ed8" : col} strokeWidth={sel ? 0.06 : 0.025} />
+              <rect x={-it.w / 2} y={-it.d / 2} width={it.w} height={it.d} rx={0.03} fill={col} fillOpacity={sel ? 0.55 : 0.32} stroke={sel ? "#1d4ed8" : warn ? "#dc2626" : col} strokeWidth={sel ? 0.06 : warn ? 0.05 : 0.025} strokeDasharray={warn && !sel ? "0.08 0.05" : undefined} />
             )}
             {/* Штанга — линией, чтобы было видно, куда смотрят вещи */}
             {t.hangPerM && !t.round && <line x1={-it.w / 2 + 0.05} y1={0} x2={it.w / 2 - 0.05} y2={0} stroke="#1e3a8a" strokeOpacity={0.55} strokeWidth={0.02} />}

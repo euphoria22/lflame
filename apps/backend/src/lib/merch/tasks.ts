@@ -4,7 +4,8 @@ import { uploadFilesWorkflow } from "@medusajs/medusa/core-flows"
 import { MERCH_MODULE } from "../../modules/merch"
 import type MerchModuleService from "../../modules/merch/service"
 import { loadCatalogItems } from "../catalog/store-catalog"
-import { CAT_NAME, Place } from "./autofill"
+import { CAT_NAME, Checklist, DEFAULT_SETTINGS, Place, Standards } from "./autofill"
+import { loadMerchSettings } from "./settings"
 
 /**
  * Задания консультантам по выкладке. Мерчендайзер собирает задание в админке из варианта расстановки,
@@ -42,29 +43,33 @@ const plural = (n: number, one: string, few: string, many: string) => {
   return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many
 }
 
-/** Текст задания простыми словами: что убрать, что и в каком порядке повесить/выложить */
-export function stepText(products: StepProduct[], remove: StepProduct[], type: string): string[] {
+/** Какие стандарты магазина относятся к оборудованию */
+export function standardsFor(type: string, products: StepProduct[], st: Standards): string[] {
+  const out = [...st.all]
+  if (products.some((p) => p.place === "rail")) out.push(...st.rail)
+  if (products.some((p) => p.cat === "obuv")) out.push(...st.shoes)
+  if (type.startsWith("table") || type === "podium") out.push(...st.table)
+  else if (products.some((p) => p.place === "shelf" && p.cat !== "obuv")) out.push(...st.shelf)
+  return out
+}
+
+/** Текст задания простыми словами: что убрать, что и в каком порядке повесить/выложить + стандарты магазина */
+export function stepText(products: StepProduct[], remove: StepProduct[], type: string, st: Standards = DEFAULT_SETTINGS.standards): string[] {
   const out: string[] = []
   if (remove.length) out.push(`Сначала уберите на склад ${remove.length} ${plural(remove.length, "модель", "модели", "моделей")} — они отмечены ниже серым.`)
   const rail = products.filter((p) => p.place === "rail")
   const shelf = products.filter((p) => p.place === "shelf")
   if (type === "mannequin" && products.length) {
     out.push("Оденьте манекен в образ из списка: сначала низ, потом верх, верхняя одежда — последней, расстёгнутой.")
-    return out
+    return [...out, ...st.all]
   }
   if (rail.length) {
     const hangers = rail.reduce((a, p) => a + p.n, 0)
     out.push(`Повесьте слева направо в указанном порядке — ${rail.length} ${plural(rail.length, "модель", "модели", "моделей")}, ${hangers} ${plural(hangers, "вешалка", "вешалки", "вешалок")}.`)
-    out.push("Одна модель — все размеры подряд, от меньшего к большему (S → XL). Вешалки крючком в одну сторону, вещи лицом влево.")
-    out.push("Между моделями — ровный шаг, штанга не забита: должна свободно двигаться рука.")
     if (rail.some((p) => p.face)) out.push("Вещи с пометкой «лицом» — главные в своей группе: одну вешалку разверните лицом к покупателю (на торец или кронштейн), остальные размеры — рядом боком.")
   }
-  if (shelf.length) {
-    const shoes = shelf.some((p) => p.cat === "obuv")
-    if (shoes) out.push("Обувь: по одной паре (левый ботинок вперёд, носком к покупателю), модели в порядке списка слева направо, сверху вниз.")
-    else out.push("Выложите в порядке списка слева направо, сверху вниз. Сложенное — стопками по 3–5 штук, размеры снизу вверх от большего к меньшему; сумки — набить бумагой, ремешки убрать.")
-  }
-  return out
+  if (shelf.length) out.push("Выложите в порядке списка: слева направо, сверху вниз.")
+  return [...out, ...standardsFor(type, products, st)]
 }
 
 /** Подробности товаров (название, фото, размеры) из каталога */
@@ -83,7 +88,7 @@ export async function createTask(c: MedusaContainer, input: { layout_id: string;
   if (!name) throw new Error("Укажите название задания")
   if (!Array.isArray(input.steps) || !input.steps.length) throw new Error("В задании нет шагов — разложите товары по оборудованию")
   if (input.steps.length > 300) throw new Error("Слишком много шагов")
-  const info = await productInfo(c)
+  const [info, settings] = await Promise.all([productInfo(c), loadMerchSettings()])
   const pick = (id: string, n = 1, place: Place = "rail", face = false): StepProduct | null => {
     const p = info.get(id)
     return p ? { ...p, n, place, ...(face ? { face: true } : {}) } : null
@@ -94,11 +99,32 @@ export async function createTask(c: MedusaContainer, input: { layout_id: string;
     const render = typeof s.render === "string" && /^https?:\/\//.test(s.render) ? s.render : null
     return {
       id: `s${i + 1}`, item_id: String(s.item_id), title: String(s.title).slice(0, 120), where: String(s.where ?? "").slice(0, 200), render,
-      products, remove, text: stepText(products, remove, s.type), done_at: null, done_by: null, photos: [], comment: null, review: null,
+      products, remove, text: stepText(products, remove, s.type, settings.standards), done_at: null, done_by: null, photos: [], comment: null, review: null,
     }
   })
   const row = await svc(c).createMerchTasks({ layout_id: input.layout_id, name, note: input.note ? String(input.note).slice(0, 2000) : null, token: randomBytes(18).toString("hex"), steps: steps as unknown as Record<string, unknown>, author, status: "open" })
   return row as unknown as TaskRow
+}
+
+/** Задание-чек-лист: каждый пункт — шаг с отметкой и фото */
+export async function createChecklistTask(c: MedusaContainer, cl: Checklist, date: string) {
+  const steps: Step[] = cl.items.map((t, i) => ({
+    id: `s${i + 1}`, item_id: `check-${i + 1}`, title: t, where: "", render: null, products: [], remove: [], text: [],
+    done_at: null, done_by: null, photos: [], comment: null, review: null,
+  }))
+  const [d, m] = [Number(date.slice(8)), Number(date.slice(5, 7))]
+  const row = await svc(c).createMerchTasks({
+    layout_id: `checklist:${cl.id}`, name: `${cl.name} · ${d}.${String(m).padStart(2, "0")}`, note: null, token: randomBytes(18).toString("hex"),
+    steps: steps as unknown as Record<string, unknown>, author: "по расписанию", status: "open",
+  })
+  return row as unknown as TaskRow
+}
+
+/** Был ли уже чек-лист за эту дату (по омскому времени) */
+export async function checklistSentOn(c: MedusaContainer, id: string, date: string) {
+  const rows = (await svc(c).listMerchTasks({ layout_id: `checklist:${id}` }, { order: { created_at: "DESC" }, take: 1 })) as unknown as TaskRow[]
+  if (!rows[0]) return false
+  return new Date(new Date(rows[0].created_at).getTime() + 6 * 3600_000).toISOString().slice(0, 10) === date
 }
 
 export async function listTasks(c: MedusaContainer) {
