@@ -34,6 +34,13 @@ export type MProduct = {
   fresh?: boolean
   /** Outlet — вещь с дефектом / уценка */
   outlet?: boolean
+  /** Роль товара по продажам магазина (lib/merch/offline.ts) */
+  role?: "new" | "hit" | "hit_broken" | "second_chance" | "base" | "offseason" | "sale"
+  /** Продано в магазине за 30 / 60 дней, запас в неделях, балл сайта (для сравнения) */
+  q30?: number
+  q60?: number
+  weeks?: number | null
+  site_score?: number
 }
 
 export type Place = "rail" | "shelf"
@@ -78,6 +85,12 @@ export type MerchSettings = {
   standards: Standards
   looks: Look[]
   checklists: Checklist[]
+  /** Чем ранжировать товары: продажами магазина (офлайн-балл) или баллом сайта */
+  score_source: "offline" | "site"
+  /** План площади: доля стоек у бренда = доля в продажах магазина и в остатке (mix — вес продаж), shares — ручные доли, % */
+  area_plan: { enabled: boolean; mix: number; shares: Record<string, number> }
+  /** Довешивание: каждый день в time (Омск) — что продано вчера, принести со склада */
+  replenish: { enabled: boolean; time: string }
 }
 
 export const LEVEL_NAME: Record<Level, string> = { bridge: "Bridge / middle", premium: "Премиум", luxury: "Люкс" }
@@ -109,6 +122,9 @@ export const DEFAULT_SETTINGS: MerchSettings = {
     table: ["Стопки по 3–5 штук, сгиб к покупателю, размеры снизу вверх — от большего к меньшему", "Не больше 3 цветов на столе, треть поверхности свободна"],
   },
   looks: [],
+  score_source: "offline",
+  area_plan: { enabled: false, mix: 0.5, shares: {} },
+  replenish: { enabled: false, time: "11:00" },
   checklists: [
     { id: "morning", name: "Утренний обход", items: ["Свет и музыка включены", "Штанги ровные, размеры на месте после вчерашнего дня", "Отпарить вещи на манекенах и у входа", "Пыль на столах и полках", "Примерочные: зеркала, крючки, пустые вешалки убраны"], days: [0, 1, 2, 3, 4, 5, 6], time: "11:30", enabled: false },
     { id: "closing", name: "Закрытие", items: ["Вещи из примерочных развешаны на места", "Вешалки крючком в одну сторону", "Стопки на столах сложены заново", "Пустые вешалки убраны на склад"], days: [0, 1, 2, 3, 4, 5, 6], time: "20:45", enabled: false },
@@ -129,6 +145,8 @@ export function mergeSettings(raw: Partial<MerchSettings> | null | undefined): M
     brands: { ...(r.brands ?? {}) },
     standards: { ...DEFAULT_SETTINGS.standards, ...(r.standards ?? {}) },
     looks: r.looks ?? [],
+    area_plan: { ...DEFAULT_SETTINGS.area_plan, ...(r.area_plan ?? {}), shares: { ...(r.area_plan?.shares ?? {}) } },
+    replenish: { ...DEFAULT_SETTINGS.replenish, ...(r.replenish ?? {}) },
     checklists: r.checklists ?? DEFAULT_SETTINGS.checklists,
   }
 }
@@ -154,6 +172,16 @@ export function validateSettings(raw: unknown): MerchSettings {
   s.last_unit = !!s.last_unit
   const lines = (v: unknown) => (Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 300)).filter(Boolean).slice(0, 30)
   for (const k of ["all", "rail", "shelf", "shoes", "table"] as StandardKind[]) s.standards[k] = lines(s.standards[k])
+  if (!["offline", "site"].includes(s.score_source)) s.score_source = "offline"
+  num(s.area_plan.mix, 0, 1, "План площади: вес продаж")
+  s.area_plan.enabled = !!s.area_plan.enabled
+  for (const [b, v] of Object.entries(s.area_plan.shares)) {
+    if (v === null || v === undefined || (v as unknown) === "") { delete s.area_plan.shares[b]; continue }
+    num(Number(v), 0, 100, `Доля бренда ${b}, %`)
+    s.area_plan.shares[b] = Number(v)
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.replenish.time)) throw new Error("Довешивание: время в виде 11:00")
+  s.replenish.enabled = !!s.replenish.enabled
   if (!Array.isArray(s.looks) || s.looks.length > 100) throw new Error("Образов — не больше 100")
   s.looks = s.looks.map((l) => {
     const name = String(l.name ?? "").trim().slice(0, 80)
@@ -386,8 +414,16 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
     for (const s of pre) { const b = brandOf(s.p) ?? "—"; near.set(b, (near.get(b) ?? 0) + 5); equipBrands.set(e.id, new Set([...(equipBrands.get(e.id) ?? []), b])) }
     const out: Slot[] = [...pre]
     let blocks = 0
-    // Новинки — в фокус: им двойной вес
-    const weight = (p: MProduct) => Math.max(0.01, p.score) * (zone?.role === "focus" && p.fresh ? 2 : 1)
+    // Новинки — в фокус: двойной вес. Роли по продажам магазина:
+    // «второй шанс» — в сильные места; хит без размеров — не в фокус, ближе к примерочным; не сезон — в дальнюю зону
+    const strong = (zone?.power ?? 2) >= 4
+    const weight = (p: MProduct) => {
+      let k = zone?.role === "focus" && p.fresh ? 2 : 1
+      if (p.role === "second_chance" && strong) k *= 1.6
+      if (p.role === "hit_broken") k *= zone?.role === "fitting" ? 1.3 : strong ? 0.5 : 1
+      if (p.role === "offseason") k *= zone?.role === "back" ? 1 : 0.2
+      return Math.max(0.01, p.score) * k
+    }
     while (left > 1e-6 && blocks < 3) {
       const pool = avail.filter((p) => fits(p, e, cats, zone))
       if (!pool.length) break
@@ -406,6 +442,8 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
         const uses = brandUses.get(brand) ?? 0
         const anchor = !!brandRule(brand)?.anchor
         value *= anchor && uses < 2 ? 1.2 : Math.pow(0.75, uses)
+        // План площади: бренд уже занял свою долю стоек — почти не берём
+        if (place === "rail" && plan && uses >= (plan.get(brand) ?? 1)) value *= 0.05
         if (pre.some((s) => brandOf(s.p) === brand)) value *= 2
         if (place === "shelf") {
           // Полка и стол продолжают бренд соседней стойки, иначе — её стиль
@@ -454,6 +492,7 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
   }
 
   const byStrength = (a: Job, b: Job) => b.s - a.s
+  const plan = S.area_plan?.enabled ? areaTargets(products, jobs.filter((j) => RAIL_TYPES.has(j.e.type) && j.zone?.role !== "entry" && j.zone?.role !== "sale").length, S) : null
   // Образы мерчендайзера — первыми: манекен + вещи образа на ближайшей стойке, образ на столе, капсула в начале стойки
   const seeded = new Map<string, Slot[]>()
   const busy = new Set<string>()
@@ -523,6 +562,41 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
   for (const e of items) if (!(e.id in result) && current[e.id]?.length && opts.onlyEmpty) result[e.id] = current[e.id]
   for (const k of Object.keys(result)) if (!result[k].length) delete result[k]
   return result
+}
+
+/**
+ * План площади (ТЗ, п. 3.5): сколько стоек положено бренду. Доля = mix × доля в продажах магазина за 60 дней
+ * + (1 − mix) × доля в остатке одежды на вешалках; ручная доля (%) важнее. Якорному бренду — не меньше 2 стоек.
+ */
+export function areaShares(products: MProduct[], S: MerchSettings) {
+  const hang = products.filter((p) => p.cat && HANG_CATS.includes(p.cat) && !p.outlet)
+  const by = new Map<string, { sales: number; stock: number; models: number }>()
+  for (const p of hang) {
+    const b = p.brand ?? "—"
+    const r = by.get(b) ?? { sales: 0, stock: 0, models: 0 }
+    r.sales += p.q60 ?? 0
+    r.stock += Math.max(0, p.units)
+    r.models++
+    by.set(b, r)
+  }
+  const ts = [...by.values()].reduce((a, r) => a + r.sales, 0)
+  const tk = [...by.values()].reduce((a, r) => a + r.stock, 0)
+  const mix = ts > 0 ? S.area_plan.mix : 0
+  return [...by.entries()].map(([brand, r]) => {
+    const auto = mix * (ts ? r.sales / ts : 0) + (1 - mix) * (tk ? r.stock / tk : 0)
+    const manual = S.area_plan.shares[brand]
+    return { brand, sales: ts ? r.sales / ts : 0, stock: tk ? r.stock / tk : 0, models: r.models, share: manual !== undefined ? manual / 100 : auto, manual: manual !== undefined }
+  }).sort((a, b) => b.share - a.share)
+}
+
+export function areaTargets(products: MProduct[], rails: number, S: MerchSettings): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const r of areaShares(products, S)) {
+    let n = Math.round(r.share * rails)
+    if (S.brands[r.brand]?.anchor) n = Math.max(2, n)
+    m.set(r.brand, Math.max(r.models >= 5 ? 1 : 0, n))
+  }
+  return m
 }
 
 /** Заполненность: занято вешалок на штанге / мест на полках */

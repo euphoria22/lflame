@@ -1,5 +1,6 @@
 import { Badge, Button, IconButton, Input, Label, Switch, Text } from "@medusajs/ui"
 import { useMemo, useState } from "react"
+import { ROLE_NAME } from "../../../lib/merch/offline"
 import { capacityOf, CAT_NAME, facingsOf, levelOf, MerchSettings, MProduct, Place, railCapacityFor, Slot, usedOf } from "../../../lib/merch/autofill"
 import { Item } from "./catalog"
 
@@ -103,7 +104,8 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs">{p ? p.title : "Нет в наличии"}</div>
                 <div className="flex items-center gap-1 text-[11px] text-ui-fg-subtle">
-                  {p ? `${p.brand ?? ""} · ${p.sizes.join(", ")}` : "товар закончился — уберите"}
+                  {p ? `${p.brand ?? ""} · ${p.sizes.join(", ")}${p.q30 ? ` · продано ${p.q30}` : ""}` : "товар закончился — уберите"}
+                  {p?.role && p.role !== "base" && <Badge size="2xsmall" color={p.role === "hit" || p.role === "new" ? "green" : p.role === "second_chance" ? "blue" : p.role === "offseason" || p.role === "hit_broken" ? "orange" : "grey"}>{ROLE_NAME[p.role]}</Badge>}
                   {!p && <Badge size="2xsmall" color="red">нет</Badge>}
                 </div>
               </div>

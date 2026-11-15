@@ -8,6 +8,7 @@ import type { CameraPreset, MerchScene, ProductLook, ViewMode } from "../../lib/
 import { autofill, COLOR_HEX, DEFAULT_SETTINGS, kindOf, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
 import { RulesBlock } from "../../lib/merch/rules-ui"
 import { ChecklistsBlock, LooksBlock, StandardsBlock } from "../../lib/merch/extra-ui"
+import { PlanBlock, ReportBlock } from "../../lib/merch/report-ui"
 import { checkLayout } from "../../../lib/merch/checks"
 import { EquipProducts } from "../../lib/merch/products-ui"
 import { TasksBlock } from "../../lib/merch/tasks-ui"
@@ -594,6 +595,9 @@ const MerchPage = () => {
         </Container>
       </div>
       <RulesBlock settings={settings} products={products} onSaved={setSettings} />
+      <PlanBlock settings={settings} products={products} onSaved={setSettings}
+        railCount={data.items.filter((i) => ["wall_system", "rack_base", "rack_pipe", "rack_pipe_double", "round_rack"].includes(i.type)).length} />
+      {curId && <ReportBlock layoutId={curId} onSelect={(id) => { setSelected(id); window.scrollTo({ top: 0, behavior: "smooth" }) }} />}
       <LooksBlock settings={settings} products={products} onSaved={setSettings} />
       <StandardsBlock settings={settings} onSaved={setSettings} />
       <ChecklistsBlock settings={settings} onSaved={setSettings} />

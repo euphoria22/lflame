@@ -120,6 +120,15 @@ export async function createChecklistTask(c: MedusaContainer, cl: Checklist, dat
   return row as unknown as TaskRow
 }
 
+/** Готовое задание из шагов (довешивание и т. п.) */
+export async function createPlainTask(c: MedusaContainer, layoutId: string, name: string, steps: Step[]) {
+  const row = await svc(c).createMerchTasks({
+    layout_id: layoutId, name, note: null, token: randomBytes(18).toString("hex"),
+    steps: steps as unknown as Record<string, unknown>, author: "по расписанию", status: "open",
+  })
+  return row as unknown as TaskRow
+}
+
 /** Был ли уже чек-лист за эту дату (по омскому времени) */
 export async function checklistSentOn(c: MedusaContainer, id: string, date: string) {
   const rows = (await svc(c).listMerchTasks({ layout_id: `checklist:${id}` }, { order: { created_at: "DESC" }, take: 1 })) as unknown as TaskRow[]
