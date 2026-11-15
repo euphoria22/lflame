@@ -803,6 +803,17 @@ export class MerchScene {
         onSurface(-w / 2 + 0.05, w / 2 - 0.05, 0.006, 0.02, r() < 0.6 ? "fold" : "cap")
         break
       }
+      case "underwear_shelf": {
+        // Чёрные полки на стене: коробки с бельём
+        const n = 5
+        for (let i = 0; i < n; i++) {
+          const y = 0.2 + (i * (h - 0.3)) / (n - 1)
+          this.part(g, S.black, 0, y, 0, w, 0.03, d)
+          this.part(g, S.black, 0, y + 0.06, -d / 2 + 0.01, w, 0.12, 0.02)
+          onSurface(-w / 2 + 0.08, w / 2 - 0.08, y + 0.015, 0.02, "fold")
+        }
+        break
+      }
       case "grid_panel": {
         this.part(g, S.grid, 0, h / 2, 0, w, h, 0.01)
         if (shelfQ) onSurface(-w / 2 + 0.1, w / 2 - 0.1, h * 0.55, 0.08, "bag")

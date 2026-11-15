@@ -266,6 +266,7 @@ export function capacityOf(e: EquipLike): Capacity {
     case "shoe_rack": return { ...none, shelf: Math.max(1, Math.floor((e.h - 0.05) / 0.3)) * perLen(e.w, 0.36), shelfCats: ["obuv"] }
     case "cabinet": return { ...none, shelf: 4 * perLen(e.w, 0.35), shelfCats: SHELF_CATS }
     case "wall_shelves": return { ...none, shelf: 5 * perLen(e.w, 0.35), shelfCats: SHELF_CATS }
+    case "underwear_shelf": return { ...none, shelf: 5 * perLen(e.w, 0.25), shelfCats: ["nizhnee-bele-i-noski", "aksessuary"] }
     case "grid_panel": return { ...none, shelf: Math.max(2, Math.floor((e.w * e.h) / 0.25)), shelfCats: ["sumki-i-ryukzaki"] }
     case "wall_shelf":
     case "wall_shelf_s": return { ...none, shelf: e.w >= 0.55 ? 2 : 1, shelfCats: WALL_SHELF_CATS }

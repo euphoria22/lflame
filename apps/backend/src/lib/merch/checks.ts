@@ -15,7 +15,8 @@ const AIRBORNE = new Set(["track", "wall_shelf", "wall_shelf_s", "grid_panel", "
 /** Конструкция помещения — проходы до неё не считаем */
 const STRUCTURE = new Set(["column", "partition", "block"])
 /** Штанги: одежда на плечиках шире самой стойки */
-const RAILS = new Set(["wall_system", "rack_base", "rack_pipe", "rack_pipe_double", "round_rack"])
+// Пристенная система не в списке: вещи висят перед ней, в пределах её глубины
+const RAILS = new Set(["rack_base", "rack_pipe", "rack_pipe_double", "round_rack"])
 
 export function corners(it: CheckItem): Pt[] {
   const a = (it.rot * Math.PI) / 180
@@ -95,21 +96,34 @@ export function checkLayout(items: CheckItem[], room: CheckRoom, names: Record<s
     }
   }
   // Вход: перед дверью свободно 1,2 м; высокое (выше 1,4 м) в первых 3 м закрывает обзор зала
-  const doors: Pt[][] = room.openings.filter((o) => o.kind === "door").map((door) => {
-    const mid = door.offset + door.width / 2
-    const pt = door.wall === "top" ? { x: mid, y: 0 } : door.wall === "bottom" ? { x: mid, y: room.length } : door.wall === "left" ? { x: 0, y: mid } : { x: room.width, y: mid }
-    return door.wall === "top" || door.wall === "bottom"
-      ? [{ x: door.offset, y: pt.y }, { x: door.offset + door.width, y: pt.y }]
-      : [{ x: pt.x, y: door.offset }, { x: pt.x, y: door.offset + door.width }]
+  // Двери: проём и направление внутрь зала
+  type Door = { a: Pt; b: Pt; n: Pt }
+  const doors: Door[] = room.openings.filter((o) => o.kind === "door").map((door) => {
+    const o = door.offset, e = door.offset + door.width
+    if (door.wall === "top") return { a: { x: o, y: 0 }, b: { x: e, y: 0 }, n: { x: 0, y: 1 } }
+    if (door.wall === "bottom") return { a: { x: o, y: room.length }, b: { x: e, y: room.length }, n: { x: 0, y: -1 } }
+    if (door.wall === "left") return { a: { x: 0, y: o }, b: { x: 0, y: e }, n: { x: 1, y: 0 } }
+    return { a: { x: room.width, y: o }, b: { x: room.width, y: e }, n: { x: -1, y: 0 } }
   })
-  // Вход, поставленный элементом «Вход» на любую стену: его лицевая кромка
-  for (const e of items.filter((i) => i.type === "entrance")) { const c = corners(e); doors.push([c[2], c[3]]) }
-  for (const doorPoly of doors) {
+  // Вход, поставленный элементом «Вход»: его лицевая кромка, внутрь — в сторону лица
+  for (const e of items.filter((i) => i.type === "entrance")) {
+    const c = corners(e)
+    const r = (e.rot * Math.PI) / 180
+    doors.push({ a: c[2], b: c[3], n: { x: -Math.sin(r), y: Math.cos(r) } })
+  }
+  for (const door of doors) {
+    // Перед дверью свободно 1,2 м — по ширине проёма; рядом с дверью стоять можно (ресепшен у входа)
+    const far = (p: Pt) => ({ x: p.x + door.n.x * 1.2, y: p.y + door.n.y * 1.2 })
+    const front = [door.a, door.b, far(door.b), far(door.a)]
     for (const it of floor) {
+      if (STRUCTURE.has(it.type)) continue
       const c = poly.get(it.id)!
-      const d = Math.min(...c.map((p) => segDist(p, doorPoly[0], doorPoly[1])), ...doorPoly.map((p) => Math.min(...c.map((q, k) => segDist(p, q, c[(k + 1) % 4])))))
-      if (d < 1.2) out.push({ level: "error", text: `«${nameOf(it, names)}» перекрывает вход (${cm(d)} от двери, нужно 120 см)`, ids: [it.id] })
-      else if (d < 3 && it.h > 1.4 && !STRUCTURE.has(it.type)) out.push({ level: "warn", text: `«${nameOf(it, names)}» высотой ${cm(it.h)} в ${cm(d)} от входа закрывает обзор зала — у входа лучше оборудование до 140 см`, ids: [it.id] })
+      if (overlap(front, c)) {
+        out.push({ level: "error", text: `«${nameOf(it, names)}» перекрывает вход — перед дверью нужно 120 см свободно`, ids: [it.id] })
+        continue
+      }
+      const d = Math.min(...c.map((p) => segDist(p, door.a, door.b)))
+      if (d < 3 && it.h > 1.4) out.push({ level: "warn", text: `«${nameOf(it, names)}» высотой ${cm(it.h)} в ${cm(d)} от входа закрывает обзор зала — у входа лучше оборудование до 140 см`, ids: [it.id] })
     }
   }
   // Подход к примерочным и кассе: спереди 90 см свободно
