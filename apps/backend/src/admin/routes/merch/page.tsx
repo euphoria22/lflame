@@ -135,7 +135,7 @@ const MerchPage = () => {
     for (const sl of Object.values(data?.assign ?? {}).flat()) {
       const p = pmap.get(sl.p)
       m.set(sl.p, {
-        kind: kindOf(p?.cat ?? null, sl.place), color: COLOR_HEX[p?.color ?? ""] ?? "#8a8d91",
+        kind: kindOf(p?.cat ?? null, sl.place, p?.title ?? ""), color: COLOR_HEX[p?.color ?? ""] ?? "#8a8d91",
         ...(p ? { step: stepCm(p, settings) / 100, faceW: hangerOf(p.cat, settings).w / 100 } : {}),
       })
     }
@@ -264,6 +264,28 @@ const MerchPage = () => {
   const remove = async () => {
     if (!curId || !window.confirm(`Удалить вариант «${name}»?`)) return
     await api(`/layouts/${curId}`, "DELETE").then(() => loadList()).catch((e: Error) => toast.error(e.message))
+  }
+  // Фотореалистичный снимок: прогресс и готовая картинка
+  const [photo, setPhoto] = useState<{ p: number; stage: "prepare" | "render" } | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const makePhoto = async () => {
+    const sc = sceneRef.current
+    if (!sc || photo) return
+    setPhoto({ p: 0, stage: "prepare" })
+    try {
+      const url = await sc.photo((p, stage) => setPhoto({ p, stage }))
+      setPhotoUrl(url)
+    } catch (e) {
+      toast.error(`Фотоснимок не получился: ${(e as Error).message}`)
+    } finally {
+      setPhoto(null)
+    }
+  }
+  const download = (url: string, suffix = "") => {
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${name || "зал"}${suffix}.png`
+    a.click()
   }
   const snapshot = () => {
     const url = sceneRef.current?.snapshot()
@@ -462,12 +484,37 @@ const MerchPage = () => {
               {mode === "orbit" && (["corner", "top", "entrance"] as CameraPreset[]).map((p) => (
                 <Button key={p} size="small" variant="transparent" onClick={() => sceneRef.current?.preset(p)}>{p === "corner" ? "Общий вид" : p === "top" ? "Сверху" : "От входа"}</Button>
               ))}
-              <Button size="small" variant="secondary" onClick={snapshot}>Снимок</Button>
+              <Button size="small" variant="secondary" onClick={snapshot} title="Быстрый снимок того, что на экране">Снимок</Button>
+              <Button size="small" variant="secondary" disabled={!!photo} onClick={makePhoto} title="Свет, отражения и мягкие тени как на фото. Считается 20–90 секунд, камеру в это время не трогайте">Фотоснимок</Button>
             </>}
           </div>
           <div className={view === "split" ? "grid grid-rows-2 gap-2" : ""} style={{ height: "calc(100vh - 230px)", minHeight: 520 }}>
             {view !== "3d" && <Container className="h-full overflow-hidden p-2">{planEl}</Container>}
-            {view !== "plan" && <div className="h-full">{sceneEl}</div>}
+            {view !== "plan" && (
+              <div className="relative h-full">
+                {sceneEl}
+                {photo && (
+                  <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
+                    <div className="flex items-center gap-3 rounded-full bg-ui-bg-base/90 px-4 py-2 shadow-elevation-flyout">
+                      <Text size="small">{photo.stage === "prepare" ? "Готовлю сцену…" : `Фотоснимок: ${Math.round(photo.p * 100)} %`}</Text>
+                      <div className="h-1.5 w-40 overflow-hidden rounded-full bg-ui-bg-subtle"><div className="h-full bg-ui-fg-interactive transition-all" style={{ width: `${Math.round(photo.p * 100)}%` }} /></div>
+                    </div>
+                  </div>
+                )}
+                {photoUrl && (
+                  <div className="absolute inset-0 z-10 flex flex-col bg-ui-bg-base/95 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <Text size="small" weight="plus">Фотоснимок</Text>
+                      <div className="flex gap-2">
+                        <Button size="small" onClick={() => download(photoUrl, " — фото")}>Скачать</Button>
+                        <Button size="small" variant="secondary" onClick={() => setPhotoUrl(null)}>Закрыть</Button>
+                      </div>
+                    </div>
+                    <img src={photoUrl} alt="Фотоснимок зала" className="min-h-0 flex-1 rounded-md object-contain" />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <Text size="xsmall" className="text-ui-fg-subtle">
             {mode === "walk" && view !== "plan"

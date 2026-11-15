@@ -322,15 +322,21 @@ export const COLOR_HEX: Record<string, string> = {
 }
 const light = (c: string | null) => COLOR_LIGHT[c ?? ""] ?? 0.5
 
-/** Вид вещи в 3D по категории */
-export function kindOf(cat: string | null, place: Place): "tee" | "hoodie" | "jacket" | "pants" | "fold" | "shoe" | "bag" | "cap" {
+/** Вид вещи в 3D по категории и названию */
+export type GarmentKind3D = "tee" | "longsleeve" | "shirt" | "hoodie" | "sweater" | "jacket" | "puffer" | "pants" | "shorts" | "fold" | "shoe" | "bag" | "cap"
+export function kindOf(cat: string | null, place: Place, title = ""): GarmentKind3D {
+  const t = title.toLowerCase()
   if (cat === "obuv") return "shoe"
-  if (cat === "sumki-i-ryukzaki" || cat === "aksessuary" || cat === "nizhnee-bele-i-noski") return "bag"
+  if (cat === "sumki-i-ryukzaki" || cat === "aksessuary") return "bag"
   if (cat === "golovnye-ubory") return "cap"
-  if (place === "shelf") return "fold"
-  if (cat === "kurtki") return "jacket"
-  if (cat === "hudi-i-svitshoty" || cat === "svitery-i-kardigany") return "hoodie"
-  if (cat === "bryuki" || cat === "dzhinsy" || cat === "shorty") return "pants"
+  if (place === "shelf" || cat === "nizhnee-bele-i-noski") return "fold"
+  if (cat === "kurtki") return /пух|puffer|down|nuptse|стёган|стеган/.test(t) ? "puffer" : "jacket"
+  if (cat === "hudi-i-svitshoty") return /худи|hood/.test(t) ? "hoodie" : "sweater"
+  if (cat === "svitery-i-kardigany") return "sweater"
+  if (cat === "rubashki-i-polo") return /поло|polo/.test(t) ? "tee" : "shirt"
+  if (cat === "futbolki-i-longslivy") return /лонгслив|longsleeve|long sleeve|l\/s/.test(t) ? "longsleeve" : "tee"
+  if (cat === "shorty") return "shorts"
+  if (cat === "bryuki" || cat === "dzhinsy") return "pants"
   return "tee"
 }
 

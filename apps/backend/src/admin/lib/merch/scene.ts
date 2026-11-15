@@ -2,8 +2,11 @@ import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js"
+import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js"
 import { closedSides, type Slot } from "../../../lib/merch/autofill"
 import { Item, LayoutData, Room, typeOf, WallFinish, WallSide, Zone } from "./catalog"
+import { buildGarments, fabricMaterials, type GarmentKind, type GarmentPart, mannequinBody, type PartMat, WORN } from "./garments"
 
 /**
  * 3D-вид торгового зала. Строится из той же расстановки, что и план.
@@ -149,25 +152,68 @@ function gridAlpha() {
   }, false)
 }
 
-/** Силуэт вещи на вешалке (в плоскости u — поперёк штанги, v — вниз) */
-function garmentShape(kind: "tee" | "hoodie" | "jacket" | "pants") {
-  const s = new THREE.Shape()
-  if (kind === "pants") {
-    s.moveTo(-0.2, 0); s.lineTo(0.2, 0); s.lineTo(0.18, -1.0); s.lineTo(0.03, -1.0); s.lineTo(0, -0.3)
-    s.lineTo(-0.03, -1.0); s.lineTo(-0.18, -1.0); s.closePath()
-    return s
+export type InstKind = GarmentKind
+
+/**
+ * Для трассировщика: только position, normal, uv (и color), обычные Float32-массивы ровно нужной длины —
+ * иначе склейка сцены падает на деталях с «запасом» в массиве или с упакованными атрибутами
+ */
+function cleanAttributes(g: THREE.BufferGeometry) {
+  const n = g.attributes.position.count
+  if (!g.attributes.normal) g.computeVertexNormals()
+  for (const k of Object.keys(g.attributes)) {
+    if (!["position", "normal", "uv", "color"].includes(k)) { g.deleteAttribute(k); continue }
+    const a = g.getAttribute(k) as THREE.BufferAttribute | THREE.InterleavedBufferAttribute
+    const size = k === "uv" ? 2 : k === "color" ? 4 : 3
+    const out = new Float32Array(n * size)
+    for (let i = 0; i < n; i++) {
+      out[i * size] = a.getX(i)
+      out[i * size + 1] = a.getY(i)
+      if (size >= 3) out[i * size + 2] = a.itemSize > 2 ? a.getZ(i) : 0
+      if (size === 4) out[i * size + 3] = a.itemSize > 3 ? a.getW(i) : 1
+    }
+    g.setAttribute(k, new THREE.BufferAttribute(out, size))
   }
-  const len = kind === "tee" ? 0.72 : kind === "hoodie" ? 0.74 : 0.8
-  const sw = kind === "jacket" ? 0.3 : 0.27
-  const sleeve = kind === "tee" ? 0.2 : 0.62
-  s.moveTo(-0.06, 0); s.lineTo(0.06, 0); s.lineTo(sw, -0.05)
-  s.lineTo(sw + 0.03, -sleeve); s.lineTo(sw - 0.07, -sleeve); s.lineTo(sw - 0.05, -0.25)
-  s.lineTo(sw - 0.04, -len); s.lineTo(-(sw - 0.04), -len); s.lineTo(-(sw - 0.05), -0.25)
-  s.lineTo(-(sw - 0.07), -sleeve); s.lineTo(-(sw + 0.03), -sleeve); s.lineTo(-sw, -0.05); s.closePath()
-  return s
+  if (!g.attributes.uv) g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(n * 2), 2))
+  if (g.index && g.index.array.length !== g.index.count) g.setIndex(Array.from(g.index.array.slice(0, g.index.count)))
 }
 
-export type InstKind = "tee" | "hoodie" | "jacket" | "pants" | "fold" | "shoe" | "bag" | "cap"
+/** Часть геометрии по списку треугольников: только используемые вершины, своя нумерация */
+function subGeometry(g: THREE.BufferGeometry, idx: number[]): THREE.BufferGeometry {
+  const map = new Map<number, number>()
+  const order: number[] = []
+  const index = idx.map((i) => { let j = map.get(i); if (j === undefined) { j = order.length; map.set(i, j); order.push(i) } return j })
+  const out = new THREE.BufferGeometry()
+  for (const [k, a] of Object.entries(g.attributes)) {
+    const size = a.itemSize
+    const arr = new Float32Array(order.length * size)
+    order.forEach((src, n) => { for (let c = 0; c < size; c++) arr[n * size + c] = a.getComponent(src, c) })
+    out.setAttribute(k, new THREE.BufferAttribute(arr, size))
+  }
+  out.setIndex(index)
+  return out
+}
+
+/** Средний цвет картинки текстуры (для фотоснимка) */
+function averageColor(t: THREE.Texture): THREE.Color | null {
+  const img = t.image as CanvasImageSource & { width?: number; height?: number }
+  if (!img || typeof document === "undefined" || !(img instanceof HTMLCanvasElement || img instanceof HTMLImageElement || img instanceof ImageBitmap)) return null
+  const c = document.createElement("canvas")
+  c.width = c.height = 8
+  const g = c.getContext("2d")
+  if (!g) return null
+  g.drawImage(img, 0, 0, 8, 8)
+  const d = g.getImageData(0, 0, 8, 8).data
+  let r = 0, gg = 0, b = 0
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2] }
+  const n = d.length / 4
+  return new THREE.Color().setRGB(r / n / 255, gg / n / 255, b / n / 255, THREE.SRGBColorSpace)
+}
+
+/** Пример вещи на пустой штанге */
+function demoKind(k: number): InstKind {
+  return k < 0.2 ? "tee" : k < 0.3 ? "longsleeve" : k < 0.4 ? "shirt" : k < 0.55 ? "hoodie" : k < 0.65 ? "sweater" : k < 0.76 ? "jacket" : k < 0.84 ? "puffer" : k < 0.94 ? "pants" : "shorts"
+}
 
 export class MerchScene {
   private renderer: THREE.WebGLRenderer
@@ -202,7 +248,15 @@ export class MerchScene {
   private ray = new THREE.Raycaster()
   private mats: Record<string, THREE.Material>
   private geos: Record<string, THREE.BufferGeometry>
+  /** Модели вещей и их материалы (общие для всего зала) */
+  private garments: Record<GarmentKind, GarmentPart[]>
+  private fab: Record<PartMat, THREE.Material>
+  private manGeo: THREE.BufferGeometry
+  /** Общие геометрии — не удаляются вместе с оборудованием */
+  private shared = new Set<THREE.BufferGeometry>()
   private clock = new THREE.Clock()
+  /** Идёт фотоснимок — обычная отрисовка на паузе */
+  private photoBusy = false
 
   constructor(private el: HTMLElement, private cb: Callbacks) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
@@ -271,21 +325,16 @@ export class MerchScene {
       cloth: new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.92 }),
       hanger: new THREE.MeshStandardMaterial({ color: "#c9cbcd", metalness: 0.9, roughness: 0.3 }),
     }
-    const ext = (k: "tee" | "hoodie" | "jacket" | "pants", depth: number) => {
-      const g = new THREE.ExtrudeGeometry(garmentShape(k), { depth, bevelEnabled: true, bevelSize: 0.006, bevelThickness: 0.006, bevelSegments: 1, curveSegments: 2 })
-      g.translate(0, 0, -depth / 2)
-      g.rotateY(Math.PI / 2)
-      return g
-    }
     this.geos = {
-      tee: ext("tee", 0.012), hoodie: ext("hoodie", 0.03), jacket: ext("jacket", 0.06), pants: ext("pants", 0.02),
-      fold: new RoundedBoxGeometry(0.3, 0.035, 0.26, 2, 0.01),
-      shoe: new RoundedBoxGeometry(0.29, 0.11, 0.11, 2, 0.03),
-      bag: new RoundedBoxGeometry(0.3, 0.24, 0.12, 2, 0.03),
-      cap: new THREE.SphereGeometry(0.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
       tube: new THREE.CylinderGeometry(1, 1, 1, 14),
       box: new THREE.BoxGeometry(1, 1, 1),
     }
+    this.garments = buildGarments()
+    this.fab = fabricMaterials()
+    this.manGeo = mannequinBody()
+    for (const g of Object.values(this.geos)) this.shared.add(g)
+    for (const parts of Object.values(this.garments)) for (const p of parts) this.shared.add(p.geo)
+    this.shared.add(this.manGeo)
 
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(el)
@@ -316,9 +365,10 @@ export class MerchScene {
     this.controls.dispose()
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh
-      if (m.geometry && !Object.values(this.geos).includes(m.geometry)) m.geometry.dispose()
+      if (m.geometry && !this.shared.has(m.geometry)) m.geometry.dispose()
     })
-    Object.values(this.geos).forEach((g) => g.dispose())
+    this.shared.forEach((g) => g.dispose())
+    Object.values(this.fab).forEach((m) => m.dispose())
     Object.values(this.mats).forEach((m) => m.dispose())
     this.renderer.dispose()
     dom.remove()
@@ -374,7 +424,7 @@ export class MerchScene {
     g.removeFromParent()
     g.traverse((o) => {
       const m = o as THREE.Mesh
-      if (m.geometry && !Object.values(this.geos).includes(m.geometry)) m.geometry.dispose()
+      if (m.geometry && !this.shared.has(m.geometry)) m.geometry.dispose()
       if ((o as THREE.InstancedMesh).isInstancedMesh) (o as THREE.InstancedMesh).dispose()
     })
   }
@@ -624,14 +674,12 @@ export class MerchScene {
         let x = x0
         while (railQ.length) {
           const look = railQ[0]
-          const s = look.face ? look.faceW ?? 0.44 : look.step ?? step
+          const s = look.step ?? step
           if (x + s > x1 + 0.02) break
           railQ.shift()
-          // Ширина силуэта — по плечикам: верх ~0,44 м, низ ~0,30 м
-          const k = look.kind === "pants" ? (look.faceW ?? 0.3) / 0.4 : (look.faceW ?? 0.44) / 0.66
-          const m = look.face
-            ? new THREE.Matrix4().compose(V(x + s / 2, y - 0.06, z + 0.12), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)), V(1, 1, k))
-            : new THREE.Matrix4().compose(V(x + s / 2, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 1, k))
+          // Модели вещей — в натуральную величину; ширина низа — по брючной вешалке
+          const k = look.kind === "pants" || look.kind === "shorts" ? (look.faceW ?? 0.3) / 0.3 : 1
+          const m = new THREE.Matrix4().compose(V(x + s / 2, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.12, 0)), V(1, 1, k))
           inst.push({ kind: look.kind, m, color: look.color })
           x += s
         }
@@ -642,8 +690,8 @@ export class MerchScene {
       for (let i = 0; i < n; i++) {
         if (r() > fill) continue
         const k = r()
-        const kind: InstKind = k < 0.38 ? "tee" : k < 0.66 ? "hoodie" : k < 0.84 ? "jacket" : "pants"
-        const m = new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.25, 0)), V(1, 0.9 + r() * 0.15, kind === "pants" ? 0.75 : 0.67))
+        const kind = demoKind(k)
+        const m = new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 0.96 + r() * 0.06, 1))
         inst.push({ kind, m, color: pickColor(r) })
       }
     }
@@ -751,7 +799,7 @@ export class MerchScene {
             const a = (i / n) * Math.PI * 2
             const k = r()
             const look = railQ?.shift()
-            const kind: InstKind = look?.kind ?? (k < 0.4 ? "tee" : k < 0.7 ? "hoodie" : "jacket")
+            const kind: InstKind = look?.kind ?? demoKind(k * 0.8)
             inst.push({ kind, m: new THREE.Matrix4().compose(V(Math.cos(a) * R, h - 0.1, Math.sin(a) * R), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -a, 0)), V(1, 1, 1)), color: look?.color ?? pickColor(r) })
           }
         }
@@ -863,11 +911,16 @@ export class MerchScene {
       case "mannequin": {
         this.part(g, S.brushed, 0, 0.01, 0, 0.18, 0.02, 0.18, this.geos.tube)
         this.pipe(g, V(0, 0, 0), V(0, 1.0, 0), 0.012)
-        const body = this.part(g, S.mannequin, 0, 1.3, 0, 1, 1, 1, new THREE.CapsuleGeometry(0.16, 0.45, 6, 16))
-        body.scale.set(1, 1, 0.7)
-        this.part(g, S.mannequin, 0, 1.73, 0, 0.1, 0.12, 0.1, new THREE.SphereGeometry(1, 16, 12))
-        const outer = railQ?.[0]
-        if (outer || clothes) inst.push({ kind: outer?.kind === "pants" ? "jacket" : outer?.kind ?? "jacket", m: new THREE.Matrix4().compose(V(0, 1.6, 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0)), V(1.6, 1, 1.15)), color: outer?.color ?? pickColor(r) })
+        const body = new THREE.Mesh(this.manGeo, S.mannequin)
+        body.castShadow = true
+        g.add(body)
+        // Образ на манекене: первый верх и первый низ из его товаров (или пример)
+        const wear = railQ ?? []
+        const top = wear.find((x) => WORN[x.kind] && WORN[x.kind] !== "worn_bottom")
+        const bottom = wear.find((x) => WORN[x.kind] === "worn_bottom")
+        const one = new THREE.Matrix4()
+        if (top || (!railQ && clothes)) inst.push({ kind: top ? WORN[top.kind]! : "worn_top", m: one.clone(), color: top?.color ?? pickColor(r) })
+        if (bottom || (!railQ && clothes)) inst.push({ kind: "worn_bottom", m: one.clone(), color: bottom?.color ?? "#26344f" })
         break
       }
       case "mirror":
@@ -980,6 +1033,8 @@ export class MerchScene {
           body.castShadow = false
           const lamp = this.part(g, S.spot, x, -0.2, 0.03, 0.035, 0.005, 0.035, this.geos.tube)
           lamp.castShadow = false
+          // Для фотоснимка: здесь будет настоящий прожектор
+          lamp.userData.lamp = true
         }
         break
       }
@@ -992,12 +1047,16 @@ export class MerchScene {
     const byKind = new Map<InstKind, typeof inst>()
     for (const x of inst) byKind.set(x.kind, [...(byKind.get(x.kind) ?? []), x])
     for (const [kind, list] of byKind) {
-      const im = new THREE.InstancedMesh(this.geos[kind], this.mats.cloth, list.length)
-      list.forEach((x, i) => { im.setMatrixAt(i, x.m); im.setColorAt(i, new THREE.Color(x.color)) })
-      im.castShadow = true
-      im.receiveShadow = true
-      im.computeBoundingSphere()
-      g.add(im)
+      // Каждая вещь — несколько частей: ткань в цвет товара, вешалка, молния, подошва
+      for (const part of this.garments[kind] ?? []) {
+        const im = new THREE.InstancedMesh(part.geo, this.fab[part.mat], list.length)
+        const c = new THREE.Color()
+        list.forEach((x, i) => { im.setMatrixAt(i, x.m); if (part.tint) im.setColorAt(i, c.set(x.color)) })
+        im.castShadow = part.mat !== "hanger"
+        im.receiveShadow = true
+        im.computeBoundingSphere()
+        g.add(im)
+      }
     }
     return g
   }
@@ -1096,6 +1155,192 @@ export class MerchScene {
     return url
   }
 
+  /**
+   * Фотореалистичный снимок текущего вида: трассировка лучей (свет отражается от стен и вещей, мягкие тени).
+   * Считается в браузере на видеокарте: 20–90 секунд. Возвращает PNG.
+   */
+  async photo(onProgress?: (p: number, stage: "prepare" | "render") => void, samples = 300, maxMs = 120000): Promise<string> {
+    if (this.photoBusy) throw new Error("Снимок уже делается")
+    this.photoBusy = true
+    const was = { zones: this.zonesGroup.visible, sel: this.selBox?.visible ?? false, ctl: this.controls.enabled }
+    let cleanup = () => {}
+    let pt: { dispose: () => void } | null = null
+    try {
+      onProgress?.(0, "prepare")
+      const { WebGLPathTracer, DenoiseMaterial } = await import("three-gpu-pathtracer")
+      this.zonesGroup.visible = false
+      if (this.selBox) this.selBox.visible = false
+      this.controls.enabled = false
+      const built = this.photoScene()
+      cleanup = built.dispose
+      const tracer = new WebGLPathTracer(this.renderer)
+      pt = tracer
+      tracer.tiles.set(2, 2)
+      // Все текстуры (кирпич, плёнка, ткани) складываются в один массив — 512 px хватает и экономит память
+      tracer.textureSize.set(512, 512)
+      tracer.bounces = 5
+      tracer.filterGlossyFactor = 0.5
+      tracer.minSamples = 1
+      tracer.renderDelay = 0
+      tracer.fadeDuration = 0
+      tracer.rasterizeScene = false
+      await new Promise((r) => setTimeout(r, 30))
+      // Сборка сцены для трассировки — за один раз (несколько секунд, страница на это время замирает)
+      tracer.setScene(built.scene, this.camera)
+      const t0 = performance.now()
+      await new Promise<void>((resolve) => {
+        const step = () => {
+          tracer.renderSample()
+          onProgress?.(Math.min(1, tracer.samples / samples), "render")
+          if (tracer.samples >= samples || performance.now() - t0 > maxMs) resolve()
+          else requestAnimationFrame(step)
+        }
+        step()
+      })
+      // Остаток шума — сглаживаем с сохранением краёв
+      const dn = new DenoiseMaterial({ map: tracer.target.texture, blending: THREE.NoBlending, premultipliedAlpha: this.renderer.getContextAttributes()?.premultipliedAlpha })
+      dn.uniforms.sigma.value = 5
+      dn.uniforms.kSigma.value = 1.5
+      dn.uniforms.threshold.value = 0.1
+      const quad = new FullScreenQuad(dn)
+      this.renderer.setRenderTarget(null)
+      quad.render(this.renderer)
+      const url = this.renderer.domElement.toDataURL("image/png")
+      quad.dispose()
+      dn.dispose()
+      return url
+    } finally {
+      try { pt?.dispose() } catch { /* трассировщик не успел создаться до конца */ }
+      cleanup()
+      this.zonesGroup.visible = was.zones
+      if (this.selBox) this.selBox.visible = was.sel
+      this.controls.enabled = was.ctl && this.mode === "orbit"
+      this.photoBusy = false
+    }
+  }
+
+  /**
+   * Сцена для трассировщика: он не понимает «пачки» одинаковых вещей (InstancedMesh), поэтому каждая пачка
+   * склеивается в одну модель с цветом в вершинах. Прожекторы на треках становятся настоящими источниками света.
+   */
+  private photoScene(): { scene: THREE.Scene; dispose: () => void } {
+    const ps = new THREE.Scene()
+    ps.background = this.scene.background
+    // Трассировщику нужна панорама (equirect), а не кубическая карта: светлый потолок, стены, тёмный пол
+    const W = 128, H = 64
+    const env = new Float32Array(W * H * 4)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const v = 1 - y / (H - 1)
+      const k = v > 0.5 ? 0.75 + 0.5 * (v - 0.5) : 0.25 + 0.9 * v
+      const i = (y * W + x) * 4
+      env[i] = k; env[i + 1] = k * 0.97; env[i + 2] = k * 0.92; env[i + 3] = 1
+    }
+    const envTex = new THREE.DataTexture(env, W, H, THREE.RGBAFormat, THREE.FloatType)
+    envTex.mapping = THREE.EquirectangularReflectionMapping
+    envTex.needsUpdate = true
+    ps.environment = envTex
+    ps.environmentIntensity = 0.8
+    const made: THREE.BufferGeometry[] = []
+    const mats: THREE.Material[] = []
+    this.scene.updateMatrixWorld(true)
+    // Текстуры в трассировщике ведут себя по-разному на разных видеокартах — заменяем их средним цветом
+    const conv = new Map<THREE.Material, THREE.Material>()
+    const flat = (src: THREE.Material): THREE.Material => {
+      const hit = conv.get(src)
+      if (hit) return hit
+      const m = src.clone() as THREE.MeshStandardMaterial
+      if (m.map) {
+        const avg = averageColor(m.map)
+        if (avg) m.color.multiply(avg)
+      }
+      // Сетка «в клеточку» без карты прозрачности — полупрозрачный металл
+      if (m.alphaMap) { m.transparent = true; m.opacity = 0.35; m.alphaTest = 0 }
+      for (const k of ["map", "normalMap", "alphaMap", "roughnessMap", "metalnessMap", "emissiveMap", "bumpMap"] as const) (m as unknown as Record<string, unknown>)[k] = null
+      conv.set(src, m)
+      conv.set(m, m)
+      mats.push(m)
+      return m
+    }
+    const place = (geo: THREE.BufferGeometry, mat: THREE.Material | THREE.Material[], m: THREE.Matrix4): void => {
+      // Несколько материалов на гранях (блоки: кирпич по бокам, тёмный верх) — на отдельные детали по граням
+      if (Array.isArray(mat)) {
+        if (!geo.index || !geo.groups.length) { place(geo, mat[0], m); return }
+        for (const gr of geo.groups) {
+          const part = subGeometry(geo, Array.from(geo.index.array.slice(gr.start, gr.start + gr.count)))
+          made.push(part)
+          place(part, mat[gr.materialIndex ?? 0], m)
+        }
+        return
+      }
+      // Трассировщик записывает номер материала прямо в геометрию — общая геометрия (трубы, коробки)
+      // досталась бы всем с одним материалом. Каждой детали — своя копия только с нужными атрибутами;
+      // у одноматериальных — без разметки граней
+      if (!made.includes(geo)) {
+        geo = geo.clone()
+        made.push(geo)
+      }
+      cleanAttributes(geo)
+      geo.clearGroups()
+      const mesh = new THREE.Mesh(geo, flat(mat))
+      mesh.matrixAutoUpdate = false
+      mesh.matrix.copy(m)
+      ps.add(mesh)
+    }
+    const lamps: THREE.Object3D[] = []
+    this.scene.traverseVisible((o) => {
+      if (o.userData.lamp) lamps.push(o)
+      const im = o as THREE.InstancedMesh
+      if (im.isInstancedMesh) {
+        if (!im.count) return
+        const list: THREE.BufferGeometry[] = []
+        const m = new THREE.Matrix4(), c = new THREE.Color()
+        for (let i = 0; i < im.count; i++) {
+          im.getMatrixAt(i, m)
+          const g = im.geometry.clone()
+          for (const k of Object.keys(g.attributes)) if (!["position", "normal", "uv"].includes(k)) g.deleteAttribute(k)
+          cleanAttributes(g)
+          g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(im.matrixWorld, m))
+          if (im.instanceColor) {
+            im.getColorAt(i, c)
+            const n = g.attributes.position.count
+            // Цвет вершин — RGBA: так его ждёт трассировщик
+            const col = new Float32Array(n * 4)
+            for (let k = 0; k < n; k++) { col[k * 4] = c.r; col[k * 4 + 1] = c.g; col[k * 4 + 2] = c.b; col[k * 4 + 3] = 1 }
+            g.setAttribute("color", new THREE.BufferAttribute(col, 4))
+          }
+          list.push(g)
+        }
+        const merged = mergeGeometries(list, false)
+        list.forEach((g) => g.dispose())
+        if (!merged) return
+        made.push(merged)
+        const mat = flat(im.material as THREE.Material).clone()
+        if (im.instanceColor) (mat as THREE.MeshStandardMaterial).vertexColors = true
+        conv.set(mat, mat)
+        mats.push(mat)
+        place(merged, mat, new THREE.Matrix4())
+        return
+      }
+      const mesh = o as THREE.Mesh
+      if (mesh.isMesh && !(mesh.material as THREE.Material & { isMeshBasicMaterial?: boolean }).isMeshBasicMaterial) place(mesh.geometry, mesh.material, mesh.matrixWorld)
+    })
+    // Солнце через мансардные окна — мягче, свет в зале — от прожекторов
+    const sun = this.sun.clone()
+    sun.intensity = this.sun.intensity * 0.5
+    ps.add(sun, sun.target)
+    sun.target.position.copy(this.sun.target.position)
+    const p = new THREE.Vector3()
+    for (const l of lamps) {
+      l.getWorldPosition(p)
+      const s = new THREE.SpotLight("#fff1dc", 22, 12, 0.7, 0.7, 2)
+      s.position.copy(p).add(new THREE.Vector3(0, -0.03, 0))
+      s.target.position.copy(p).add(new THREE.Vector3(0, -3, 0))
+      ps.add(s, s.target)
+    }
+    ps.updateMatrixWorld(true)
+    return { scene: ps, dispose: () => { made.forEach((g) => g.dispose()); mats.forEach((m) => m.dispose()); envTex.dispose() } }
+  }
+
   snapshot(): string {
     this.renderer.render(this.scene, this.camera)
     return this.renderer.domElement.toDataURL("image/png")
@@ -1103,6 +1348,7 @@ export class MerchScene {
 
   private tick() {
     const dt = Math.min(0.05, this.clock.getDelta())
+    if (this.photoBusy) return
     if (this.mode === "walk" && this.room) {
       const f = (this.keys.has("w") || this.keys.has("arrowup") ? 1 : 0) - (this.keys.has("s") || this.keys.has("arrowdown") ? 1 : 0)
       const s = (this.keys.has("d") ? 1 : 0) - (this.keys.has("a") ? 1 : 0)
