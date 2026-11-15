@@ -2,7 +2,7 @@ import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
-import type { Slot } from "../../../lib/merch/autofill"
+import { closedSides, type Slot } from "../../../lib/merch/autofill"
 import { Item, LayoutData, Room, typeOf, WallFinish, WallSide, Zone } from "./catalog"
 
 /**
@@ -15,7 +15,8 @@ export type ViewMode = "orbit" | "walk"
 export type CameraPreset = "corner" | "top" | "entrance"
 
 /** Вид и цвет настоящего товара в 3D */
-export type ProductLook = { kind: InstKind; color: string }
+/** step — шаг на штанге, м; faceW — ширина плечиков (вещь лицом вперёд), м */
+export type ProductLook = { kind: InstKind; color: string; step?: number; faceW?: number }
 type Opts = { clothes: boolean; zones: boolean; selected: string | null; looks?: Map<string, ProductLook> }
 type Callbacks = { onSelect: (id: string | null) => void; onMove: (id: string, x: number, y: number) => void }
 
@@ -106,6 +107,32 @@ function logoTexture() {
     g.textBaseline = "middle"
     g.fillText("la:flamme", s / 2, s / 2)
   }, false)
+}
+
+/** Мятая полупрозрачная плёнка перегородки: светлые и тёмные грани, как смятая калька */
+function crumpledTexture() {
+  return canvasTexture(512, (g, s) => {
+    const r = rng("film")
+    g.fillStyle = "#b9bcbf"
+    g.fillRect(0, 0, s, s)
+    for (let i = 0; i < 260; i++) {
+      const cx = r() * s, cy = r() * s, rad = 20 + r() * 70
+      g.beginPath()
+      const k = 3 + Math.floor(r() * 3)
+      for (let j = 0; j < k; j++) {
+        const a = (j / k) * Math.PI * 2 + r() * 0.8
+        const x = cx + Math.cos(a) * rad * (0.5 + r()), y = cy + Math.sin(a) * rad * (0.5 + r())
+        if (j === 0) g.moveTo(x, y); else g.lineTo(x, y)
+      }
+      g.closePath()
+      const v = 150 + Math.floor(r() * 90)
+      g.fillStyle = `rgba(${v},${v + 2},${v + 4},0.35)`
+      g.fill()
+      g.strokeStyle = `rgba(255,255,255,${0.15 + r() * 0.2})`
+      g.lineWidth = 1
+      g.stroke()
+    }
+  })
 }
 
 function gridAlpha() {
@@ -224,6 +251,12 @@ export class MerchScene {
       fabric: new THREE.MeshStandardMaterial({ color: "#3b3b3e", roughness: 0.95 }),
       logo: new THREE.MeshStandardMaterial({ map: logoTexture(), roughness: 0.95 }),
       mannequin: new THREE.MeshStandardMaterial({ color: "#efeeea", roughness: 0.6 }),
+      cabinet: new THREE.MeshStandardMaterial({ color: "#4a4c50", roughness: 0.6, metalness: 0.2 }),
+      film: (() => {
+        const t = crumpledTexture()
+        t.repeat.set(1, 1)
+        return new THREE.MeshStandardMaterial({ map: t, color: "#d9dcdf", roughness: 0.55, metalness: 0.05, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
+      })(),
       grid: new THREE.MeshStandardMaterial({ color: "#c7cacd", metalness: 0.9, roughness: 0.35, alphaMap: gridAlpha(), alphaTest: 0.5, side: THREE.DoubleSide }),
       spot: new THREE.MeshStandardMaterial({ color: "#fff8e6", emissive: "#fff3d0", emissiveIntensity: 3 }),
       cloth: new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.92 }),
@@ -305,10 +338,12 @@ export class MerchScene {
     }
     // Оборудование: пересобираем только изменённое
     const seen = new Set<string>()
-    for (const it of data.items) {
+    for (const raw of data.items) {
+      // Квадратная стойка: сторона у колонны или стены закрыта — вещи там не висят
+      const it = raw.type === "rack_square" ? { ...raw, closed: closedSides(raw, data.items, data.room) } : raw
       seen.add(it.id)
       const slots = data.assign?.[it.id]
-      const key = JSON.stringify(it) + (opts.clothes ? "c" : "") + (slots ? JSON.stringify(slots.map((x) => [x.p, x.n, x.place, x.face, opts.looks?.get(x.p)?.color])) : "")
+      const key = JSON.stringify(it) + (opts.clothes ? "c" : "") + (slots ? JSON.stringify(slots.map((x) => [x.p, x.n, x.place, x.face, opts.looks?.get(x.p)?.color, opts.looks?.get(x.p)?.step])) : "")
       const cached = this.itemCache.get(it.id)
       if (cached && cached.key === key && !clothesChanged) continue
       if (cached) this.removeGroup(cached.group)
@@ -559,16 +594,33 @@ export class MerchScene {
     const shelfQ = real ? queue("shelf") : null
 
     /** Вещи на штанге: от x0 до x1 на высоте y, в плоскости z */
+    /** Штанга из точки (ax, az) в (bx, bz): вещи поперёк, «лицом вперёд» — наружу (влево от направления) */
+    const hangLine = (ax: number, az: number, bx: number, bz: number, y: number) => {
+      const len = Math.hypot(bx - ax, bz - az)
+      const a = Math.atan2(bz - az, bx - ax)
+      const L = new THREE.Matrix4().compose(V(ax, 0, az), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -a, 0)), V(1, 1, 1))
+      const start = inst.length
+      hangRail(0, len, y, 0)
+      for (let i = start; i < inst.length; i++) inst[i].m = L.clone().multiply(inst[i].m)
+    }
     const hangRail = (x0: number, x1: number, y: number, z: number) => {
       const step = 0.06
       const n = Math.floor((x1 - x0) / step)
       if (railQ) {
-        for (let i = 0; i < n && railQ.length; i++) {
-          const look = railQ.shift()!
+        // Настоящие вещи: шаг по толщине вещи и вешалке, «лицом вперёд» занимает ширину плечиков
+        let x = x0
+        while (railQ.length) {
+          const look = railQ[0]
+          const s = look.face ? look.faceW ?? 0.44 : look.step ?? step
+          if (x + s > x1 + 0.02) break
+          railQ.shift()
+          // Ширина силуэта — по плечикам: верх ~0,44 м, низ ~0,30 м
+          const k = look.kind === "pants" ? (look.faceW ?? 0.3) / 0.4 : (look.faceW ?? 0.44) / 0.66
           const m = look.face
-            ? new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z + 0.14), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)), V(1, 1, 1))
-            : new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 1, 1))
+            ? new THREE.Matrix4().compose(V(x + s / 2, y - 0.06, z + 0.12), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)), V(1, 1, k))
+            : new THREE.Matrix4().compose(V(x + s / 2, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 1, k))
           inst.push({ kind: look.kind, m, color: look.color })
+          x += s
         }
         return
       }
@@ -578,7 +630,7 @@ export class MerchScene {
         if (r() > fill) continue
         const k = r()
         const kind: InstKind = k < 0.38 ? "tee" : k < 0.66 ? "hoodie" : k < 0.84 ? "jacket" : "pants"
-        const m = new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.25, 0)), V(1, 0.9 + r() * 0.15, 1))
+        const m = new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.25, 0)), V(1, 0.9 + r() * 0.15, kind === "pants" ? 0.75 : 0.67))
         inst.push({ kind, m, color: pickColor(r) })
       }
     }
@@ -644,10 +696,12 @@ export class MerchScene {
         break
       }
       case "rack_base": {
-        this.part(g, S.brushed, 0, 0.012, 0, w * 0.82, 0.024, d)
-        for (const sx of [-1, 1]) for (const dz of [-0.025, 0.025]) this.pipe(g, V(sx * (w / 2 - 0.07), 0, dz), V(sx * (w / 2 - 0.07), h, dz), 0.022)
-        this.pipe(g, V(-w / 2, h - 0.04, 0), V(w / 2, h - 0.04, 0), 0.02)
-        hangRail(-w / 2 + 0.12, w / 2 - 0.12, h - 0.04, 0)
+        // Цельный подиум во всю длину и ширину, две пары стоек в 12 см от краёв, штанга на 6 см ниже верха стоек
+        this.part(g, S.brushed, 0, 0.02, 0, w, 0.04, d)
+        const railY = Math.max(0.5, h - 0.06)
+        for (const sx of [-1, 1]) for (const dz of [-0.025, 0.025]) this.pipe(g, V(sx * (w / 2 - 0.12), 0.04, dz), V(sx * (w / 2 - 0.12), h, dz), 0.022)
+        this.pipe(g, V(-w / 2 + 0.06, railY, 0), V(w / 2 - 0.06, railY, 0), 0.02)
+        hangRail(-w / 2 + 0.12, w / 2 - 0.12, railY, 0)
         break
       }
       case "rack_pipe":
@@ -692,23 +746,50 @@ export class MerchScene {
       }
       case "shoe_rack": {
         for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.pipe(g, V(sx * (w / 2 - 0.02), 0, sz * (d / 2 - 0.02)), V(sx * (w / 2 - 0.02), h, sz * (d / 2 - 0.02)), 0.022)
-        const n = Math.max(2, Math.round(h / 0.4))
+        // Полки через 30 см от верха, полка между стойками (на 6 см уже стеллажа)
+        const n = Math.max(1, Math.floor((h - 0.05) / 0.3))
         for (let i = 0; i < n; i++) {
-          const y = 0.12 + (i * (h - 0.2)) / (n - 1)
-          this.part(g, S.blued, 0, y, 0, w - 0.02, 0.012, d - 0.04)
-          for (const sz of [-1, 1]) this.pipe(g, V(-w / 2, y + 0.02, sz * (d / 2 - 0.02)), V(w / 2, y + 0.02, sz * (d / 2 - 0.02)), 0.018)
-          if (i > 0 || n < 4) onSurface(-w / 2 + 0.15, w / 2 - 0.15, y + 0.007, 0, "shoe")
+          const y = h - 0.05 - i * 0.3
+          this.part(g, S.blued, 0, y, 0, w - 0.06, 0.012, d - 0.02)
+          this.pipe(g, V(-w / 2, y + 0.02, d / 2 - 0.02), V(w / 2, y + 0.02, d / 2 - 0.02), 0.014)
+          onSurface(-w / 2 + 0.12, w / 2 - 0.12, y + 0.007, 0, "shoe", d)
         }
         break
       }
       case "cabinet": {
+        // Шкаф для сумок: боковины, задняя стенка, 4 полки — просветы 55, 40, 40 см, сверху 27 см (при высоте 180)
+        const dark = this.mats.cabinet
         for (const sx of [-1, 1]) this.part(g, S.brushed, sx * (w / 2 - 0.01), h / 2, 0, 0.02, h, d)
-        this.part(g, S.brushed, 0, h / 2, -d / 2 + 0.01, w, h, 0.02)
-        for (let i = 0; i < 4; i++) {
-          const y = 0.08 + (i * (h - 0.1)) / 3
-          this.part(g, S.brushed, 0, y, 0, w - 0.04, 0.02, d - 0.02)
-          if (i < 3) onSurface(-w / 2 + 0.15, w / 2 - 0.15, y + 0.01, 0.02, "bag")
+        this.part(g, dark, 0, h / 2, -d / 2 + 0.01, w - 0.04, h, 0.02)
+        const top = h - 0.27 * (h / 1.8)
+        const levels = [0.18, 0.18 + 0.55, 0.18 + 0.95, top].map((y) => (y * h) / 1.8)
+        for (const y of levels) {
+          this.part(g, dark, 0, y, 0, w - 0.04, 0.02, d - 0.02)
+          this.part(g, S.brushed, 0, y + 0.012, d / 2 - 0.01, w - 0.04, 0.006, 0.02)
+          onSurface(-w / 2 + 0.15, w / 2 - 0.15, y + 0.012, 0.02, "bag")
         }
+        break
+      }
+      case "rack_square": {
+        // Квадратная стойка из толстых труб: 4 стойки по углам, штанги по периметру; закрытые стороны — без вещей
+        const closed = new Set((it.closed ?? []) as string[])
+        const y = h - 0.05
+        const corners: [number, number][] = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]]
+        for (const [cx, cz] of corners) {
+          this.pipe(g, V(cx, 0, cz), V(cx, h, cz), 0.03)
+          this.part(g, S.brushed, cx, 0.03, cz, 0.06, 0.06, 0.06, this.geos.tube)
+        }
+        for (let i = 0; i < 4; i++) {
+          const [ax, az] = corners[i], [bx, bz] = corners[(i + 1) % 4]
+          this.pipe(g, V(ax, y, az), V(bx, y, bz), 0.025)
+          this.pipe(g, V(ax, 0.1, az), V(bx, 0.1, bz), 0.025)
+        }
+        const inset = 0.05
+        const sides: [string, number, number, number, number][] = [
+          ["front", -w / 2 + inset, d / 2, w / 2 - inset, d / 2], ["right", w / 2, d / 2 - inset, w / 2, -d / 2 + inset],
+          ["back", w / 2 - inset, -d / 2, -w / 2 + inset, -d / 2], ["left", -w / 2, -d / 2 + inset, -w / 2, d / 2 - inset],
+        ]
+        for (const [side, ax, az, bx, bz] of sides) if (!closed.has(side)) hangLine(ax, az, bx, bz, y)
         break
       }
       case "wall_shelf":
@@ -791,19 +872,65 @@ export class MerchScene {
         curtain(w, -w * 0.3, d / 2, 0, 0.4)
         break
       }
-      case "cash":
-        this.part(g, S.counter, 0, (h - 0.03) / 2, 0, w, h - 0.03, d)
-        this.part(g, S.black, 0, h - 0.015, 0, w + 0.04, 0.03, d + 0.04)
-        this.part(g, S.black, w / 4, h + 0.15, 0, 0.32, 0.22, 0.03)
+      case "cash": {
+        // Ресепшен из нержавейки: слева низкая часть (до 105 см) с витриной под стеклом для мелких аксессуаров,
+        // справа высокая стойка с полкой-козырьком 29,5 см; со стороны продавца — рабочая поверхность 48 см
+        const a = Math.min(1.053, w * 0.45)
+        const lowH = Math.min(0.92, h - 0.2)
+        const xa = -w / 2 + a / 2, xb = -w / 2 + a + (w - a) / 2
+        this.part(g, S.brushed, xa, lowH / 2, 0, a, lowH, d)
+        this.part(g, S.glass, xa, lowH + 0.08, 0, a - 0.02, 0.16, d - 0.02)
+        this.part(g, S.brushed, xa, lowH + 0.16, 0, a, 0.006, d)
+        onSurface(-w / 2 + 0.1, -w / 2 + a - 0.1, lowH + 0.005, d / 4, "bag")
+        onSurface(-w / 2 + 0.1, -w / 2 + a - 0.1, lowH + 0.005, -d / 4, "bag")
+        // Высокая часть: передняя стенка и бока, козырёк сверху, внутри — рабочая поверхность
+        this.part(g, S.brushed, xb, h / 2, d / 2 - 0.01, w - a, h, 0.02)
+        this.part(g, S.brushed, w / 2 - 0.01, h / 2, 0, 0.02, h, d)
+        this.part(g, S.brushed, -w / 2 + a + 0.01, h / 2, 0, 0.02, h, d)
+        this.part(g, S.brushed, xb, h - 0.01, d / 2 - 0.1475, w - a, 0.02, 0.295)
+        this.part(g, S.brushed, xb, 0.75, -d / 2 + 0.242, w - a - 0.04, 0.02, 0.484)
+        this.part(g, S.black, xb + (w - a) / 4, 0.86, -d / 2 + 0.2, 0.32, 0.22, 0.02)
         break
+      }
       case "column":
         this.part(g, S.concrete, 0, h / 2, 0, w, h, d)
         break
+      case "block": {
+        // Не наша площадь: снаружи — белые стены, сверху тёмная крышка, чтобы в обзоре было видно, что это не зал
+        // Стены вокруг входа и коридора — кирпич, как на рендере
+        const brick = (len: number) => { const t = brickTexture(); t.repeat.set(len, h); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.92 }) }
+        const sideX = brick(d), sideZ = brick(w)
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), [sideX, sideX, this.mats.black, this.mats.black, sideZ, sideZ])
+        m.position.set(0, h / 2, 0)
+        m.scale.set(w, h, d)
+        m.receiveShadow = true
+        g.add(m)
+        break
+      }
       case "partition": {
-        this.part(g, S.glass, 0, h / 2, 0, w, h, 0.02)
-        const n = Math.max(1, Math.round(w / 1.2))
-        for (let i = 0; i <= n; i++) this.part(g, S.black, -w / 2 + (w * i) / n, h / 2, 0, 0.04, h, 0.05)
-        for (const y of [0.02, h - 0.02, h / 2]) this.part(g, S.black, 0, y, 0, w, 0.04, 0.05)
+        // Как в зале: панели из мятой полупрозрачной плёнки на стальных стойках с Т-образными опорами,
+        // вторая секция — дверь из вертикальных прутьев (проход на склад)
+        const n = Math.max(1, Math.round(w / 1.25))
+        const seg = w / n
+        for (let i = 0; i < n; i++) {
+          const cx = -w / 2 + seg * (i + 0.5)
+          if (i === 1 && n >= 3) {
+            const bars = Math.round(seg / 0.09)
+            for (let b = 1; b < bars; b++) this.pipe(g, V(cx - seg / 2 + (seg * b) / bars, 0.05, 0), V(cx - seg / 2 + (seg * b) / bars, h - 0.05, 0), 0.008)
+            for (const y of [0.05, h - 0.05]) this.pipe(g, V(cx - seg / 2, y, 0), V(cx + seg / 2, y, 0), 0.012)
+          } else {
+            const panel = this.part(g, S.film, cx, h / 2 + 0.03, 0, seg - 0.04, h - 0.06, 1, new THREE.PlaneGeometry(1, 1))
+            panel.castShadow = false
+            ;((panel.material as THREE.MeshStandardMaterial).map as THREE.Texture).repeat.set(seg, h)
+          }
+        }
+        for (let i = 0; i <= n; i++) {
+          const x = -w / 2 + seg * i
+          this.pipe(g, V(x, 0, 0), V(x, h, 0), 0.018)
+          // Т-образная опора на полу
+          this.part(g, S.brushed, x, 0.012, 0, 0.04, 0.024, 0.45)
+        }
+        this.pipe(g, V(-w / 2, h, 0), V(w / 2, h, 0), 0.015)
         break
       }
       case "track": {

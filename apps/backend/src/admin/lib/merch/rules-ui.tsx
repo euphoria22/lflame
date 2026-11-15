@@ -66,7 +66,7 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
               <thead>
                 <tr className="text-left text-xs text-ui-fg-subtle">
                   <th className="pb-2 pr-4 font-normal">Уровень</th>
-                  <th className="pb-2 pr-4 font-normal">Вешалок на метр</th>
+                  <th className="pb-2 pr-4 font-normal">Запас между вещами (1 — вплотную)</th>
                   <th className="pb-2 pr-4 font-normal">Размеров модели</th>
                   <th className="pb-2 pr-4 font-normal">Лицом вперёд: каждая N-я (0 — только главная вещь капсулы)</th>
                   <th className="pb-2 font-normal">Мест на полке за вещь</th>
@@ -76,13 +76,44 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
                 {LEVELS.map((l) => (
                   <tr key={l}>
                     <td className="py-1 pr-4">{LEVEL_NAME[l]}</td>
-                    {(["hang_per_m", "max_sizes", "face_every", "shelf_cost"] as const).map((k) => (
-                      <td key={k} className="py-1 pr-4"><Input size="small" className="w-20" defaultValue={num(v.levels[l][k])} key={`${l}${k}${settings.levels[l][k]}`} onBlur={(e) => setLevel(l, k, e.target.value)} /></td>
+                    {(["spacing", "max_sizes", "face_every", "shelf_cost"] as const).map((k) => (
+                      <td key={k} className="py-1 pr-4"><Input size="small" className="w-20" defaultValue={num(v.levels[l][k] ?? 0)} key={`${l}${k}${settings.levels[l][k]}`} onBlur={(e) => setLevel(l, k, e.target.value)} /></td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <Text size="small" weight="plus">Вешалки, см</Text>
+                <table className="mt-1 text-sm">
+                  <thead><tr className="text-left text-xs text-ui-fg-subtle"><th className="pr-3 font-normal" /><th className="pr-3 font-normal">Ширина плечиков</th><th className="pr-3 font-normal">Высота</th><th className="font-normal">Толщина</th></tr></thead>
+                  <tbody>
+                    {(["top", "bottom"] as const).map((h) => (
+                      <tr key={h}>
+                        <td className="py-1 pr-3">{h === "top" ? "Для верха" : "Для низа"}</td>
+                        {(["w", "h", "t"] as const).map((k) => (
+                          <td key={k} className="py-1 pr-3"><Input size="small" className="w-20" defaultValue={num(v.hangers[h][k])} key={`${h}${k}${settings.hangers[h][k]}`}
+                            onBlur={(e) => { const n = parse(e.target.value); if (Number.isFinite(n)) setV({ ...v, hangers: { ...v.hangers, [h]: { ...v.hangers[h], [k]: n } } }) }} /></td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <Text size="small" weight="plus">Толщина вещи на вешалке, см</Text>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {([["outer", "Верхняя одежда"], ["mid", "Свитеры, худи"], ["top", "Футболки, рубашки"], ["bottom", "Брюки, джинсы, шорты"]] as const).map(([k, t]) => (
+                    <label key={k} className="flex items-center justify-between gap-2 text-sm">{t}
+                      <Input size="small" className="w-20" defaultValue={num(v.garment_cm[k])} key={`g${k}${settings.garment_cm[k]}`}
+                        onBlur={(e) => { const n = parse(e.target.value); if (Number.isFinite(n)) setV({ ...v, garment_cm: { ...v.garment_cm, [k]: n } }) }} />
+                    </label>
+                  ))}
+                </div>
+                <Text size="xsmall" className="mt-1 text-ui-fg-subtle">Шаг на штанге = толщина вещи (не меньше вешалки) × запас уровня. Вещь лицом вперёд занимает ширину плечиков.</Text>
+              </div>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <Text size="small">Уровень по умолчанию</Text>

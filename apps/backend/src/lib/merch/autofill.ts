@@ -51,7 +51,8 @@ export type Slot = { p: string; n: number; place: Place; face?: boolean }
 export type Assign = Record<string, Slot[]>
 
 export type ZoneRole = "entry" | "focus" | "wall" | "center" | "cash" | "fitting" | "back" | "sale"
-export type EquipLike = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; lock?: boolean; cats?: string[]; brands?: string[]; gender?: "men" | "women" }
+export type Side = "front" | "back" | "left" | "right"
+export type EquipLike = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; rot?: number; lock?: boolean; cats?: string[]; brands?: string[]; gender?: "men" | "women"; /** Закрытые стороны квадратной стойки */ closed?: Side[] }
 export type ZoneLike = { x: number; y: number; w: number; d: number; power: number; role?: ZoneRole | null; name?: string }
 export type RoomLike = { width: number; length: number; openings: { kind: string; wall: string; offset: number; width: number }[] }
 
@@ -59,8 +60,10 @@ export type RoomLike = { width: number; length: number; openings: { kind: string
 
 export type Level = "bridge" | "premium" | "luxury"
 export type LevelRule = {
-  /** Вешалок на метр штанги */
-  hang_per_m: number
+  /** Устарело: плотность теперь считается по вешалкам и толщине вещей (spacing) */
+  hang_per_m?: number
+  /** Запас между вещами: 1 — вплотную по толщине, 1,3 — на треть свободнее, 2 — вдвое */
+  spacing: number
   /** Сколько размеров одной модели вешать */
   max_sizes: number
   /** Каждая N-я модель лицом вперёд (0 — только главная вещь капсулы) */
@@ -68,6 +71,7 @@ export type LevelRule = {
   /** Сколько «мест» на полке/столе занимает одна вещь (люкс — просторнее) */
   shelf_cost: number
 }
+export type Hanger = { w: number; h: number; t: number }
 export type BrandRule = { level: Level; style?: string | null; anchor?: boolean }
 /** Образ или капсула, собранные мерчендайзером: ставятся первыми, остальное раскладывается вокруг */
 export type Look = { id: string; name: string; place: "mannequin" | "table" | "rail"; products: string[]; active: boolean }
@@ -84,6 +88,10 @@ export type MerchSettings = {
   focus_density: number
   /** Выставлять последнюю единицу товара (склад общий с сайтом — её могут купить онлайн) */
   last_unit: boolean
+  /** Вешалки магазина, см: для верха (w — ширина плечиков, h — высота, t — толщина) и для низа */
+  hangers: { top: Hanger; bottom: Hanger }
+  /** Толщина вещи на вешалке, см: верхняя одежда, средний слой (свитеры, худи), первый слой (футболки, рубашки), низ */
+  garment_cm: { outer: number; mid: number; top: number; bottom: number }
   standards: Standards
   looks: Look[]
   checklists: Checklist[]
@@ -103,14 +111,16 @@ export const ZONE_ROLE_NAME: Record<ZoneRole, string> = {
 
 export const DEFAULT_SETTINGS: MerchSettings = {
   levels: {
-    bridge: { hang_per_m: 16, max_sizes: 5, face_every: 0, shelf_cost: 1 },
-    premium: { hang_per_m: 12, max_sizes: 4, face_every: 0, shelf_cost: 1.2 },
-    luxury: { hang_per_m: 7, max_sizes: 1, face_every: 3, shelf_cost: 1.6 },
+    bridge: { spacing: 1.1, max_sizes: 5, face_every: 0, shelf_cost: 1 },
+    premium: { spacing: 1.4, max_sizes: 4, face_every: 0, shelf_cost: 1.2 },
+    luxury: { spacing: 2.2, max_sizes: 1, face_every: 3, shelf_cost: 1.6 },
   },
   brands: {},
   default_level: "premium",
   focus_density: 0.75,
   last_unit: true,
+  hangers: { top: { w: 44, h: 20, t: 2 }, bottom: { w: 30, h: 14, t: 2.5 } },
+  garment_cm: { outer: 7, mid: 4.5, top: 2.5, bottom: 2.5 },
   standards: {
     all: ["Вещи отпарены, без складок от упаковки", "Ценник и бирки спрятаны внутрь, защитный датчик — в одном месте у всей категории"],
     rail: [
@@ -145,6 +155,8 @@ export function mergeSettings(raw: Partial<MerchSettings> | null | undefined): M
       luxury: { ...DEFAULT_SETTINGS.levels.luxury, ...(r.levels?.luxury ?? {}) },
     },
     brands: { ...(r.brands ?? {}) },
+    hangers: { top: { ...DEFAULT_SETTINGS.hangers.top, ...(r.hangers?.top ?? {}) }, bottom: { ...DEFAULT_SETTINGS.hangers.bottom, ...(r.hangers?.bottom ?? {}) } },
+    garment_cm: { ...DEFAULT_SETTINGS.garment_cm, ...(r.garment_cm ?? {}) },
     standards: { ...DEFAULT_SETTINGS.standards, ...(r.standards ?? {}) },
     looks: r.looks ?? [],
     area_plan: { ...DEFAULT_SETTINGS.area_plan, ...(r.area_plan ?? {}), shares: { ...(r.area_plan?.shares ?? {}) } },
@@ -160,12 +172,18 @@ export function validateSettings(raw: unknown): MerchSettings {
   }
   for (const l of ["bridge", "premium", "luxury"] as Level[]) {
     const r = s.levels[l]
-    num(r.hang_per_m, 3, 30, `${LEVEL_NAME[l]}: вешалок на метр`)
+    num(r.spacing, 0.8, 5, `${LEVEL_NAME[l]}: запас между вещами`)
     num(r.max_sizes, 1, 8, `${LEVEL_NAME[l]}: размеров модели`)
     num(r.face_every, 0, 20, `${LEVEL_NAME[l]}: лицом вперёд`)
     num(r.shelf_cost, 0.5, 4, `${LEVEL_NAME[l]}: места на полке`)
   }
   num(s.focus_density, 0.3, 1, "Плотность в фокус-зоне")
+  for (const k of ["top", "bottom"] as const) {
+    num(s.hangers[k].w, 15, 70, "Ширина плечиков, см")
+    num(s.hangers[k].h, 5, 40, "Высота вешалки, см")
+    num(s.hangers[k].t, 0.5, 6, "Толщина вешалки, см")
+  }
+  for (const k of ["outer", "mid", "top", "bottom"] as const) num(s.garment_cm[k], 0.5, 20, "Толщина вещи, см")
   if (!["bridge", "premium", "luxury"].includes(s.default_level)) throw new Error("Неверный уровень по умолчанию")
   for (const [b, r] of Object.entries(s.brands)) {
     if (!["bridge", "premium", "luxury"].includes(r.level)) throw new Error(`Бренд ${b}: неверный уровень`)
@@ -232,12 +250,21 @@ export function capacityOf(e: EquipLike): Capacity {
   const rail = (m: number, extra: Partial<Capacity> = {}): Capacity => ({ ...none, rail: Math.round(m * 15), railM: m, railCats: HANG_CATS, ...extra })
   switch (e.type) {
     case "wall_system": return rail(e.w, { shelf: perLen(e.w, 0.45), shelfCats: ["sumki-i-ryukzaki", "golovnye-ubory"] })
-    case "rack_base":
+    // Стойка на подиуме: по 12 см с краёв — стойки конструкции, рабочая часть штанги короче
+    case "rack_base": return rail(Math.max(0.2, e.w - 0.24))
     case "rack_pipe": return rail(e.w)
     case "rack_pipe_double": return rail(e.w * 2)
+    case "rack_square": {
+      // Штанги по периметру: перед и зад — по длине, бока — по ширине; закрытые стороны не считаются
+      const closed = new Set(e.closed ?? [])
+      const len = (["front", "back"] as Side[]).filter((s) => !closed.has(s)).length * Math.max(0, e.w - 0.1)
+        + (["left", "right"] as Side[]).filter((s) => !closed.has(s)).length * Math.max(0, e.d - 0.1)
+      return rail(len)
+    }
     case "round_rack": return rail(Math.PI * e.w * 0.8)
-    case "shoe_rack": return { ...none, shelf: Math.max(2, Math.round(e.h / 0.4)) * perLen(e.w, 0.45), shelfCats: ["obuv"] }
-    case "cabinet": return { ...none, shelf: 3 * perLen(e.w, 0.35), shelfCats: SHELF_CATS }
+    // Полки через 30 см; по 4 пары на 144 см полки
+    case "shoe_rack": return { ...none, shelf: Math.max(1, Math.floor((e.h - 0.05) / 0.3)) * perLen(e.w, 0.36), shelfCats: ["obuv"] }
+    case "cabinet": return { ...none, shelf: 4 * perLen(e.w, 0.35), shelfCats: SHELF_CATS }
     case "wall_shelves": return { ...none, shelf: 5 * perLen(e.w, 0.35), shelfCats: SHELF_CATS }
     case "grid_panel": return { ...none, shelf: Math.max(2, Math.floor((e.w * e.h) / 0.25)), shelfCats: ["sumki-i-ryukzaki"] }
     case "wall_shelf":
@@ -245,6 +272,8 @@ export function capacityOf(e: EquipLike): Capacity {
     case "table_cube":
     case "table_white": return { ...none, shelf: Math.min(8, Math.max(1, Math.floor((e.w * e.d) / 0.2))), shelfCats: TABLE_CATS }
     case "podium": return { ...none, shelf: 1, shelfCats: ["obuv", "sumki-i-ryukzaki", "golovnye-ubory"] }
+    // Ресепшен: витрина под стеклом — мелкие аксессуары в два ряда
+    case "cash": return { ...none, shelf: 2 * perLen(Math.min(1.053, e.w * 0.45) - 0.2, 0.2), shelfCats: ["aksessuary", "nizhnee-bele-i-noski"] }
     case "mannequin": return { ...none, rail: 3, railM: 0.2, railCats: HANG_CATS }
     default: return none
   }
@@ -305,6 +334,23 @@ export function strengthOf(e: EquipLike, zones: ZoneLike[], room: RoomLike): num
 
 export const levelOf = (p: MProduct, s: MerchSettings): Level => s.brands[p.brand ?? ""]?.level ?? s.default_level
 
+const BOTTOMS = new Set(["bryuki", "dzhinsy", "shorty"])
+/** Вешалка для вещи: низ — на брючной, остальное — на вешалке для верха */
+export const hangerOf = (cat: string | null, s: MerchSettings = DEFAULT_SETTINGS) => (BOTTOMS.has(cat ?? "") ? s.hangers.bottom : s.hangers.top)
+
+/** Сколько см штанги занимает одна вешалка с вещью: толщина вещи (не меньше вешалки) × запас уровня бренда */
+export function stepCm(p: MProduct, s: MerchSettings = DEFAULT_SETTINGS): number {
+  const g = s.garment_cm
+  const t = p.cat === "kurtki" ? g.outer : p.cat === "svitery-i-kardigany" || p.cat === "hudi-i-svitshoty" ? g.mid : BOTTOMS.has(p.cat ?? "") ? g.bottom : g.top
+  return Math.max(t, hangerOf(p.cat, s).t) * s.levels[levelOf(p, s)].spacing
+}
+
+/** Метры штанги под модель: вешалки размеров; «лицом вперёд» — первая вешалка занимает ширину плечиков */
+export function railMetersOf(p: MProduct, n: number, face: boolean, s: MerchSettings = DEFAULT_SETTINGS): number {
+  const step = stepCm(p, s)
+  return (n * step + (face ? Math.max(0, hangerOf(p.cat, s).w - step) : 0)) / 100
+}
+
 /** Вешалок на модель: по числу размеров в наличии, но не больше нормы уровня; последний размер — одна вешалка */
 export function facingsOf(p: MProduct, place: Place, s: MerchSettings = DEFAULT_SETTINGS): number {
   if (place === "shelf") return 1
@@ -347,7 +393,32 @@ export function orderSlots(slots: Slot[], byId: Map<string, MProduct>): Slot[] {
 
 export type AutofillOpts = { onlyEmpty?: boolean; settings?: MerchSettings }
 
-const RAIL_TYPES = new Set(["wall_system", "rack_base", "rack_pipe", "rack_pipe_double", "round_rack"])
+const RAIL_TYPES = new Set(["wall_system", "rack_base", "rack_pipe", "rack_pipe_double", "round_rack", "rack_square"])
+
+/**
+ * Стороны квадратной стойки, упирающиеся в колонну, перегородку или стену (ближе 70 см) — с них не подойти,
+ * вещи там не вешаются. Плюс стороны, закрытые вручную.
+ */
+export function closedSides(e: EquipLike, items: EquipLike[], room?: { width: number; length: number }): Side[] {
+  const out = new Set<Side>(e.closed ?? [])
+  if (e.type !== "rack_square") return [...out]
+  const a = ((e.rot ?? 0) * Math.PI) / 180
+  const c = Math.cos(a), s = Math.sin(a)
+  const mids: [Side, number, number][] = [["front", 0, e.d / 2], ["back", 0, -e.d / 2], ["left", -e.w / 2, 0], ["right", e.w / 2, 0]]
+  for (const [side, lx, ly] of mids) {
+    const px = e.x + lx * c - ly * s, py = e.y + lx * s + ly * c
+    if (room && (px < 0.7 || py < 0.7 || room.width - px < 0.7 || room.length - py < 0.7)) out.add(side)
+    for (const o of items) {
+      if (o.id === e.id || (o.type !== "column" && o.type !== "partition")) continue
+      const half = o.type === "column" ? Math.max(o.w, o.d) / 2 : 0.05
+      const dx = Math.abs(px - o.x), dy = Math.abs(py - o.y)
+      // Перегородка — длинная: близость по перпендикуляру (грубо, по осям)
+      const near = o.type === "column" ? Math.hypot(dx, dy) < half + 0.7 : Math.min(dx, dy) < 0.7 && Math.max(dx, dy) < o.w / 2 + 0.2
+      if (near) out.add(side)
+    }
+  }
+  return [...out]
+}
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y)
 
 export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, products: MProduct[], current: Assign, opts: AutofillOpts = {}): Assign {
@@ -376,6 +447,7 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
   type Job = { e: EquipLike; cap: Capacity; s: number; zone: ZoneLike | null }
   const jobs: Job[] = items
     .filter((e) => !(e.id in result))
+    .map((e) => (e.type === "rack_square" ? { ...e, closed: closedSides(e, items, room) } : e))
     .map((e) => ({ e, cap: capacityOf(e), s: strengthOf(e, zones, room), zone: zoneOf(e, zones) }))
     .filter((x) => x.cap.railM > 0 || x.cap.shelf > 0)
 
@@ -408,8 +480,8 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
     const { e, cap, zone } = job
     const density = zone?.role === "focus" ? S.focus_density : 1
     // Штанга считается в метрах (плотность — по уровню бренда), полки — в «местах»
-    const cost = (p: MProduct) => place === "rail"
-      ? facingsOf(p, place, S) / S.levels[levelOf(p, S)].hang_per_m
+    const cost = (p: MProduct, face = false) => place === "rail"
+      ? railMetersOf(p, facingsOf(p, place, S), face, S)
       : S.levels[levelOf(p, S)].shelf_cost
     let left = (place === "rail" ? cap.railM * density : cap.shelf) - pre.reduce((a, s) => a + (byId.get(s.p) ? cost(byId.get(s.p)!) : 0), 0)
     const total = place === "rail" ? cap.railM * density : cap.shelf
@@ -435,14 +507,18 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
       for (const p of pool) groups.set(p.brand ?? "—", [...(groups.get(p.brand ?? "—") ?? []), p])
       let best: { brand: string; list: MProduct[]; value: number } | null = null
       for (const [brand, list] of groups) {
-        let space = left, value = 0
+        // Ценность бренда для места: средний балл того, что поместится, × насколько он заполнит место
+        // (сумма баллов любила бы мелкие вещи: футболок влезает больше, чем курток)
+        let space = left, sum = 0, cnt = 0
         for (const p of list) {
           const c = cost(p)
           if (c > space + 1e-6) continue
           space -= c
-          value += weight(p)
+          sum += weight(p)
+          cnt++
           if (space <= 1e-6) break
         }
+        let value = cnt ? (sum / cnt) * ((left - space) / (left || 1)) : 0
         const uses = brandUses.get(brand) ?? 0
         const anchor = !!brandRule(brand)?.anchor
         value *= anchor && uses < 2 ? 1.2 : Math.pow(0.75, uses)
@@ -479,8 +555,23 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
         if (left <= 1e-6) break
       }
       const rule = S.levels[brandLevel(best.brand)]
+      let caps = place === "rail" ? capsules(chosen) : [chosen]
+      if (place === "rail") {
+        // Вещи «лицом вперёд» занимают ширину плечиков — если не влезло, убираем последние вещи капсул
+        const isFace = (i: number, k: number) => i === 0 || (rule.face_every > 0 && k % rule.face_every === 0)
+        const extra = () => { let k = 0, m = 0; for (const g of caps) g.forEach((p, i) => { k++; if (isFace(i, k)) m += railMetersOf(p, 1, true, S) - railMetersOf(p, 1, false, S) }); return m }
+        while (extra() > left + 1e-6) {
+          const g = [...caps].sort((a, b) => b.length - a.length)[0]
+          if (!g || g.length <= 1) { const last = caps.pop(); last?.forEach((p) => { placed.delete(p.id); left += cost(p) }); if (!caps.length) break; continue }
+          const p = g.pop()!
+          placed.delete(p.id)
+          left += cost(p)
+        }
+        left -= extra()
+        caps = caps.filter((g) => g.length)
+      }
       let k = 0
-      for (const group of place === "rail" ? capsules(chosen) : [chosen]) {
+      for (const group of caps) {
         group.forEach((p, i) => {
           k++
           const face = place === "rail" && (i === 0 || (rule.face_every > 0 && k % rule.face_every === 0))
@@ -609,7 +700,7 @@ export function usedOf(slots: Slot[] | undefined) {
   return { rail: s.filter((x) => x.place === "rail").reduce((a, x) => a + x.n, 0), shelf: s.filter((x) => x.place === "shelf").reduce((a, x) => a + x.n, 0) }
 }
 
-/** Норма вешалок на оборудовании при уровне бренда (для подсказки «занято X из Y») */
-export function railCapacityFor(e: EquipLike, level: Level, s: MerchSettings = DEFAULT_SETTINGS) {
-  return Math.round(capacityOf(e).railM * s.levels[level].hang_per_m)
+/** Сколько метров штанги занято товарами (с учётом вешалок, толщины вещей и «лицом вперёд») */
+export function railUsedM(slots: Slot[] | undefined, byId: Map<string, MProduct>, s: MerchSettings = DEFAULT_SETTINGS) {
+  return (slots ?? []).filter((x) => x.place === "rail").reduce((a, x) => { const p = byId.get(x.p); return a + (p ? railMetersOf(p, x.n, !!x.face, s) : x.n * 0.03) }, 0)
 }

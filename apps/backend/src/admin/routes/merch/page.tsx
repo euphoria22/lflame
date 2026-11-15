@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CATALOG, capacity, draftLayout, FINISH_NAME, GROUP_COLOR, GROUP_NAME, Group, Item, LayoutData, Opening, typeOf, uid, WALL_NAME, WallFinish, WallSide, Zone } from "../../lib/merch/catalog"
 import { extents, Plan } from "../../lib/merch/plan"
 import type { CameraPreset, MerchScene, ProductLook, ViewMode } from "../../lib/merch/scene"
-import { autofill, COLOR_HEX, DEFAULT_SETTINGS, kindOf, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
+import { autofill, closedSides, COLOR_HEX, type Side, DEFAULT_SETTINGS, hangerOf, kindOf, stepCm, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
 import { RulesBlock } from "../../lib/merch/rules-ui"
 import { ChecklistsBlock, LooksBlock, StandardsBlock } from "../../lib/merch/extra-ui"
 import { PlanBlock, ReportBlock } from "../../lib/merch/report-ui"
@@ -134,10 +134,13 @@ const MerchPage = () => {
     const m = new Map<string, ProductLook>()
     for (const sl of Object.values(data?.assign ?? {}).flat()) {
       const p = pmap.get(sl.p)
-      m.set(sl.p, { kind: kindOf(p?.cat ?? null, sl.place), color: COLOR_HEX[p?.color ?? ""] ?? "#8a8d91" })
+      m.set(sl.p, {
+        kind: kindOf(p?.cat ?? null, sl.place), color: COLOR_HEX[p?.color ?? ""] ?? "#8a8d91",
+        ...(p ? { step: stepCm(p, settings) / 100, faceW: hangerOf(p.cat, settings).w / 100 } : {}),
+      })
     }
     return m
-  }, [data?.assign, pmap])
+  }, [data?.assign, pmap, settings])
 
   /** Изменение расстановки. live — промежуточный шаг перетаскивания (в историю попадёт одно действие) */
   const change = useCallback((d: LayoutData, live = false) => {
@@ -313,7 +316,7 @@ const MerchPage = () => {
   const usedIds = useMemo(() => new Set(Object.values(data?.assign ?? {}).flat().map((s) => s.p)), [data?.assign])
   const placedCount = usedIds.size
   // Проверка расстановки: проходы, вход, пересечения
-  const warnings = useMemo(() => (data ? checkLayout(data.items, data.room, Object.fromEntries(CATALOG.map((c) => [c.type, c.name]))) : []), [data])
+  const warnings = useMemo(() => (data ? checkLayout(data.items, data.room, Object.fromEntries(CATALOG.map((c) => [c.type, c.name])), { hangDepth: (settings.hangers.top.w + 4) / 100 }) : []), [data, settings.hangers.top.w])
   const warnIds = useMemo(() => new Set(warnings.flatMap((w) => w.ids)), [warnings])
   const [showWarn, setShowWarn] = useState(false)
 
@@ -518,7 +521,29 @@ const MerchPage = () => {
                     <Text size="xsmall">Вместимость: {cap.hang > 0 ? `≈ ${cap.hang} вещей на вешалках` : ""}{cap.hang > 0 && cap.shelves > 0 ? ", " : ""}{cap.shelves > 0 ? `${cap.shelves} ${cap.shelves === 1 ? "полка" : cap.shelves < 5 ? "полки" : "полок"}` : ""}</Text>
                   </div>
                 )}
-                <EquipProducts item={selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds} settings={settings}
+                {selItem.type === "rack_square" && (() => {
+                  const auto = closedSides({ ...selItem, closed: [] }, data.items, data.room)
+                  const SIDE: Record<Side, string> = { front: "Перед", back: "Зад", left: "Левая", right: "Правая" }
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <Label size="xsmall" className="text-ui-fg-subtle">Стороны для развески (у колонны или стены закрываются сами)</Label>
+                      <div className="flex flex-wrap gap-1">
+                        {(Object.keys(SIDE) as Side[]).map((sd) => {
+                          const byAuto = auto.includes(sd)
+                          const closed = byAuto || !!selItem.closed?.includes(sd)
+                          return (
+                            <button key={sd} type="button" disabled={byAuto} title={byAuto ? "Упирается в колонну или стену" : ""}
+                              onClick={() => patchItem(selItem.id, { closed: closed ? (selItem.closed ?? []).filter((x) => x !== sd) : [...(selItem.closed ?? []), sd] })}
+                              className={`rounded-full border px-2 py-0.5 text-xs ${closed ? "border-ui-border-base text-ui-fg-muted line-through" : "border-ui-fg-interactive bg-ui-bg-highlight text-ui-fg-interactive"}`}>
+                              {SIDE[sd]}{byAuto ? " · колонна" : ""}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
+                <EquipProducts item={selItem.type === "rack_square" ? { ...selItem, closed: closedSides(selItem, data.items, data.room) } : selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds} settings={settings}
                   onSlots={(sl) => setSlots(selItem.id, sl)} onItem={(p) => patchItem(selItem.id, p)} />
                 <div className="flex flex-col gap-1">
                   <Label size="xsmall" className="text-ui-fg-subtle">Заметка</Label>

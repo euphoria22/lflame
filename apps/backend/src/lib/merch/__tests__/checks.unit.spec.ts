@@ -11,7 +11,7 @@ describe("проверка расстановки", () => {
   })
   it("узкий проход", () => {
     const w = checkLayout([eq("a", 3, 3), eq("b", 3, 3.95)], room)
-    expect(w.some((x) => /Узкий проход 50 см/.test(x.text))).toBe(true)
+    expect(w.some((x) => /Узкий проход 47 см/.test(x.text))).toBe(true)
   })
   it("перекрытый вход и высокое у входа", () => {
     const w = checkLayout([eq("a", 4.6, 7.2), eq("b", 2.5, 6.0)], room)

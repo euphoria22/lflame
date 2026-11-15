@@ -1,4 +1,4 @@
-import { autofill, capacityOf, capsules, DEFAULT_SETTINGS, facingsOf, MerchSettings, MProduct, usedOf } from "../autofill"
+import { autofill, capacityOf, capsules, closedSides, railMetersOf, railUsedM, DEFAULT_SETTINGS, facingsOf, MerchSettings, MProduct, usedOf } from "../autofill"
 
 const room = { width: 14, length: 8, openings: [{ kind: "door", wall: "bottom", offset: 6, width: 1.2 }] }
 let n = 0
@@ -9,7 +9,7 @@ const pById = (list: MProduct[], id: string) => list.find((p) => p.id === id)!
 describe("автораскладка", () => {
   const products = [
     ...Array.from({ length: 10 }, (_, i) => prod("CP", "kurtki", 0.9 - i * 0.01, i % 2 ? "white" : "black")),
-    ...Array.from({ length: 10 }, (_, i) => prod("Stone", "futbolki-i-longslivy", 0.8 - i * 0.01)),
+    ...Array.from({ length: 10 }, (_, i) => prod("Stone", "futbolki-i-longslivy", 0.5 - i * 0.01)),
     ...Array.from({ length: 6 }, (_, i) => prod("Salomon", "obuv", 0.7 - i * 0.01, "grey", ["42"])),
     prod("CP", "golovnye-ubory", 0.6, "black", ["OS"]),
     prod("Stone", "golovnye-ubory", 0.65, "black", ["OS"]),
@@ -30,8 +30,13 @@ describe("автораскладка", () => {
     const all = Object.values(res).flat().map((s) => s.p)
     expect(new Set(all).size).toBe(all.length)
   })
-  it("плотность по уровню: премиум — 12 вешалок на метр", () => {
-    expect(usedOf(res.near).rail).toBeLessThanOrEqual(Math.round(capacityOf(near).railM * 12))
+  it("штанга не переполнена: вешалки, толщина вещей и «лицом вперёд»", () => {
+    expect(railUsedM(res.near, new Map(products.map((p) => [p.id, p])))).toBeLessThanOrEqual(capacityOf(near).railM + 1e-6)
+  })
+  it("куртка занимает больше штанги, чем футболка; лицом вперёд — ширину плечиков", () => {
+    const jacket = prod("X", "kurtki", 1), tee = prod("X", "futbolki-i-longslivy", 1)
+    expect(railMetersOf(jacket, 1, false)).toBeGreaterThan(railMetersOf(tee, 1, false) * 2)
+    expect(railMetersOf(tee, 1, true)).toBeCloseTo(0.44, 2)
   })
   it("обувь — только на стеллаж, одежда на стойки", () => {
     expect(res.shoes.every((s) => pById(products, s.p).cat === "obuv")).toBe(true)
@@ -94,5 +99,16 @@ describe("пол", () => {
     const ps = [prod("A", "kurtki", 0.9, "black", ["S"], { gender: "men" }), prod("A", "kurtki", 0.8, "black", ["S"], { gender: "women" }), prod("A", "kurtki", 0.7, "black", ["S"], { gender: "unisex" })]
     const r = autofill([{ id: "w", type: "rack_base", x: 3, y: 3, w: 1.4, d: 0.45, h: 1.65, gender: "women" }], [], room, ps, {})
     expect(r.w.map((s) => pById(ps, s.p).gender).sort()).toEqual(["unisex", "women"])
+  })
+})
+
+describe("квадратная стойка у колонны", () => {
+  it("сторона к колонне закрыта, штанга считается по открытым сторонам", () => {
+    const sq = { id: "sq", type: "rack_square", x: 5, y: 4, w: 1.3, d: 1.5, h: 1.4, rot: 0 }
+    const col = { id: "c", type: "column", x: 4.0, y: 4, w: 0.5, d: 0.5, h: 4 }
+    const closed = closedSides(sq, [sq, col], { width: 14, length: 8 })
+    expect(closed).toEqual(["left"])
+    const len = capacityOf({ ...sq, closed }).railM
+    expect(len).toBeCloseTo(2 * 1.2 + 1.4, 5)
   })
 })

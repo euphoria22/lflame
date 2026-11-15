@@ -1,7 +1,7 @@
 import { Badge, Button, IconButton, Input, Label, Switch, Text } from "@medusajs/ui"
 import { useMemo, useState } from "react"
 import { ROLE_NAME } from "../../../lib/merch/offline"
-import { capacityOf, CAT_NAME, facingsOf, levelOf, MerchSettings, MProduct, Place, railCapacityFor, Slot, usedOf } from "../../../lib/merch/autofill"
+import { capacityOf, CAT_NAME, facingsOf, MerchSettings, MProduct, Place, railUsedM, Slot, usedOf } from "../../../lib/merch/autofill"
 import { Item } from "./catalog"
 
 /** Товары на выбранном оборудовании: порядок, удаление, добавление поиском, закрепление и ограничения для автораскладки */
@@ -17,9 +17,9 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
 }) {
   const cap = capacityOf(item)
   const fill = usedOf(slots)
-  // Норма вешалок — по уровню бренда, который висит на оборудовании (или уровню по умолчанию)
-  const firstBrand = slots.map((s) => products.get(s.p)).find(Boolean)
-  const railNorm = cap.railM ? railCapacityFor(item, firstBrand ? levelOf(firstBrand, settings) : settings.default_level, settings) : 0
+  // Штанга — в метрах: вешалки, толщина вещей, запас по уровню бренда, «лицом вперёд»
+  const railM = cap.railM ? railUsedM(slots, products, settings) : 0
+  const m = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",")
   const [q, setQ] = useState("")
   const allowed = useMemo(() => [...new Set([...cap.railCats, ...cap.shelfCats])], [cap.railCats, cap.shelfCats])
   const results = useMemo(() => {
@@ -54,7 +54,7 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
       <div className="flex items-center justify-between">
         <Text size="small" weight="plus">Товары</Text>
         <Text size="xsmall" className="text-ui-fg-subtle">
-          {railNorm > 0 && `вешалок ${fill.rail} из ${railNorm}`}{railNorm > 0 && cap.shelf > 0 && " · "}{cap.shelf > 0 && `мест ${fill.shelf} из ${cap.shelf}`}
+          <span className={railM > cap.railM + 0.01 ? "text-ui-fg-error" : ""}>{cap.railM > 0 && `штанга ${m(railM)} из ${m(cap.railM)} м · вешалок ${fill.rail}`}</span>{cap.railM > 0 && cap.shelf > 0 && " · "}{cap.shelf > 0 && `мест ${fill.shelf} из ${cap.shelf}`}
         </Text>
       </div>
       <div className="flex items-center gap-2">

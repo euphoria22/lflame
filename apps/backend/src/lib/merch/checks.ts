@@ -6,14 +6,16 @@
 export type CheckItem = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; rot: number; elev?: number; label?: string }
 export type CheckRoom = { width: number; length: number; openings: { kind: string; wall: string; offset: number; width: number }[] }
 export type Warning = { level: "error" | "warn"; text: string; ids: string[] }
-export type CheckOpts = { aisle?: number; mainAisle?: number }
+export type CheckOpts = { aisle?: number; mainAisle?: number; /** Ширина одежды на плечиках, м: вещи на штанге выступают за стойку */ hangDepth?: number }
 
 type Pt = { x: number; y: number }
 
 /** Не мешают проходу: висят на стене или под потолком */
 const AIRBORNE = new Set(["track", "wall_shelf", "wall_shelf_s", "grid_panel", "mirror"])
 /** Конструкция помещения — проходы до неё не считаем */
-const STRUCTURE = new Set(["column", "partition"])
+const STRUCTURE = new Set(["column", "partition", "block"])
+/** Штанги: одежда на плечиках шире самой стойки */
+const RAILS = new Set(["wall_system", "rack_base", "rack_pipe", "rack_pipe_double", "round_rack"])
 
 export function corners(it: CheckItem): Pt[] {
   const a = (it.rot * Math.PI) / 180
@@ -61,7 +63,10 @@ export function checkLayout(items: CheckItem[], room: CheckRoom, names: Record<s
   const aisle = opts.aisle ?? 0.8
   const out: Warning[] = []
   const floor = items.filter((i) => !AIRBORNE.has(i.type))
-  const poly = new Map(items.map((i) => [i.id, corners(i)]))
+  const hd = opts.hangDepth ?? 0.48
+  // Для проходов стойка — по ширине одежды на плечиках (двойная — по двум рядам)
+  const footprint = (i: CheckItem) => RAILS.has(i.type) ? { ...i, d: Math.max(i.d, i.type === "rack_pipe_double" ? i.d / 2 + hd : hd), w: i.type === "round_rack" ? Math.max(i.w, i.w + hd) : i.w } : i
+  const poly = new Map(items.map((i) => [i.id, corners(footprint(i))]))
 
   // За стенами
   for (const it of items) {
