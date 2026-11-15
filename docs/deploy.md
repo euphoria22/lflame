@@ -78,6 +78,15 @@ bash infra/scripts/set-secret.sh BACKUP_S3_SECRET_KEY infra/.env
 bash infra/scripts/backup-setup.sh                                 # пароль шифрования, пробный бэкап, расписание
 ```
 
+Вместо S3 можно отправлять бэкапы по SFTP на другой хостинг, например Beget (в панели — включить «SSH-доступ»):
+
+```
+bash infra/scripts/set-secret.sh BACKUP_SFTP_HOST infra/.env       # midassic.beget.tech
+bash infra/scripts/set-secret.sh BACKUP_SFTP_USER infra/.env       # логин хостинга
+bash infra/scripts/set-secret.sh BACKUP_SFTP_PASSWORD infra/.env   # пароль хостинга
+bash infra/scripts/backup-setup.sh
+```
+
 `backup-setup.sh` создаёт пароль шифрования (показывает один раз — сохранить отдельно от сервера!), делает пробный бэкап, проверяет, что он дошёл до хранилища, и ставит в cron бэкап каждые 6 часов и проверку сайта раз в минуту. Если бэкапа нет больше суток или он не дошёл до хранилища — сообщение в Telegram (`monitor.sh`).
 
 Восстановление: `bash infra/scripts/restore.sh infra/backups/<файл>` (или скачать файл из хранилища: `rclone copy backup:<бакет>/<файл> infra/backups/` после `. infra/scripts/lib-env.sh; load_env infra/.env; setup_backup_remote`). Раз в месяц — тестовое восстановление, записать в журнал ниже.

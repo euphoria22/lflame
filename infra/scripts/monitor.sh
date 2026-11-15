@@ -32,6 +32,6 @@ if [ -n "$END" ] && [ $(( ($(date -d "$END" +%s) - $(date +%s)) / 86400 )) -lt 1
 # Бэкап за последние сутки
 if ! find infra/backups -name 'lflame-*.gpg' -mmin -1500 | grep -q .; then alert backup "нет бэкапа за последние сутки"; else ok backup; fi
 # Копия в хранилище другого провайдера за последние сутки (если хранилище настроено)
-if [ -n "${BACKUP_S3_BUCKET:-}${BACKUP_REMOTE:-}" ]; then
+if [ -n "${BACKUP_S3_BUCKET:-}${BACKUP_SFTP_HOST:-}${BACKUP_REMOTE:-}" ]; then
   if [ -z "$(find infra/backups -maxdepth 1 -name .remote-ok -mmin -1500 2>/dev/null)" ]; then alert backup_remote "бэкап не отправлен в хранилище больше суток — проверьте ~/backup.log"; else ok backup_remote; fi
 fi

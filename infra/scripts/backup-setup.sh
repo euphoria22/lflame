@@ -2,15 +2,19 @@
 # Первичная настройка бэкапов: проверка настроек, пароль шифрования, пробный бэкап в хранилище, расписание.
 #   bash infra/scripts/backup-setup.sh
 # Перед запуском сохраните в infra/.env (bash infra/scripts/set-secret.sh ИМЯ infra/.env):
-#   BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY, BACKUP_S3_SECRET_KEY (и при необходимости BACKUP_S3_REGION)
+#   S3: BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY, BACKUP_S3_SECRET_KEY (и при необходимости BACKUP_S3_REGION)
+#   или SFTP (Beget-хостинг): BACKUP_SFTP_HOST, BACKUP_SFTP_USER, BACKUP_SFTP_PASSWORD (папка — BACKUP_SFTP_PATH, по умолчанию laflamme-backups)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 . infra/scripts/lib-env.sh; load_env infra/.env
 
+# Хранилище: S3 (BACKUP_S3_*) или SFTP на другой хостинг (BACKUP_SFTP_HOST, BACKUP_SFTP_USER, BACKUP_SFTP_PASSWORD)
 missing=()
-for k in BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY BACKUP_S3_SECRET_KEY; do
-  [ -n "${!k:-}" ] || missing+=("$k")
-done
+if [ -n "${BACKUP_SFTP_HOST:-}${BACKUP_SFTP_USER:-}${BACKUP_SFTP_PASSWORD:-}" ]; then
+  for k in BACKUP_SFTP_HOST BACKUP_SFTP_USER BACKUP_SFTP_PASSWORD; do [ -n "${!k:-}" ] || missing+=("$k"); done
+else
+  for k in BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY BACKUP_S3_SECRET_KEY; do [ -n "${!k:-}" ] || missing+=("$k"); done
+fi
 if [ ${#missing[@]} -gt 0 ]; then
   echo "Не хватает настроек в infra/.env: ${missing[*]}"
   echo "Сохраните каждую командой: bash infra/scripts/set-secret.sh ИМЯ infra/.env"
@@ -38,7 +42,7 @@ fi
 echo "Проверяю доступ к хранилищу…"
 load_env infra/.env; setup_backup_remote
 rclone lsd "$BACKUP_REMOTE" >/dev/null 2>&1 || rclone mkdir "$BACKUP_REMOTE"
-rclone lsf "$BACKUP_REMOTE" >/dev/null || { echo "Нет доступа к хранилищу $BACKUP_REMOTE — проверьте адрес, бакет и ключи"; exit 1; }
+rclone lsf "$BACKUP_REMOTE" >/dev/null || { echo "Нет доступа к хранилищу $BACKUP_REMOTE — проверьте адрес, логин/ключи и (для Beget) что SSH-доступ включён"; exit 1; }
 echo "Хранилище доступно."
 
 echo "Пробный бэкап…"
