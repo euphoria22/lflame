@@ -119,7 +119,7 @@ export const DEFAULT_SETTINGS: MerchSettings = {
   default_level: "premium",
   focus_density: 0.75,
   last_unit: true,
-  hangers: { top: { w: 44, h: 20, t: 2 }, bottom: { w: 30, h: 14, t: 2.5 } },
+  hangers: { top: { w: 44, h: 20, t: 1.5 }, bottom: { w: 30, h: 14, t: 2 } },
   garment_cm: { outer: 7, mid: 4.5, top: 2.5, bottom: 2.5 },
   standards: {
     all: ["Вещи отпарены, без складок от упаковки", "Ценник и бирки спрятаны внутрь, защитный датчик — в одном месте у всей категории"],
