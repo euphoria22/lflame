@@ -17,5 +17,7 @@ jobs:
       - run: npm run typecheck -w @lflame/storefront
       - run: npm run typecheck -w @lflame/cms
       - run: npx tsc --noEmit -p apps/backend
+      # Админка собирается своим сборщиком (Vite) и проверяется своими настройками
+      - run: npx tsc --noEmit -p apps/backend/src/admin
       - name: Юнит-тесты бэкенда
         run: npm run test:unit -w @lflame/backend
