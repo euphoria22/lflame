@@ -45,7 +45,7 @@ export RCLONE_CONTIMEOUT="${RCLONE_CONTIMEOUT:-20s}" RCLONE_TIMEOUT="${RCLONE_TI
 if ! timeout 90 rclone lsd "$BACKUP_REMOTE" >/dev/null 2>&1; then timeout 90 rclone mkdir "$BACKUP_REMOTE" >/dev/null 2>&1 || true; fi
 if ! ERR="$(timeout 90 rclone lsf "$BACKUP_REMOTE" 2>&1 >/dev/null)"; then
   echo "Нет доступа к хранилищу $BACKUP_REMOTE."
-  echo "Проверьте адрес, логин и пароль (или ключи), а для Beget — что «SSH-доступ» включён."
+  echo "Проверьте адрес, логин и пароль (или ключи), для SFTP на Beget — что «SSH-доступ» включён."
   echo "Подробности: ${ERR:-не ответил за 90 секунд}" | tail -3
   exit 1
 fi
