@@ -710,10 +710,9 @@ export class MerchScene {
       }
       case "wall_shelf":
       case "wall_shelf_s": {
-        // П-образная: дно, борта и планка крепления к стене высотой h (15 см)
+        // Полка и планка крепления к стене высотой h (15 см), без боковин
         this.part(g, S.brushed, 0, 0, 0, w, 0.012, d)
         this.part(g, S.brushed, 0, h / 2, -d / 2 + 0.005, w, h, 0.01)
-        for (const sx of [-1, 1]) this.part(g, S.brushed, sx * (w / 2 - 0.004), h / 2, 0, 0.008, h, d)
         onSurface(-w / 2 + 0.05, w / 2 - 0.05, 0.006, 0.02, r() < 0.6 ? "fold" : "cap")
         break
       }
@@ -1000,7 +999,7 @@ export class MerchScene {
     if (!this.drag) return
     const fp = this.floorPoint(e)
     if (!fp || !this.room) return
-    const snap = (v: number) => Math.round(v / 0.05) * 0.05
+    const snap = (v: number) => Math.round(v / 0.01) * 0.01
     this.drag.group.position.x = Math.min(this.room.width, Math.max(0, snap(fp.x + this.drag.dx)))
     this.drag.group.position.z = Math.min(this.room.length, Math.max(0, snap(fp.z + this.drag.dz)))
     this.drag.moved = true

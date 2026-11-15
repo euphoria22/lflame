@@ -26,7 +26,7 @@ const num = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",")
 const parse = (s: string) => Number(String(s).replace(",", "."))
 
 /** Поле-число в метрах: ввод с запятой, применяется по Enter/уходу с поля */
-const NumField = ({ label, value, onChange, step = 0.05, suffix = "м", min = 0 }: { label: string; value: number; onChange: (v: number) => void; step?: number; suffix?: string; min?: number }) => {
+const NumField = ({ label, value, onChange, step = 0.01, suffix = "м", min = 0 }: { label: string; value: number; onChange: (v: number) => void; step?: number; suffix?: string; min?: number }) => {
   const [v, setV] = useState(num(value))
   useEffect(() => { setV(num(value)) }, [value])
   const apply = () => {
@@ -205,7 +205,7 @@ const MerchPage = () => {
       else if ((e.ctrlKey || e.metaKey) && e.code === "KeyD") { e.preventDefault(); duplicate() }
       else if (e.key.startsWith("Arrow")) {
         e.preventDefault()
-        const s = e.shiftKey ? 0.5 : 0.05
+        const s = e.shiftKey ? 0.1 : 0.01
         const dx = e.key === "ArrowLeft" ? -s : e.key === "ArrowRight" ? s : 0
         const dy = e.key === "ArrowUp" ? -s : e.key === "ArrowDown" ? s : 0
         patchItem(selItem.id, { x: Math.round((selItem.x + dx) * 100) / 100, y: Math.round((selItem.y + dy) * 100) / 100 })
@@ -458,7 +458,7 @@ const MerchPage = () => {
           <Text size="xsmall" className="text-ui-fg-subtle">
             {mode === "walk" && view !== "plan"
               ? "Обход зала: зажмите мышку и ведите — поворот головы; W/S или ↑/↓ — вперёд-назад, A/D — шаг в сторону, ←/→ — поворот, колесо — шаги."
-              : "Перетаскивайте оборудование на плане или в 3D. R — повернуть на 90° (Shift+R — на 15°), стрелки — сдвиг на 5 см (с Shift — 50 см), Delete — удалить, Ctrl+D — копия, Ctrl+Z — отменить. В 3D: вращение — левой кнопкой по пустому месту, сдвиг вида — правой, приближение — колесом."}
+              : "Перетаскивайте оборудование на плане или в 3D. R — повернуть на 90° (Shift+R — на 15°), стрелки — сдвиг на 1 см (с Shift — 10 см), Delete — удалить, Ctrl+D — копия, Ctrl+Z — отменить. В 3D: вращение — левой кнопкой по пустому месту, сдвиг вида — правой, приближение — колесом."}
           </Text>
         </div>
 

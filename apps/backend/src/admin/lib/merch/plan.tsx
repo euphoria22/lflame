@@ -3,7 +3,7 @@ import { GROUP_COLOR, Item, LayoutData, typeOf, WallSide, Zone } from "./catalog
 
 /**
  * План зала сверху (SVG, единицы — метры). Оборудование и зоны перетаскиваются мышкой,
- * у зон — уголок для изменения размера. Шаг — 5 см; у стены оборудование «прилипает» вплотную.
+ * у зон — уголок для изменения размера. Шаг — 1 см; у стены оборудование «прилипает» вплотную.
  */
 
 type Props = {
@@ -16,7 +16,7 @@ type Props = {
 }
 
 const FINISH_COLOR: Record<string, string> = { brick: "#b4583a", white: "#d4d4d0", concrete: "#9b9a95", glass: "#9fc2d8" }
-const snap = (v: number, s = 0.05) => Math.round(v / s) * s
+const snap = (v: number, s = 0.01) => Math.round(v / s) * s
 const r2 = (v: number) => Math.round(v * 100) / 100
 
 /** Габарит по осям с учётом поворота */
@@ -53,7 +53,7 @@ export function Plan({ data, selected, showZones, onSelect, onChange }: Props) {
           if (it.id !== d.id) return it
           let x = snap(p.x + d.dx), y = snap(p.y + d.dy)
           const { hx, hy } = extents(it)
-          const stick = 0.2
+          const stick = 0.08
           // У стены — вплотную
           if (Math.abs(x - hx) < stick) x = hx
           if (Math.abs(W - x - hx) < stick) x = W - hx

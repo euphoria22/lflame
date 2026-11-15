@@ -97,8 +97,8 @@ export const CATALOG: EquipType[] = [
   { type: "round_rack", name: "Круглая стойка", group: "hang", w: 0.9, d: 0.9, h: 1.5, hangPerM: 12, rails: 1, round: true, hint: "Кольцо-вешало по кругу" },
   { type: "shoe_rack", name: "Стеллаж из труб", group: "shelf", w: 1.4, d: 0.45, h: 2.2, shelves: 5, hint: "Обувь, сумки — по 2–3 пары на полку" },
   { type: "cabinet", name: "Шкаф-стеллаж металлический", group: "shelf", w: 1.0, d: 0.4, h: 1.6, shelves: 4, hint: "Закрытые бока — сумки, рюкзаки, ремни" },
-  { type: "wall_shelf", name: "Полка настенная 60 см", group: "shelf", w: 0.6, d: 0.3, h: 0.15, elev: 2.0, shelves: 1, wall: true, hint: "П-образная полка на белой стене: стопки футболок, кепки. Крепление к стене — 15 см" },
-  { type: "wall_shelf_s", name: "Полка настенная 40 см", group: "shelf", w: 0.4, d: 0.3, h: 0.15, elev: 2.0, shelves: 1, wall: true, hint: "П-образная полка на белой стене: кепки, 1–2 стопки. Крепление к стене — 15 см" },
+  { type: "wall_shelf", name: "Полка настенная 60 см", group: "shelf", w: 0.6, d: 0.3, h: 0.15, elev: 2.0, shelves: 1, wall: true, hint: "Полка на белой стене: стопки футболок, кепки. Крепление к стене — 15 см" },
+  { type: "wall_shelf_s", name: "Полка настенная 40 см", group: "shelf", w: 0.4, d: 0.3, h: 0.15, elev: 2.0, shelves: 1, wall: true, hint: "Полка на белой стене: кепки, 1–2 стопки. Крепление к стене — 15 см" },
   { type: "grid_panel", name: "Сетка настенная", group: "shelf", w: 1.2, d: 0.05, h: 1.2, elev: 0.9, wall: true, hint: "Сумки на крючках" },
   { type: "table_cube", name: "Стол-куб металлический", group: "table", w: 1.6, d: 1.0, h: 0.5, hint: "Выкладка образа: стопки, кепки, сумки" },
   { type: "podium", name: "Подиум", group: "table", w: 1.0, d: 1.0, h: 0.3, hint: "Манекен или акцентная выкладка" },
@@ -156,7 +156,7 @@ export function draftLayout(): LayoutData {
       rail(11.62, 4.2), rail(10.33, 5.31, 90), rail(11.47, 6.38), rail(13.92, 7.25, 90), rail(7.03, 7.71),
       it("table_white", 3.51, 1.65), it("table_white", 12.4, 2.12, 0, { w: 0.7, d: 0.75 }), it("table_white", 12.4, 2.9, 0, { w: 0.7, d: 0.75 }), it("table_white", 7.61, 6.04),
       it("column", 5.6, 4.11, 0, { h: 4.6 }), it("column", 10.26, 4.11, 0, { h: 4.6 }), it("column", 13.99, 4.11, 0, { h: 4.6 }),
-      it("pouf_round", 2.51, 4.15), it("pouf_round", 2.73, 6.82),
+      it("pouf", 2.51, 4.15), it("pouf", 2.73, 6.82),
       it("rack_pipe_double", 7.35, 4.2, 0, { w: 1.65, d: 1.3 }), it("rack_pipe_double", 5.16, 5.71, 90, { w: 1.6, d: 1.3 }),
       it("shoe_rack", 0.23, 4.11, 90, { w: 1.75 }), it("mirror", 0.03, 5.59, 90, { w: 0.9 }), it("shoe_rack", 0.23, 7.01, 90, { w: 1.5 }),
       it("shoe_rack", 3.09, 8.37, 180, { w: 2.1, h: 0.9, label: "Обувь у стены" }), it("shoe_rack", 5.45, 8.37, 180, { w: 2.0, h: 0.9, label: "Обувь у стены" }),
@@ -166,7 +166,7 @@ export function draftLayout(): LayoutData {
       it("cabinet", 13.9, 8.42, 180, { w: 0.6, d: 0.35, h: 0.9 }),
       it("partition", 14.4, 4.3, 90, { w: 8.6, h: 2.9 }),
       it("track", 7.2, 2.5, 0, { w: 12.5, elev: 3.6 }), it("track", 7.2, 6.1, 0, { w: 12.5, elev: 3.6 }),
-      // Два ряда П-образных полок на белой стене над стойками: 60 см сверху, 40 см ниже между стойками
+      // Два ряда полок на белой стене над стойками: 60 см сверху, 40 см ниже между стойками
       ...[2.28, 4.37, 7.1, 9.25, 11.34, 13.41].map((x) => it("wall_shelf", x, 0.15, 0, { elev: 2.35 })),
       ...[3.33, 5.73, 8.18, 10.3, 12.38].map((x) => it("wall_shelf_s", x, 0.15, 0, { elev: 1.95 })),
     ],
