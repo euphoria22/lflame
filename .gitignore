@@ -66,3 +66,4 @@ infra/certs/
 
 # Снимок Redis при локальном запуске
 dump.rdb
+**/dump.rdb
