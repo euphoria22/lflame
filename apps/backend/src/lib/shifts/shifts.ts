@@ -23,6 +23,11 @@ export type Shifts = {
   remind_enabled: boolean
   /** Время напоминания, «ЧЧ:ММ» по Омску */
   remind_at: string
+  /** Обычная смена: с какого и до какого часа («12:00», «21:00») */
+  day_start: string
+  day_end: string
+  /** Неполные смены: "2026-11" → id сотрудника → число месяца → "12:00-18:00" (только в дни «работает») */
+  hours: Record<string, Record<string, Record<string, string>>>
 }
 
 export type BotChat = { id: string; title: string; type: string; seen_at: string }
@@ -75,6 +80,29 @@ export function statusOf(s: Shifts, personId: string, date: string): DayStatus {
   return (STATUSES as string[]).includes(c) ? (c as DayStatus) : "."
 }
 
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
+const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+/** Длина смены в часах (смена до полуночи) */
+export const spanHours = (from: string, to: string) => Math.max(0, mins(to) - mins(from)) / 60
+export const fullHours = (s: Shifts) => spanHours(s.day_start, s.day_end) || 1
+
+/** Часы работы в день: обычная смена или неполная; null — не работает */
+export function hoursOf(s: Shifts, personId: string, date: string): { from: string; to: string; partial: boolean } | null {
+  if (statusOf(s, personId, date) !== "w") return null
+  const custom = s.hours[date.slice(0, 7)]?.[personId]?.[String(Number(date.slice(8)))]
+  if (custom) {
+    const [from, to] = custom.split("-")
+    return { from, to, partial: true }
+  }
+  return { from: s.day_start, to: s.day_end, partial: false }
+}
+
+/** Неполная смена — в скобках: «Иван (12:00–18:00)» */
+const partialNote = (s: Shifts, p: Person, date: string) => {
+  const h = hoursOf(s, p.id, date)
+  return h?.partial ? ` (${h.from}–${h.to})` : ""
+}
+
 /** Кто работает в день и кто под вопросом */
 export function dayCrew(s: Shifts, date: string) {
   return {
@@ -94,6 +122,9 @@ function seed(): Shifts {
     chat_title: "",
     remind_enabled: false,
     remind_at: "09:00",
+    day_start: "12:00",
+    day_end: "21:00",
+    hours: {},
   }
 }
 
@@ -115,7 +146,7 @@ async function writeMeta(key: string, value: unknown) {
 export async function loadShifts(): Promise<Shifts> {
   const raw = (await storeRow()).metadata?.shifts as Partial<Shifts> | undefined
   if (!raw) return seed()
-  return { ...seed(), people: [], months: {}, ...raw }
+  return { ...seed(), people: [], months: {}, hours: {}, ...raw }
 }
 
 export async function loadBot(): Promise<BotState> {
@@ -163,6 +194,31 @@ export async function saveShifts(patch: Partial<Shifts>): Promise<Shifts> {
     const minKey = `${Number(omskNow().date.slice(0, 4)) - 1}${omskNow().date.slice(4, 7)}`
     next.months = Object.fromEntries(Object.entries(months).filter(([k]) => k >= minKey))
   }
+  if (patch.day_start !== undefined || patch.day_end !== undefined) {
+    const a = String(patch.day_start ?? cur.day_start), b = String(patch.day_end ?? cur.day_end)
+    if (!TIME.test(a) || !TIME.test(b) || spanHours(a, b) <= 0) throw new Error("Обычная смена: время начала раньше конца, в виде 12:00")
+    next.day_start = a
+    next.day_end = b
+  }
+  if (patch.hours) {
+    const hours = { ...cur.hours }
+    for (const [m, byPerson] of Object.entries(patch.hours)) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) throw new Error("Неверный месяц")
+      const row = next.months[m] ?? {}
+      const clean: Record<string, Record<string, string>> = {}
+      for (const [pid, days] of Object.entries(byPerson ?? {})) {
+        for (const [d, range] of Object.entries(days ?? {})) {
+          const [from, to] = String(range).split("-")
+          if (!TIME.test(from ?? "") || !TIME.test(to ?? "") || spanHours(from, to) <= 0) throw new Error(`Неполная смена ${d} числа: укажите время «с» раньше, чем «до»`)
+          // Часы храним только для дней «работает»
+          if (row[pid]?.[Number(d) - 1] !== "w") continue
+          ;(clean[pid] ??= {})[String(Number(d))] = `${from}-${to}`
+        }
+      }
+      hours[m] = clean
+    }
+    next.hours = Object.fromEntries(Object.entries(hours).filter(([k]) => next.months[k]))
+  }
   if (patch.chat_id !== undefined) {
     next.chat_id = String(patch.chat_id).trim()
     if (next.chat_id && !/^-?\d{1,20}$/.test(next.chat_id)) throw new Error("Неверный номер чата")
@@ -181,12 +237,13 @@ export async function saveShifts(patch: Partial<Shifts>): Promise<Shifts> {
 // ── Тексты для Telegram (HTML) ──
 
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)
-const names = (ps: Person[], mention = false) => ps.map((p) => (mention && p.tg ? `${esc(p.name)} (@${p.tg})` : esc(p.name))).join(", ")
+const names = (ps: Person[], mention = false, s?: Shifts, date?: string) =>
+  ps.map((p) => (mention && p.tg ? `${esc(p.name)} (@${p.tg})` : esc(p.name)) + (s && date ? partialNote(s, p, date) : "")).join(", ")
 
 function crewLine(s: Shifts, date: string, mention = false) {
   const c = dayCrew(s, date)
   if (!c.filled) return "график не заполнен"
-  let t = c.work.length ? names(c.work, mention) : "выходной у всех"
+  let t = c.work.length ? names(c.work, mention, s, date) : "выходной у всех"
   if (c.maybe.length) t += ` · под вопросом: ${names(c.maybe)}`
   return t
 }
@@ -208,13 +265,23 @@ export function todayText(s: Shifts, today = omskNow().date) {
   return [`Сегодня, ${dayTitle(today)}: <b>${crewLine(s, today)}</b>`, `Завтра, ${dayTitle(tomorrow)}: ${crewLine(s, tomorrow)}`].join("\n")
 }
 
-/** Сколько смен у каждого за месяц */
+/** Сколько смен у каждого за месяц: неполная смена считается долей (6 часов из 9 — 0,67 смены), плюс часы */
 export function monthCounts(s: Shifts, month: string) {
+  const full = fullHours(s)
   return s.people.map((p) => {
     const row = s.months[month]?.[p.id] ?? ""
-    return { person: p, work: [...row].filter((c) => c === "w").length, maybe: [...row].filter((c) => c === "?").length }
+    let hours = 0
+    ;[...row].forEach((c, i) => {
+      if (c !== "w") return
+      const h = hoursOf(s, p.id, `${month}-${String(i + 1).padStart(2, "0")}`)
+      if (h) hours += spanHours(h.from, h.to)
+    })
+    return { person: p, work: Math.round((hours / full) * 10) / 10, hours: Math.round(hours * 10) / 10, maybe: [...row].filter((c) => c === "?").length }
   })
 }
+
+/** 20.7 → «20,7» */
+export const num = (n: number) => String(n).replace(".", ",")
 
 /**
  * /grafik — ближайшие 14 дней; /grafik mesyac (или «месяц», «весь») — весь текущий месяц;
@@ -238,7 +305,7 @@ export function scheduleText(s: Shifts, mode: "two_weeks" | "month" | "next_mont
     lines.push(`${WD_SHORT[weekday(d)]} ${String(Number(d.slice(8))).padStart(2, " ")} — ${crewLine(s, d)}${mark}`)
   }
   if (mode !== "two_weeks") {
-    const counts = monthCounts(s, month).map((c) => `${esc(c.person.name)} ${c.work}${c.maybe ? ` (+${c.maybe}?)` : ""}`)
+    const counts = monthCounts(s, month).map((c) => `${esc(c.person.name)} ${num(c.work)}${c.maybe ? ` (+${c.maybe}?)` : ""}`)
     if (counts.length) lines.push("", `Смен в ${MONTHS_PREP[Number(month.slice(5)) - 1]}: ${counts.join(", ")}`)
   }
   return lines.join("\n")

@@ -5,7 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 type Status = "w" | "o" | "?" | "."
 type Person = { id: string; name: string; tg?: string }
-type Shifts = { people: Person[]; months: Record<string, Record<string, string>>; chat_id: string; chat_title: string; remind_enabled: boolean; remind_at: string }
+type Hours = Record<string, Record<string, string>>
+type Shifts = {
+  people: Person[]; months: Record<string, Record<string, string>>; chat_id: string; chat_title: string; remind_enabled: boolean; remind_at: string
+  day_start: string; day_end: string; hours: Record<string, Hours>
+}
 type BotChat = { id: string; title: string; type: string }
 type Resp = { shifts: Shifts; today: string; bot: { configured: boolean; ok_at: string | null; error: string | null; last_sent: string | null; chats: BotChat[] } }
 
@@ -22,6 +26,11 @@ const CELL: Record<Status, { bg: string; fg: string; label: string }> = {
   "?": { bg: "#fde68a", fg: "#713f12", label: "Под вопросом" },
   ".": { bg: "transparent", fg: "inherit", label: "Стереть" },
 }
+// Неполная смена — светло-зелёная, в клетке число часов
+const PARTIAL = { bg: "#a7f3c0", fg: "#052e16" }
+const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+const span = (from: string, to: string) => Math.max(0, mins(to) - mins(from)) / 60
+const fmt = (n: number) => String(Math.round(n * 10) / 10).replace(".", ",")
 
 const api = async (path: string, body?: unknown) => {
   const r = await fetch(`/admin/shifts${path}`, {
@@ -34,32 +43,54 @@ const api = async (path: string, body?: unknown) => {
   return d
 }
 
-/** Таблица месяца: выбираете «кисть» и закрашиваете клетки (можно провести мышкой по нескольким) */
+/**
+ * Таблица месяца: выбираете «кисть» и закрашиваете клетки (можно провести мышкой по нескольким).
+ * «Неполная» — рабочий день с другими часами (ушёл раньше, сокращённый день): в подсчёте — доля смены.
+ */
+type Brush = Status | "p"
 const Grid = ({ data, today, onSaved }: { data: Shifts; today: string; onSaved: () => void }) => {
   const [month, setMonth] = useState(today.slice(0, 7))
-  const [brush, setBrush] = useState<Status>("w")
+  const [brush, setBrush] = useState<Brush>("w")
+  const [pFrom, setPFrom] = useState(data.day_start)
+  const [pTo, setPTo] = useState("18:00")
   const [rows, setRows] = useState<Record<string, string>>({})
+  const [hours, setHours] = useState<Hours>({})
   const [busy, setBusy] = useState(false)
   const painting = useRef(false)
   const n = daysIn(month)
+  const full = span(data.day_start, data.day_end) || 1
   const saved = useMemo(() => {
     const r: Record<string, string> = {}
     for (const p of data.people) r[p.id] = (data.months[month]?.[p.id] ?? "").padEnd(n, ".").slice(0, n)
-    return r
+    return { rows: r, hours: data.hours?.[month] ?? {} }
   }, [data, month, n])
-  useEffect(() => { setRows(saved) }, [saved])
+  useEffect(() => { setRows(saved.rows); setHours(saved.hours) }, [saved])
   useEffect(() => {
     const up = () => { painting.current = false }
     window.addEventListener("mouseup", up)
     return () => window.removeEventListener("mouseup", up)
   }, [])
-  const dirty = JSON.stringify(rows) !== JSON.stringify(saved)
-  const paint = (pid: string, d: number) => setRows((r) => {
-    const row = (r[pid] ?? "".padEnd(n, ".")).split("")
-    row[d - 1] = brush
-    return { ...r, [pid]: row.join("") }
-  })
-  const fillRow = (pid: string) => setRows((r) => ({ ...r, [pid]: "".padEnd(n, brush) }))
+  const dirty = JSON.stringify(rows) !== JSON.stringify(saved.rows) || JSON.stringify(hours) !== JSON.stringify(saved.hours)
+  const partialOk = span(pFrom, pTo) > 0
+  const setDay = (pid: string, d: number, st: Status, range: string | null) => {
+    setRows((r) => {
+      const row = (r[pid] ?? "".padEnd(n, ".")).split("")
+      row[d - 1] = st
+      return { ...r, [pid]: row.join("") }
+    })
+    setHours((h) => {
+      const days = { ...(h[pid] ?? {}) }
+      if (range) days[String(d)] = range
+      else delete days[String(d)]
+      return { ...h, [pid]: days }
+    })
+  }
+  const paint = (pid: string, d: number) => {
+    if (brush === "p") {
+      if (partialOk) setDay(pid, d, "w", `${pFrom}-${pTo}`)
+    } else setDay(pid, d, brush, null)
+  }
+  const fillRow = (pid: string) => { for (let d = 1; d <= n; d++) paint(pid, d) }
   const go = (k: number) => {
     if (dirty && !window.confirm("Изменения в этом месяце не сохранены. Перейти без сохранения?")) return
     setMonth(shiftMonth(month, k))
@@ -67,20 +98,30 @@ const Grid = ({ data, today, onSaved }: { data: Shifts; today: string; onSaved: 
   const save = async () => {
     setBusy(true)
     try {
-      await api("", { months: { [month]: rows } })
+      await api("", { months: { [month]: rows }, hours: { [month]: hours } })
       toast.success("График сохранён")
       onSaved()
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
   }
   const days = Array.from({ length: n }, (_, i) => i + 1)
   const isToday = (d: number) => `${month}-${String(d).padStart(2, "0")}` === today
+  const brushes: { id: Brush; bg: string; fg: string; label: string; mark?: string }[] = [
+    { id: "w", ...CELL.w },
+    { id: "p", ...PARTIAL, label: "Неполная", mark: "ч" },
+    { id: "o", ...CELL.o },
+    { id: "?", ...CELL["?"], mark: "?" },
+    { id: ".", ...CELL["."] },
+  ]
 
   return (
     <Container className="divide-y p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
         <div>
           <Heading level="h2">График смен</Heading>
-          <Text size="small" className="text-ui-fg-subtle">Выберите отметку и нажимайте на клетки — или проведите мышкой по нескольким дням. Затем «Сохранить».</Text>
+          <Text size="small" className="text-ui-fg-subtle">
+            Выберите отметку и нажимайте на клетки — или проведите мышкой по нескольким дням. Затем «Сохранить».
+            Обычная смена — с {data.day_start} до {data.day_end}; «Неполная» — если человек ушёл раньше или день сокращённый.
+          </Text>
         </div>
         <div className="flex items-center gap-2">
           <IconButton size="small" variant="transparent" onClick={() => go(-1)}><ChevronLeft /></IconButton>
@@ -89,15 +130,24 @@ const Grid = ({ data, today, onSaved }: { data: Shifts; today: string; onSaved: 
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 px-6 py-3">
-        {(["w", "o", "?", "."] as Status[]).map((s) => (
-          <button key={s} type="button" onClick={() => setBrush(s)}
-            className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm ${brush === s ? "border-ui-fg-base" : "border-ui-border-base text-ui-fg-subtle"}`}>
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm border border-ui-border-base text-[10px] font-semibold" style={{ background: CELL[s].bg, color: CELL[s].fg }}>{s === "?" ? "?" : ""}</span>
-            {CELL[s].label}
+        {brushes.map((b) => (
+          <button key={b.id} type="button" onClick={() => setBrush(b.id)}
+            className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm ${brush === b.id ? "border-ui-fg-base" : "border-ui-border-base text-ui-fg-subtle"}`}>
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm border border-ui-border-base text-[10px] font-semibold" style={{ background: b.bg, color: b.fg }}>{b.mark ?? ""}</span>
+            {b.label}
           </button>
         ))}
+        {brush === "p" && (
+          <div className="flex items-center gap-2">
+            <Text size="small" className="text-ui-fg-subtle">с</Text>
+            <Input type="time" size="small" className="w-28" value={pFrom} onChange={(e) => setPFrom(e.target.value)} />
+            <Text size="small" className="text-ui-fg-subtle">до</Text>
+            <Input type="time" size="small" className="w-28" value={pTo} onChange={(e) => setPTo(e.target.value)} />
+            <Text size="small" className={partialOk ? "text-ui-fg-subtle" : "text-ui-fg-error"}>{partialOk ? `${fmt(span(pFrom, pTo))} ч = ${fmt(span(pFrom, pTo) / full)} смены` : "«с» должно быть раньше «до»"}</Text>
+          </div>
+        )}
         <div className="ml-auto flex gap-2">
-          {dirty && <Button size="small" variant="secondary" onClick={() => setRows(saved)}>Отменить</Button>}
+          {dirty && <Button size="small" variant="secondary" onClick={() => { setRows(saved.rows); setHours(saved.hours) }}>Отменить</Button>}
           <Button size="small" disabled={!dirty} isLoading={busy} onClick={save}>Сохранить</Button>
         </div>
       </div>
@@ -116,31 +166,42 @@ const Grid = ({ data, today, onSaved }: { data: Shifts; today: string; onSaved: 
                   </th>
                 ))}
                 <th className="pl-3 text-left text-xs font-normal text-ui-fg-subtle">смен</th>
+                <th className="pl-3 text-left text-xs font-normal text-ui-fg-subtle">часов</th>
               </tr>
             </thead>
             <tbody>
               {data.people.map((p) => {
                 const row = rows[p.id] ?? "".padEnd(n, ".")
-                const work = [...row].filter((c) => c === "w").length
+                let total = 0
+                const cells = days.map((d) => {
+                  const c = (row[d - 1] ?? ".") as Status
+                  const range = c === "w" ? hours[p.id]?.[String(d)] : undefined
+                  const [from, to] = range ? range.split("-") : [data.day_start, data.day_end]
+                  const h = c === "w" ? span(from, to) : 0
+                  total += h
+                  return { d, c, range, h }
+                })
                 const maybe = [...row].filter((c) => c === "?").length
                 return (
                   <tr key={p.id}>
                     <td className="pr-3">
                       <button type="button" title="Закрасить весь месяц выбранной отметкой" onClick={() => fillRow(p.id)} className="text-left hover:underline">{p.name}</button>
                     </td>
-                    {days.map((d) => {
-                      const c = (row[d - 1] ?? ".") as Status
+                    {cells.map(({ d, c, range, h }) => {
+                      const look = range ? PARTIAL : CELL[c]
                       return (
                         <td key={d}
+                          title={range ? `${range.replace("-", "–")} (${fmt(h)} ч)` : undefined}
                           onMouseDown={(e) => { e.preventDefault(); painting.current = true; paint(p.id, d) }}
                           onMouseEnter={() => { if (painting.current) paint(p.id, d) }}
                           className={`h-8 cursor-pointer border border-black/20 text-center text-xs font-semibold ${isToday(d) ? "outline outline-2 -outline-offset-2 outline-ui-fg-base" : ""}`}
-                          style={{ background: CELL[c].bg, color: CELL[c].fg }}>
-                          {c === "?" ? "?" : ""}
+                          style={{ background: look.bg, color: look.fg }}>
+                          {range ? fmt(h) : c === "?" ? "?" : ""}
                         </td>
                       )
                     })}
-                    <td className="pl-3 text-sm tabular-nums">{work}{maybe ? <span className="text-ui-fg-subtle"> +{maybe}?</span> : null}</td>
+                    <td className="pl-3 text-sm tabular-nums">{fmt(total / full)}{maybe ? <span className="text-ui-fg-subtle"> +{maybe}?</span> : null}</td>
+                    <td className="pl-3 text-sm tabular-nums text-ui-fg-subtle">{fmt(total)}</td>
                   </tr>
                 )
               })}
@@ -155,14 +216,16 @@ const Grid = ({ data, today, onSaved }: { data: Shifts; today: string; onSaved: 
 /** Сотрудники: имя и ник в Telegram (для упоминания в утреннем напоминании) */
 const People = ({ data, onSaved }: { data: Shifts; onSaved: () => void }) => {
   const [list, setList] = useState<Person[]>(data.people)
+  const [day, setDay] = useState({ day_start: data.day_start, day_end: data.day_end })
   const [busy, setBusy] = useState(false)
   useEffect(() => { setList(data.people) }, [data.people])
-  const dirty = JSON.stringify(list) !== JSON.stringify(data.people)
+  useEffect(() => { setDay({ day_start: data.day_start, day_end: data.day_end }) }, [data.day_start, data.day_end])
+  const dirty = JSON.stringify(list) !== JSON.stringify(data.people) || day.day_start !== data.day_start || day.day_end !== data.day_end
   const set = (i: number, patch: Partial<Person>) => setList((l) => l.map((p, j) => (j === i ? { ...p, ...patch } : p)))
   const save = async () => {
     setBusy(true)
     try {
-      await api("", { people: list })
+      await api("", { people: list, ...day })
       toast.success("Сохранено")
       onSaved()
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
@@ -170,8 +233,16 @@ const People = ({ data, onSaved }: { data: Shifts; onSaved: () => void }) => {
   return (
     <Container className="divide-y p-0">
       <div className="px-6 py-4">
-        <Heading level="h2">Сотрудники</Heading>
+        <Heading level="h2">Сотрудники и смена</Heading>
         <Text size="small" className="text-ui-fg-subtle">Ник в Telegram — необязательно: тогда в утреннем напоминании человек будет упомянут и получит уведомление.</Text>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-6 py-4">
+        <Label size="small">Обычная смена</Label>
+        <Text size="small" className="text-ui-fg-subtle">с</Text>
+        <Input type="time" size="small" className="w-28" value={day.day_start} onChange={(e) => setDay({ ...day, day_start: e.target.value })} />
+        <Text size="small" className="text-ui-fg-subtle">до</Text>
+        <Input type="time" size="small" className="w-28" value={day.day_end} onChange={(e) => setDay({ ...day, day_end: e.target.value })} />
+        <Text size="small" className="text-ui-fg-subtle">— {fmt(span(day.day_start, day.day_end))} ч; неполная смена считается долей от неё</Text>
       </div>
       <div className="flex flex-col gap-2 px-6 py-4">
         {list.map((p, i) => (

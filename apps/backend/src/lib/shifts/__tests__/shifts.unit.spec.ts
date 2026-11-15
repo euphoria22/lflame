@@ -1,11 +1,12 @@
 jest.mock("@medusajs/framework", () => ({ container: {} }))
-import { dayCrew, omskNow, reminderText, scheduleText, Shifts, statusOf, todayText } from "../shifts"
+import { dayCrew, hoursOf, monthCounts, omskNow, reminderText, scheduleText, Shifts, statusOf, todayText } from "../shifts"
 
 const weekdays = Array.from({ length: 30 }, (_, i) => ([6, 0].includes(new Date(Date.UTC(2026, 10, i + 1)).getUTCDay()) ? "o" : "w")).join("")
 const s: Shifts = {
   people: [{ id: "ivan", name: "Иван", tg: "ivan_tg" }, { id: "maxim", name: "Максим" }, { id: "liza", name: "Лиза" }],
   months: { "2026-11": { ivan: "wowwoowwowwoowwowwoowwow???ww?", maxim: weekdays, liza: weekdays } },
   chat_id: "-100", chat_title: "", remind_enabled: true, remind_at: "09:00",
+  day_start: "12:00", day_end: "21:00", hours: { "2026-11": { maxim: { "17": "12:00-18:00" } } },
 }
 
 describe("график смен", () => {
@@ -22,11 +23,18 @@ describe("график смен", () => {
   })
   it("тексты", () => {
     expect(reminderText(s, "2026-11-16")).toContain("понедельник 16 ноября")
-    expect(reminderText(s, "2026-11-17")).toContain("Иван (@ivan_tg), Максим, Лиза")
+    expect(reminderText(s, "2026-11-17")).toContain("Иван (@ivan_tg), Максим (12:00–18:00), Лиза")
     expect(todayText(s, "2026-11-30")).toContain("Завтра, вт 1 декабря: график не заполнен")
     const m = scheduleText(s, "month", "2026-11-16")
-    expect(m).toContain("Смен в ноябре: Иван 16 (+4?), Максим 21, Лиза 21")
+    expect(m).toContain("Смен в ноябре: Иван 16 (+4?), Максим 20,7, Лиза 21")
     expect(scheduleText(s, "two_weeks", "2026-11-16").split("\n").filter((l) => / — /.test(l))).toHaveLength(14)
+  })
+  it("часы за месяц: неполная смена — доля", () => {
+    const c = monthCounts(s, "2026-11")
+    expect(c.find((x) => x.person.id === "maxim")).toMatchObject({ work: 20.7, hours: 186 })
+    expect(c.find((x) => x.person.id === "ivan")).toMatchObject({ work: 16, hours: 144, maybe: 4 })
+    expect(hoursOf(s, "maxim", "2026-11-17")).toEqual({ from: "12:00", to: "18:00", partial: true })
+    expect(hoursOf(s, "maxim", "2026-11-14")).toBeNull()
   })
   it("омское время", () => {
     expect(omskNow(Date.parse("2026-11-15T19:30:00Z"))).toEqual({ date: "2026-11-16", time: "01:30" })
