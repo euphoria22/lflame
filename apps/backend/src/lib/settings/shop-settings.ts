@@ -34,6 +34,11 @@ export type ShopSettings = {
   parcel: ParcelConfig
   /** Подписка на новости: включена ли форма и скидка по одноразовому промокоду (0 — без промокода) */
   newsletter: { enabled: boolean; discount_pct: number }
+  /**
+   * Письмо о брошенной корзине: через сколько часов после последнего изменения корзины, только ли давшим согласие
+   * на рассылку, скидка по одноразовому промокоду в письме (0 — без промокода)
+   */
+  abandoned_cart: { enabled: boolean; delay_hours: number; consent_only: boolean; discount_pct: number }
   /** Подарочные карты: продаются ли, номиналы, своя сумма, срок */
   gift_cards: GiftCardSettings
   /** Как способы получения выглядят на сайте при оформлении: название, описание, логотип (пусто — значок по умолчанию) */
@@ -74,6 +79,7 @@ export function defaultSettings(): ShopSettings {
     // Только предоплата: наложенным платежом не работаем
     payments: { manual: true, split: true, cod_methods: [] },
     newsletter: { enabled: true, discount_pct: 10 },
+    abandoned_cart: { enabled: false, delay_hours: 2, consent_only: false, discount_pct: 0 },
     gift_cards: DEFAULT_GIFT_SETTINGS,
     delivery_texts: DEFAULT_DELIVERY_TEXTS,
     payment_logos: DEFAULT_PAYMENT_LOGOS,
@@ -94,7 +100,7 @@ export async function getShopSettings(): Promise<ShopSettings> {
   const defaults = defaultSettings()
   try {
     const saved = ((await firstStore())?.metadata?.shop_settings ?? {}) as Partial<ShopSettings>
-    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}), weights: withDefaultDims(saved.parcel?.weights ?? defaults.parcel.weights) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) }, gift_cards: { ...defaults.gift_cards, ...(saved.gift_cards ?? {}) },
+    const value = { ...defaults, ...saved, parcel: { ...defaults.parcel, ...(saved.parcel ?? {}), weights: withDefaultDims(saved.parcel?.weights ?? defaults.parcel.weights) }, markup: { ...defaults.markup, ...(saved.markup ?? {}) }, payments: { ...defaults.payments, ...(saved.payments ?? {}) }, newsletter: { ...defaults.newsletter, ...(saved.newsletter ?? {}) }, abandoned_cart: { ...defaults.abandoned_cart, ...(saved.abandoned_cart ?? {}) }, gift_cards: { ...defaults.gift_cards, ...(saved.gift_cards ?? {}) },
       delivery_texts: Object.fromEntries(DELIVERY_KINDS.map((k) => [k, { ...defaults.delivery_texts[k], ...(saved.delivery_texts?.[k] ?? {}) }])) as Record<DeliveryKind, DeliveryText> }
     cache = { value, at: Date.now() }
     return value
@@ -186,6 +192,14 @@ export function validateSettings(input: Partial<ShopSettings>): { value?: Partia
     const pct = Math.round(Number(n.discount_pct ?? 0))
     if (!Number.isFinite(pct) || pct < 0 || pct > 50) return { error: "Скидка за подписку: от 0 до 50%" }
     out.newsletter = { enabled: Boolean(n.enabled), discount_pct: pct }
+  }
+  if (input.abandoned_cart !== undefined) {
+    const a = input.abandoned_cart ?? {}
+    const hours = Number(a.delay_hours ?? 2)
+    const pct = Math.round(Number(a.discount_pct ?? 0))
+    if (!Number.isFinite(hours) || hours < 0.5 || hours > 72) return { error: "Брошенная корзина: письмо через 0,5–72 часа" }
+    if (!Number.isFinite(pct) || pct < 0 || pct > 30) return { error: "Брошенная корзина: скидка от 0 до 30%" }
+    out.abandoned_cart = { enabled: Boolean(a.enabled), delay_hours: hours, consent_only: Boolean(a.consent_only), discount_pct: pct }
   }
   if (input.payments !== undefined) {
     const p = input.payments ?? {}

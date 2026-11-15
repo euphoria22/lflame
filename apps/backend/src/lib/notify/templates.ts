@@ -9,7 +9,7 @@ export const site = () => (process.env.STOREFRONT_URL || "http://localhost:8000"
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!)
 export const rub = (n: number) => `${Math.round(n).toLocaleString("ru-RU").replace(/ /g, " ")} ₽`
 
-export function layout(opts: { preheader: string; title: string; body: string; button?: { label: string; url: string } }): string {
+export function layout(opts: { preheader: string; title: string; body: string; button?: { label: string; url: string }; footer?: string }): string {
   const btn = opts.button
     ? `<tr><td style="padding:8px 0 24px"><a href="${esc(opts.button.url)}" style="display:inline-block;background:#0b0b0b;color:#fff;text-decoration:none;font-size:14px;padding:14px 28px;border-radius:999px">${esc(opts.button.label)}</a></td></tr>`
     : ""
@@ -35,6 +35,7 @@ ${btn}
 Магазин Laflamme · Омск, ул. Партизанская, 5а/8 · ежедневно 12:00–21:00<br>
 +7 913 144-64-82 · admin@laflamme.ru<br>
 <a href="${site()}" style="color:#6e6e6e">${esc(site().replace(/^https?:\/\//, ""))}</a>
+${opts.footer ? `<br><span style="font-size:11px">${opts.footer}</span>` : ""}
 </td></tr></table></td></tr></table></body></html>`
 }
 
@@ -207,6 +208,35 @@ export function newsletterWelcomeMail(to: string, p: { code: string | null; pct:
       title: "Спасибо за подписку",
       body: `${promo}<p style="margin:16px 0 0">Будем писать о новых поступлениях, распродажах и закрытых акциях — не чаще раза в неделю.</p><p style="margin:16px 0 0;font-size:12px;color:#6e6e6e">Не хотите получать письма — <a href="${esc(p.unsubscribeUrl)}" style="color:#6e6e6e">отпишитесь</a>.</p>`,
       button: { label: "Перейти в магазин", url: `${site()}/new` },
+    }),
+  }
+}
+
+export type AbandonedItem = { title: string; variant: string; quantity: number; price: number; image: string | null; url: string }
+
+/** Письмо о брошенной корзине: товары с фото, кнопка «Вернуться к корзине» (корзина восстанавливается по ссылке), промокод, отписка */
+export function abandonedCartMail(to: string, p: { items: AbandonedItem[]; restoreUrl: string; code: string | null; pct: number; unsubscribeUrl: string }): Mail {
+  const rows = p.items.slice(0, 6).map((i) => `<tr>
+<td width="84" style="padding:8px 14px 8px 0;vertical-align:top"><a href="${esc(i.url)}">${i.image ? `<img src="${esc(i.image)}" width="72" height="96" alt="" style="display:block;border:0;width:72px;height:96px;object-fit:cover;border-radius:10px;background:#f3f3f2">` : ""}</a></td>
+<td style="padding:8px 0;vertical-align:top;font-size:14px;line-height:1.45;color:#0b0b0b"><a href="${esc(i.url)}" style="color:#0b0b0b;text-decoration:none">${esc(i.title)}</a><br><span style="color:#6e6e6e;font-size:12px">${esc(i.variant)}${i.quantity > 1 ? ` · ${i.quantity} шт.` : ""}</span></td>
+<td align="right" style="padding:8px 0;vertical-align:top;font-size:14px;white-space:nowrap;color:#0b0b0b">${rub(i.price * i.quantity)}</td></tr>`).join("")
+  const more = p.items.length > 6 ? `<p style="margin:4px 0 0;font-size:12px;color:#6e6e6e">и ещё ${p.items.length - 6} — в корзине</p>` : ""
+  const promo = p.code
+    ? `<p style="margin:20px 0 6px">Если решитесь сегодня — вот промокод на скидку ${p.pct}%:</p><div style="font-size:24px;letter-spacing:3px;color:#0b0b0b;padding:4px 0 6px">${esc(p.code)}</div><p style="margin:0;font-size:12px;color:#6e6e6e">Он уже применится, когда вы вернётесь по кнопке. Код одноразовый; со скидкой Laflamme Club не суммируется — сайт выберет выгоднее.</p>`
+    : ""
+  return {
+    to,
+    subject: "Вы оставили товары в корзине",
+    text: `Вы оставили товары в корзине Laflamme:\n\n${p.items.map((i) => `${i.title} (${i.variant}) — ${rub(i.price * i.quantity)}`).join("\n")}\n\nВернуться к корзине: ${p.restoreUrl}${p.code ? `\n\nПромокод на скидку ${p.pct}%: ${p.code}` : ""}\n\nРазмеры в наличии не резервируются — их могут купить.\nНе хотите получать такие письма — отпишитесь: ${p.unsubscribeUrl}`,
+    html: layout({
+      preheader: p.code ? `Ваша корзина ждёт — и промокод −${p.pct}%` : "Ваша корзина ждёт",
+      title: "Вы оставили товары в корзине",
+      body: `<p style="margin:0 0 12px">Мы сохранили корзину — можно вернуться и оформить заказ в пару кликов.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7">${rows}</table>${more}
+${promo}
+<p style="margin:16px 0 0;font-size:13px;color:#6e6e6e">Размеры не резервируются: пока вещь в корзине, её может купить кто-то другой.</p>`,
+      button: { label: "Вернуться к корзине", url: p.restoreUrl },
+      footer: `Не хотите получать такие письма — <a href="${esc(p.unsubscribeUrl)}" style="color:#6e6e6e">отпишитесь</a>.`,
     }),
   }
 }

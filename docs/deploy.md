@@ -66,14 +66,21 @@ bash infra/scripts/deploy.sh
 
 ## 5. Бэкапы и мониторинг
 
-```bash
-rclone config                 # хранилище бэкапов у другого провайдера, имя например yandex
-nano infra/.env               # BACKUP_PASSPHRASE и BACKUP_REMOTE=yandex:lflame-backups
-bash infra/scripts/backup.sh  # проверить
-crontab -e                    # вставить строки из infra/scripts/crontab.example
+Бэкап — обе базы (Medusa и CMS) и файлы CMS, зашифрованные паролем `BACKUP_PASSPHRASE`, каждые 6 часов: 7 дней на сервере и 30 дней в S3-хранилище другого провайдера (Beget). Фото товаров лежат в своём S3 и заново подтягиваются из МоегоСклада.
+
+Настройка (один раз): создать бакет в S3 Beget и ключ доступа, затем на сервере
+
 ```
-**Пароль бэкапов сохраните ещё и вне сервера** — без него бэкап не расшифровать.
-Раз в месяц — тестовое восстановление на отдельном сервере: `bash infra/scripts/restore.sh файл` (ТЗ, п. 8.5).
+bash infra/scripts/set-secret.sh BACKUP_S3_ENDPOINT infra/.env     # https://s3.ru1.storage.beget.cloud (как в панели Beget)
+bash infra/scripts/set-secret.sh BACKUP_S3_BUCKET infra/.env       # имя бакета
+bash infra/scripts/set-secret.sh BACKUP_S3_ACCESS_KEY infra/.env
+bash infra/scripts/set-secret.sh BACKUP_S3_SECRET_KEY infra/.env
+bash infra/scripts/backup-setup.sh                                 # пароль шифрования, пробный бэкап, расписание
+```
+
+`backup-setup.sh` создаёт пароль шифрования (показывает один раз — сохранить отдельно от сервера!), делает пробный бэкап, проверяет, что он дошёл до хранилища, и ставит в cron бэкап каждые 6 часов и проверку сайта раз в минуту. Если бэкапа нет больше суток или он не дошёл до хранилища — сообщение в Telegram (`monitor.sh`).
+
+Восстановление: `bash infra/scripts/restore.sh infra/backups/<файл>` (или скачать файл из хранилища: `rclone copy backup:<бакет>/<файл> infra/backups/` после `. infra/scripts/lib-env.sh; load_env infra/.env; setup_backup_remote`). Раз в месяц — тестовое восстановление, записать в журнал ниже.
 
 ## 6. Включить индексацию
 

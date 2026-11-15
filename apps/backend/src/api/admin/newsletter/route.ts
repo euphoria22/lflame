@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import { listSubscribers } from "../../../lib/newsletter/newsletter"
+import { abandonedStats } from "../../../lib/abandoned/abandoned"
 
 /** Подписчики: список (JSON) или выгрузка в CSV (?format=csv) — для сервиса рассылок. */
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
@@ -21,5 +22,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     res.send("﻿" + csv)
     return
   }
-  res.json({ subscribers: rows, total: rows.length, active: rows.filter((r) => !r.unsubscribed).length })
+  // Отказы от писем без подписки (отписка из письма о брошенной корзине) в список подписчиков не попадают
+  const list = rows.filter((r, i) => !(subs[i] as { source?: string }).source || (subs[i] as { source?: string }).source !== "unsubscribe")
+  res.json({ subscribers: list, total: list.length, active: list.filter((r) => !r.unsubscribed).length, abandoned: await abandonedStats(req.scope).catch(() => null) })
 }

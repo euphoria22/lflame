@@ -5,7 +5,7 @@ import { CardIcon, HandIcon, PartsIcon } from "./method-icons"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { rememberPurchase } from "@/lib/analytics"
 import { CheckoutInput, formatPhoneInput, PaymentMethod, validateCheckout } from "@/lib/checkout"
@@ -34,6 +34,15 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
   const { cart, clear } = useCart()
   const router = useRouter()
   const [v, setV] = useState<Partial<CheckoutInput>>({ consent: false, marketing: false, ...defaults })
+  // Почту и согласие на новости сохраняем в корзину сразу — для письма о брошенной корзине
+  const savedContact = useRef("")
+  const saveContact = (marketing = !!v.marketing) => {
+    const email = (v.email ?? "").trim()
+    const key = `${email}|${marketing}`
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || savedContact.current === key) return
+    savedContact.current = key
+    void fetch("/api/cart/contact", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, marketing }) }).catch(() => null)
+  }
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(notice ?? null)
   const [chosenPayment, setPayment] = useState<PaymentMethod | null>(null)
@@ -121,7 +130,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
             <div><input className={field} placeholder="Имя" autoComplete="given-name" value={v.first_name ?? ""} onChange={set("first_name")} aria-invalid={!!errors.first_name} />{err("first_name")}</div>
             <div><input className={field} placeholder="Фамилия" autoComplete="family-name" value={v.last_name ?? ""} onChange={set("last_name")} aria-invalid={!!errors.last_name} />{err("last_name")}</div>
             <div><input className={field} placeholder="+7 (9__) ___-__-__" aria-label="Телефон" type="tel" inputMode="tel" autoComplete="tel" value={v.phone ?? ""} onChange={(e) => { setV((x) => ({ ...x, phone: formatPhoneInput(e.target.value, x.phone ?? "") })); setErrors((x) => ({ ...x, phone: "" })) }} aria-invalid={!!errors.phone} />{err("phone")}</div>
-            <div><input className={field} placeholder="Email" type="email" autoComplete="email" value={v.email ?? ""} onChange={set("email")} aria-invalid={!!errors.email} />{err("email")}<EmailHint value={v.email ?? ""} onFix={(email) => setV((x) => ({ ...x, email }))} /></div>
+            <div><input className={field} placeholder="Email" type="email" autoComplete="email" value={v.email ?? ""} onChange={set("email")} onBlur={() => saveContact()} aria-invalid={!!errors.email} />{err("email")}<EmailHint value={v.email ?? ""} onFix={(email) => setV((x) => ({ ...x, email }))} /></div>
           </div>
         </section>
 
@@ -167,7 +176,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
           </label>
           {err("consent")}
           <label className="mt-3 flex cursor-pointer items-start gap-3 text-[13px] text-muted">
-            <input type="checkbox" checked={!!v.marketing} onChange={set("marketing")} className="mt-0.5 size-4 accent-black" />
+            <input type="checkbox" checked={!!v.marketing} onChange={(e) => { set("marketing")(e); saveContact(e.target.checked) }} className="mt-0.5 size-4 accent-black" />
             <span>Хочу получать новости о поступлениях и скидках</span>
           </label>
         </section>

@@ -26,6 +26,8 @@ echo "Бэкап: $FILE ($(du -h "$FILE" | cut -f1))"
 if [ -n "${BACKUP_REMOTE:-}" ]; then
   rclone copy "$FILE" "$BACKUP_REMOTE/"
   rclone delete --min-age 30d "$BACKUP_REMOTE/" || true
+  # Отметка для monitor.sh: копия дошла до хранилища
+  touch "$DIR/.remote-ok"
   echo "Отправлен в $BACKUP_REMOTE"
 else
   echo "ВНИМАНИЕ: BACKUP_REMOTE не задан — бэкап только на этом сервере"

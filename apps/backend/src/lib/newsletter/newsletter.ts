@@ -21,12 +21,12 @@ export function unsubscribeUrl(email: string): string {
   return `${site()}/unsubscribe?e=${encodeURIComponent(email)}&t=${unsubscribeToken(email)}`
 }
 
-/** Одноразовый промокод: HELLO-XXXXXX, скидка на заказ, лимит 1 использование. */
-async function createWelcomePromo(c: MedusaContainer, pct: number): Promise<string> {
+/** Одноразовый промокод: HELLO-XXXXXX (или свой префикс), скидка на заказ, лимит 1 использование. */
+export async function createWelcomePromo(c: MedusaContainer, pct: number, prefix = "HELLO"): Promise<string> {
   const promotions = c.resolve(Modules.PROMOTION)
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = `HELLO-${[...randomBytes(6)].map((b) => alphabet[b % alphabet.length]).join("")}`
+    const code = `${prefix}-${[...randomBytes(6)].map((b) => alphabet[b % alphabet.length]).join("")}`
     try {
       await promotions.createPromotions({
         code,
@@ -57,6 +57,13 @@ export async function subscribeNewsletter(c: MedusaContainer, rawEmail: string, 
 
   const [existing] = (await svc(c).listNewsletterSubscribers({ email }, { take: 1 })) as unknown as Sub[]
   if (existing && !existing.unsubscribed_at) return { status: "already", promo: false }
+  // Запись-отказ из письма о брошенной корзине: подписки не было — подписываем как нового (с промокодом)
+  if (existing && (existing as Sub & { source?: string }).source === "unsubscribe" && !existing.promo_code) {
+    const code = settings.discount_pct > 0 ? await createWelcomePromo(c, settings.discount_pct) : null
+    await svc(c).updateNewsletterSubscribers({ id: existing.id, unsubscribed_at: null, promo_code: code, source } as never)
+    await sendMail(newsletterWelcomeMail(email, { code, pct: settings.discount_pct, unsubscribeUrl: unsubscribeUrl(email) }), logger).catch(() => null)
+    return { status: "subscribed", promo: !!code }
+  }
   if (existing) {
     await svc(c).updateNewsletterSubscribers({ id: existing.id, unsubscribed_at: null })
     await sendMail(newsletterWelcomeMail(email, { code: null, pct: 0, unsubscribeUrl: unsubscribeUrl(email) }), logger).catch(() => null)
@@ -77,9 +84,17 @@ export async function unsubscribeNewsletter(c: MedusaContainer, rawEmail: string
   if (got.length !== expected.length || !timingSafeEqual(got, expected)) return false
   const [sub] = (await svc(c).listNewsletterSubscribers({ email }, { take: 1 })) as unknown as Sub[]
   if (sub && !sub.unsubscribed_at) await svc(c).updateNewsletterSubscribers({ id: sub.id, unsubscribed_at: new Date() })
+  // Не подписчик (отписался из письма о брошенной корзине) — запоминаем отказ, чтобы больше не писать
+  if (!sub) await svc(c).createNewsletterSubscribers({ email, promo_code: null, source: "unsubscribe", unsubscribed_at: new Date() } as never)
   return true
 }
 
 export async function listSubscribers(c: MedusaContainer): Promise<Sub[]> {
   return (await svc(c).listNewsletterSubscribers({}, { take: 100000, order: { created_at: "DESC" } })) as unknown as Sub[]
+}
+
+/** Отписался ли адрес (от любых писем, кроме писем о заказах) */
+export async function isUnsubscribed(c: MedusaContainer, email: string): Promise<boolean> {
+  const [sub] = (await svc(c).listNewsletterSubscribers({ email: email.trim().toLowerCase() }, { take: 1 })) as unknown as Sub[]
+  return Boolean(sub?.unsubscribed_at)
 }
