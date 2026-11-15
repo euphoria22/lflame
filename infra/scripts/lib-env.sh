@@ -30,13 +30,24 @@ setup_backup_remote() {
     BACKUP_REMOTE="backup:${BACKUP_S3_BUCKET}"
   elif [ -n "${BACKUP_SFTP_HOST:-}" ] && [ -n "${BACKUP_SFTP_USER:-}" ] && [ -n "${BACKUP_SFTP_PASSWORD:-}" ]; then
     # Или по SFTP на другой хостинг (например, Beget: включить SSH-доступ в панели; пароль — от аккаунта хостинга)
-    export RCLONE_CONFIG_BACKUP_TYPE=sftp
+    # BACKUP_SFTP_PROTOCOL=ftp — тот же логин и пароль, но по FTP с шифрованием (TLS), если порт 22 недоступен
     export RCLONE_CONFIG_BACKUP_HOST="$BACKUP_SFTP_HOST"
     export RCLONE_CONFIG_BACKUP_USER="$BACKUP_SFTP_USER"
-    export RCLONE_CONFIG_BACKUP_PORT="${BACKUP_SFTP_PORT:-22}"
     RCLONE_CONFIG_BACKUP_PASS="$(rclone obscure "$BACKUP_SFTP_PASSWORD")"
     export RCLONE_CONFIG_BACKUP_PASS
-    export RCLONE_CONFIG_BACKUP_SHELL_TYPE=unix
+    if [ "${BACKUP_SFTP_PROTOCOL:-sftp}" = "ftp" ]; then
+      export RCLONE_CONFIG_BACKUP_TYPE=ftp
+      export RCLONE_CONFIG_BACKUP_PORT="${BACKUP_SFTP_PORT:-21}"
+      if [ "${BACKUP_FTP_TLS:-1}" = "1" ]; then
+        export RCLONE_CONFIG_BACKUP_EXPLICIT_TLS=true
+        # У хостинга сертификат часто выписан на общее имя сервера, а не на ваш поддомен
+        export RCLONE_CONFIG_BACKUP_NO_CHECK_CERTIFICATE=true
+      fi
+    else
+      export RCLONE_CONFIG_BACKUP_TYPE=sftp
+      export RCLONE_CONFIG_BACKUP_PORT="${BACKUP_SFTP_PORT:-22}"
+      export RCLONE_CONFIG_BACKUP_SHELL_TYPE=unix
+    fi
     # Не висеть молча, если хостинг недоступен
     export RCLONE_CONTIMEOUT=20s RCLONE_TIMEOUT=2m RCLONE_LOW_LEVEL_RETRIES=2 RCLONE_RETRIES=2
     BACKUP_REMOTE="backup:${BACKUP_SFTP_PATH:-laflamme-backups}"
