@@ -1,3 +1,5 @@
+import type { Assign } from "../../../lib/merch/autofill"
+
 /**
  * Мерчендайзинг: типы данных расстановки и каталог оборудования (по фото магазина).
  * Координаты в метрах: x — вдоль плана слева направо, y — сверху вниз; поворот — в градусах по часовой.
@@ -33,13 +35,19 @@ export type Item = {
   elev?: number
   label?: string
   note?: string
+  /** Закреплено: автораскладка не меняет товары на нём */
+  lock?: boolean
+  /** Ограничения для автораскладки: только эти категории / бренды */
+  cats?: string[]
+  brands?: string[]
 }
 
 export type Zone = { id: string; name: string; x: number; y: number; w: number; d: number; color: string; /** 1–5: насколько сильное место */ power: number }
 
 export type Background = { src: string; x: number; y: number; w: number; opacity: number }
 
-export type LayoutData = { room: Room; items: Item[]; zones: Zone[]; background?: Background | null }
+/** Товары на оборудовании: id единицы оборудования → список по порядку */
+export type LayoutData = { room: Room; items: Item[]; zones: Zone[]; background?: Background | null; assign?: Assign }
 
 export type Group = "hang" | "shelf" | "table" | "decor" | "service" | "build"
 

@@ -2,6 +2,7 @@ import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
+import type { Slot } from "../../../lib/merch/autofill"
 import { Item, LayoutData, Room, typeOf, WallFinish, WallSide, Zone } from "./catalog"
 
 /**
@@ -13,7 +14,9 @@ import { Item, LayoutData, Room, typeOf, WallFinish, WallSide, Zone } from "./ca
 export type ViewMode = "orbit" | "walk"
 export type CameraPreset = "corner" | "top" | "entrance"
 
-type Opts = { clothes: boolean; zones: boolean; selected: string | null }
+/** Вид и цвет настоящего товара в 3D */
+export type ProductLook = { kind: InstKind; color: string }
+type Opts = { clothes: boolean; zones: boolean; selected: string | null; looks?: Map<string, ProductLook> }
 type Callbacks = { onSelect: (id: string | null) => void; onMove: (id: string, x: number, y: number) => void }
 
 const DEG = Math.PI / 180
@@ -137,7 +140,7 @@ function garmentShape(kind: "tee" | "hoodie" | "jacket" | "pants") {
   return s
 }
 
-type InstKind = "tee" | "hoodie" | "jacket" | "pants" | "fold" | "shoe" | "bag" | "cap"
+export type InstKind = "tee" | "hoodie" | "jacket" | "pants" | "fold" | "shoe" | "bag" | "cap"
 
 export class MerchScene {
   private renderer: THREE.WebGLRenderer
@@ -304,11 +307,12 @@ export class MerchScene {
     const seen = new Set<string>()
     for (const it of data.items) {
       seen.add(it.id)
-      const key = JSON.stringify(it) + (opts.clothes ? "c" : "")
+      const slots = data.assign?.[it.id]
+      const key = JSON.stringify(it) + (opts.clothes ? "c" : "") + (slots ? JSON.stringify(slots.map((x) => [x.p, x.n, x.place, opts.looks?.get(x.p)?.color])) : "")
       const cached = this.itemCache.get(it.id)
       if (cached && cached.key === key && !clothesChanged) continue
       if (cached) this.removeGroup(cached.group)
-      const g = this.buildItem(it)
+      const g = this.buildItem(it, slots)
       this.itemsGroup.add(g)
       this.itemCache.set(it.id, { key, group: g })
     }
@@ -529,7 +533,7 @@ export class MerchScene {
     return m
   }
 
-  private buildItem(it: Item): THREE.Group {
+  private buildItem(it: Item, slots?: Slot[]): THREE.Group {
     const g = new THREE.Group()
     g.userData.id = it.id
     g.position.set(it.x, it.elev ?? 0, it.y)
@@ -540,12 +544,32 @@ export class MerchScene {
     const r = rng(it.id)
     const inst: { kind: InstKind; m: THREE.Matrix4; color: string }[] = []
     const clothes = this.opts.clothes
+    // Настоящие товары: очередь вещей по порядку (модель повторяется по числу вешалок/мест)
+    const queue = (place: "rail" | "shelf") => {
+      const out: ProductLook[] = []
+      for (const sl of slots ?? []) if (sl.place === place) {
+        const look = this.opts.looks?.get(sl.p) ?? { kind: place === "rail" ? "tee" : "fold", color: "#8a8d91" }
+        for (let k = 0; k < Math.max(1, sl.n); k++) out.push(look)
+      }
+      return out
+    }
+    const real = !!slots?.length
+    const railQ = real ? queue("rail") : null
+    const shelfQ = real ? queue("shelf") : null
 
     /** Вещи на штанге: от x0 до x1 на высоте y, в плоскости z */
     const hangRail = (x0: number, x1: number, y: number, z: number) => {
-      if (!clothes) return
       const step = 0.06
       const n = Math.floor((x1 - x0) / step)
+      if (railQ) {
+        for (let i = 0; i < n && railQ.length; i++) {
+          const look = railQ.shift()!
+          const m = new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 1, 1))
+          inst.push({ kind: look.kind, m, color: look.color })
+        }
+        return
+      }
+      if (!clothes) return
       const fill = 0.55 + r() * 0.35
       for (let i = 0; i < n; i++) {
         if (r() > fill) continue
@@ -557,8 +581,21 @@ export class MerchScene {
     }
     /** Выкладка на полке/столе: стопки, обувь, сумки */
     const onSurface = (x0: number, x1: number, y: number, z: number, what: "fold" | "shoe" | "bag" | "cap" | "mix", depth = 0.3) => {
-      if (!clothes) return
       const n = Math.max(1, Math.floor((x1 - x0) / 0.42))
+      if (shelfQ) {
+        for (let i = 0; i < n && shelfQ.length; i++) {
+          const look = shelfQ.shift()!
+          const x = x0 + ((i + 0.5) * (x1 - x0)) / n
+          if (look.kind === "fold") {
+            for (let k = 0; k < 3; k++) inst.push({ kind: "fold", m: new THREE.Matrix4().compose(V(x, y + 0.018 + k * 0.036, z), new THREE.Quaternion(), V(1, 1, 1)), color: look.color })
+          } else {
+            const lift = look.kind === "shoe" ? 0.055 : look.kind === "bag" ? 0.12 : 0
+            inst.push({ kind: look.kind, m: new THREE.Matrix4().compose(V(x, y + lift, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, look.kind === "shoe" ? 0.15 : 0, 0)), V(1, 1, 1)), color: look.color })
+          }
+        }
+        return
+      }
+      if (!clothes) return
       for (let i = 0; i < n; i++) {
         if (r() < 0.2) continue
         const kind: InstKind = what === "mix" ? (["fold", "cap", "bag"] as InstKind[])[Math.floor(r() * 3)] : what
@@ -637,14 +674,15 @@ export class MerchScene {
         ring.castShadow = true
         g.add(ring)
         for (let a = 0; a < 4; a++) this.pipe(g, V(0, h - 0.05, 0), V(Math.cos(a * Math.PI / 2) * R, h - 0.05, Math.sin(a * Math.PI / 2) * R), 0.012)
-        if (clothes) {
+        if (railQ || clothes) {
           const n = Math.floor((2 * Math.PI * R) / 0.07)
           for (let i = 0; i < n; i++) {
-            if (r() > 0.7) continue
+            if (railQ ? !railQ.length : r() > 0.7) continue
             const a = (i / n) * Math.PI * 2
             const k = r()
-            const kind: InstKind = k < 0.4 ? "tee" : k < 0.7 ? "hoodie" : "jacket"
-            inst.push({ kind, m: new THREE.Matrix4().compose(V(Math.cos(a) * R, h - 0.1, Math.sin(a) * R), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -a, 0)), V(1, 1, 1)), color: pickColor(r) })
+            const look = railQ?.shift()
+            const kind: InstKind = look?.kind ?? (k < 0.4 ? "tee" : k < 0.7 ? "hoodie" : "jacket")
+            inst.push({ kind, m: new THREE.Matrix4().compose(V(Math.cos(a) * R, h - 0.1, Math.sin(a) * R), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -a, 0)), V(1, 1, 1)), color: look?.color ?? pickColor(r) })
           }
         }
         break
@@ -681,7 +719,8 @@ export class MerchScene {
       }
       case "grid_panel": {
         this.part(g, S.grid, 0, h / 2, 0, w, h, 0.01)
-        if (clothes) for (let i = 0; i < 4; i++) inst.push({ kind: "bag", m: new THREE.Matrix4().compose(V(-w / 2 + (i + 0.5) * (w / 4), h * (0.45 + (i % 2) * 0.25), 0.08), new THREE.Quaternion(), V(0.8, 0.9, 0.7)), color: r() < 0.8 ? "#151515" : "#d9d9d6" })
+        if (shelfQ) onSurface(-w / 2 + 0.1, w / 2 - 0.1, h * 0.55, 0.08, "bag")
+        else if (clothes) for (let i = 0; i < 4; i++) inst.push({ kind: "bag", m: new THREE.Matrix4().compose(V(-w / 2 + (i + 0.5) * (w / 4), h * (0.45 + (i % 2) * 0.25), 0.08), new THREE.Quaternion(), V(0.8, 0.9, 0.7)), color: r() < 0.8 ? "#151515" : "#d9d9d6" })
         break
       }
       case "table_cube": {
@@ -720,7 +759,8 @@ export class MerchScene {
         const body = this.part(g, S.mannequin, 0, 1.3, 0, 1, 1, 1, new THREE.CapsuleGeometry(0.16, 0.45, 6, 16))
         body.scale.set(1, 1, 0.7)
         this.part(g, S.mannequin, 0, 1.73, 0, 0.1, 0.12, 0.1, new THREE.SphereGeometry(1, 16, 12))
-        if (clothes) inst.push({ kind: "jacket", m: new THREE.Matrix4().compose(V(0, 1.6, 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0)), V(1.6, 1, 1.15)), color: pickColor(r) })
+        const outer = railQ?.[0]
+        if (outer || clothes) inst.push({ kind: outer?.kind === "pants" ? "jacket" : outer?.kind ?? "jacket", m: new THREE.Matrix4().compose(V(0, 1.6, 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0)), V(1.6, 1, 1.15)), color: outer?.color ?? pickColor(r) })
         break
       }
       case "mirror":
@@ -848,6 +888,37 @@ export class MerchScene {
   private applyLook() {
     const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch))
     this.camera.lookAt(this.camera.position.clone().add(dir))
+  }
+
+  /** Снимок одной единицы оборудования спереди — картинка для задания консультанту */
+  shot(id: string, w = 960, h = 640): string | null {
+    const g = this.itemCache.get(id)?.group
+    if (!g || !this.room) return null
+    const box = new THREE.Box3().setFromObject(g, true)
+    const c = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const front = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion).setY(0).normalize()
+    const cam = new THREE.PerspectiveCamera(42, w / h, 0.05, 100)
+    const dist = Math.max(size.x, size.z, size.y * 0.9) * 1.25 + 0.9
+    cam.position.copy(c).addScaledVector(front, dist).setY(Math.max(1.2, c.y + 0.35))
+    // Не выходим за стены зала
+    cam.position.x = Math.min(this.room.width - 0.1, Math.max(0.1, cam.position.x))
+    cam.position.z = Math.min(this.room.length - 0.1, Math.max(0.1, cam.position.z))
+    cam.lookAt(c)
+    const sel = this.selBox
+    if (sel) sel.visible = false
+    const walls = Object.values(this.walls).map((wg) => wg.visible)
+    Object.values(this.walls).forEach((wg) => (wg.visible = true))
+    const prev = this.renderer.getPixelRatio()
+    this.renderer.setPixelRatio(1)
+    this.renderer.setSize(w, h, false)
+    this.renderer.render(this.scene, cam)
+    const url = this.renderer.domElement.toDataURL("image/jpeg", 0.82)
+    this.renderer.setPixelRatio(prev)
+    this.resize()
+    Object.values(this.walls).forEach((wg, i) => (wg.visible = walls[i]))
+    if (sel) sel.visible = true
+    return url
   }
 
   snapshot(): string {

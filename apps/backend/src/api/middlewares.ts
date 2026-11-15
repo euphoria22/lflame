@@ -29,6 +29,17 @@ export default defineMiddlewares({
       bodyParser: false,
     },
     {
+      // Мерчендайзинг: фото отчёта и снимки из 3D приходят в теле запроса (до ~4 МБ)
+      method: ["POST"],
+      matcher: "/staff/merch/*",
+      bodyParser: { sizeLimit: "8mb" },
+    },
+    {
+      method: ["POST"],
+      matcher: "/admin/merch/upload",
+      bodyParser: { sizeLimit: "8mb" },
+    },
+    {
       method: ["POST"],
       matcher: "/admin/moysklad/sync",
       middlewares: [validateAndTransformBody(MoyskladSyncBodySchema)],

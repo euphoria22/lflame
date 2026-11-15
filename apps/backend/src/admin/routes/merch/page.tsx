@@ -4,7 +4,10 @@ import { Badge, Button, Container, Heading, IconButton, Input, Label, Select, Sw
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CATALOG, capacity, draftLayout, FINISH_NAME, GROUP_COLOR, GROUP_NAME, Group, Item, LayoutData, Opening, typeOf, uid, WALL_NAME, WallFinish, WallSide, Zone } from "../../lib/merch/catalog"
 import { extents, Plan } from "../../lib/merch/plan"
-import type { CameraPreset, MerchScene, ViewMode } from "../../lib/merch/scene"
+import type { CameraPreset, MerchScene, ProductLook, ViewMode } from "../../lib/merch/scene"
+import { autofill, COLOR_HEX, kindOf, MProduct, Slot } from "../../../lib/merch/autofill"
+import { EquipProducts } from "../../lib/merch/products-ui"
+import { TasksBlock } from "../../lib/merch/tasks-ui"
 
 type LayoutInfo = { id: string; name: string; is_current: boolean; items: number; updated_at: string; author: string | null }
 
@@ -43,8 +46,8 @@ const NumField = ({ label, value, onChange, step = 0.05, suffix = "м", min = 0 
 }
 
 /** 3D-вид: three.js грузится только когда открыт */
-const Scene3D = ({ data, selected, clothes, zones, onSelect, onMove, sceneRef }: {
-  data: LayoutData; selected: string | null; clothes: boolean; zones: boolean
+const Scene3D = ({ data, selected, clothes, zones, looks, onSelect, onMove, sceneRef }: {
+  data: LayoutData; selected: string | null; clothes: boolean; zones: boolean; looks: Map<string, ProductLook>
   onSelect: (id: string | null) => void; onMove: (id: string, x: number, y: number) => void; sceneRef: React.MutableRefObject<MerchScene | null>
 }) => {
   const el = useRef<HTMLDivElement>(null)
@@ -65,7 +68,7 @@ const Scene3D = ({ data, selected, clothes, zones, onSelect, onMove, sceneRef }:
     }).catch((e: Error) => setError(e.message))
     return () => { alive = false; scene?.dispose(); sceneRef.current = null }
   }, [sceneRef])
-  useEffect(() => { if (ready) sceneRef.current?.setData(data, { clothes, zones, selected }) }, [ready, data, clothes, zones, selected, sceneRef])
+  useEffect(() => { if (ready) sceneRef.current?.setData(data, { clothes, zones, selected, looks }) }, [ready, data, clothes, zones, selected, looks, sceneRef])
   return (
     <div ref={el} className="relative h-full w-full overflow-hidden rounded-md bg-black">
       {!ready && !error && <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">Загрузка 3D…</div>}
@@ -88,6 +91,7 @@ const MerchPage = () => {
   const [clothes, setClothes] = useState(true)
   const [showZones, setShowZones] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
+  const [products, setProducts] = useState<MProduct[]>([])
   const history = useRef<LayoutData[]>([])
   const future = useRef<LayoutData[]>([])
   const committed = useRef<LayoutData | null>(null)
@@ -115,6 +119,19 @@ const MerchPage = () => {
   }, [open])
 
   useEffect(() => { loadList().catch((e: Error) => toast.error(e.message)) }, [loadList])
+  useEffect(() => {
+    api<{ products: MProduct[] }>("/products").then((d) => setProducts(d.products)).catch((e: Error) => toast.error(`Товары не загрузились: ${e.message}`))
+  }, [])
+  const pmap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
+  // Вид и цвет вещи в 3D: по категории и цвету товара
+  const looks = useMemo(() => {
+    const m = new Map<string, ProductLook>()
+    for (const sl of Object.values(data?.assign ?? {}).flat()) {
+      const p = pmap.get(sl.p)
+      m.set(sl.p, { kind: kindOf(p?.cat ?? null, sl.place), color: COLOR_HEX[p?.color ?? ""] ?? "#8a8d91" })
+    }
+    return m
+  }, [data?.assign, pmap])
 
   /** Изменение расстановки. live — промежуточный шаг перетаскивания (в историю попадёт одно действие) */
   const change = useCallback((d: LayoutData, live = false) => {
@@ -261,6 +278,35 @@ const MerchPage = () => {
     img.src = URL.createObjectURL(f)
   }
 
+  const setSlots = (id: string, slots: Slot[]) => {
+    if (!data) return
+    const assign = { ...(data.assign ?? {}) }
+    if (slots.length) assign[id] = slots
+    else delete assign[id]
+    change({ ...data, assign })
+  }
+  const runAutofill = (onlyEmpty: boolean) => {
+    if (!data) return
+    if (!products.length) { toast.error("Товары ещё загружаются"); return }
+    const assign = autofill(data.items, data.zones, data.room, products, data.assign ?? {}, { onlyEmpty })
+    change({ ...data, assign })
+    const n = Object.values(assign).reduce((a, s) => a + s.length, 0)
+    toast.success(`Разложено: ${n} моделей. Проверьте и сохраните — отменить можно Ctrl+Z`)
+  }
+  const clearAll = () => {
+    if (!data || !window.confirm("Убрать все товары с незакреплённого оборудования?")) return
+    const keep = Object.fromEntries(Object.entries(data.assign ?? {}).filter(([id]) => data.items.find((i) => i.id === id)?.lock))
+    change({ ...data, assign: keep })
+  }
+  const ensure3d = async () => {
+    if (view === "plan") setView("split")
+    for (let i = 0; i < 50 && !sceneRef.current; i++) await new Promise((r) => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 400))
+    return !!sceneRef.current
+  }
+  const usedIds = useMemo(() => new Set(Object.values(data?.assign ?? {}).flat().map((s) => s.p)), [data?.assign])
+  const placedCount = usedIds.size
+
   const totals = useMemo(() => {
     if (!data) return null
     const byType = new Map<string, number>()
@@ -281,7 +327,7 @@ const MerchPage = () => {
   const cur = layouts.find((l) => l.id === curId)
 
   const planEl = <Plan data={data} selected={selected} showZones={showZones} onSelect={setSelected} onChange={change} />
-  const sceneEl = <Scene3D data={data} selected={selected} clothes={clothes} zones={showZones} sceneRef={sceneRef}
+  const sceneEl = <Scene3D data={data} selected={selected} clothes={clothes} zones={showZones} looks={looks} sceneRef={sceneRef}
     onSelect={setSelected} onMove={(id, x, y) => patchItem(id, { x, y })} />
 
   return (
@@ -290,7 +336,7 @@ const MerchPage = () => {
       <Container className="flex flex-wrap items-center gap-3 px-6 py-4">
         <div className="mr-2">
           <Heading level="h2">Мерчендайзинг</Heading>
-          <Text size="small" className="text-ui-fg-subtle">План зала и оборудование. Раскладка товаров и задания консультантам — следующий шаг.</Text>
+          <Text size="small" className="text-ui-fg-subtle">План зала, товары на оборудовании и задания консультантам.</Text>
         </div>
         <Select value={curId ?? undefined} onValueChange={switchTo}>
           <Select.Trigger className="w-64"><Select.Value /></Select.Trigger>
@@ -390,8 +436,12 @@ const MerchPage = () => {
             ))}
             <div className="mx-2 h-5 w-px bg-ui-border-base" />
             <div className="flex items-center gap-2"><Switch checked={showZones} onCheckedChange={setShowZones} /><Text size="small">Зоны</Text></div>
+            <div className="mx-2 h-5 w-px bg-ui-border-base" />
+            <Button size="small" variant="secondary" disabled={!products.length} onClick={() => runAutofill(false)} title="По баллу умной сортировки, сезону и силе места; закреплённое не трогает">Разложить товары</Button>
+            <Button size="small" variant="transparent" disabled={!products.length} onClick={() => runAutofill(true)} title="Заполнить только пустое оборудование">Дополнить пустое</Button>
+            {placedCount > 0 && <Button size="small" variant="transparent" onClick={clearAll}>Убрать товары</Button>}
             {view !== "plan" && <>
-              <div className="flex items-center gap-2"><Switch checked={clothes} onCheckedChange={setClothes} /><Text size="small">Вещи (пример)</Text></div>
+              <div className="flex items-center gap-2" title="Пример вещей на пустом оборудовании; разложенные товары видны всегда"><Switch checked={clothes} onCheckedChange={setClothes} /><Text size="small">Примеры на пустом</Text></div>
               <div className="mx-2 h-5 w-px bg-ui-border-base" />
               <Button size="small" variant={mode === "orbit" ? "primary" : "secondary"} onClick={() => { setMode("orbit"); sceneRef.current?.setMode("orbit") }}>Обзор</Button>
               <Button size="small" variant={mode === "walk" ? "primary" : "secondary"} onClick={() => { setMode("walk"); sceneRef.current?.setMode("walk") }}>Пройтись по залу</Button>
@@ -458,6 +508,8 @@ const MerchPage = () => {
                     <Text size="xsmall">Вместимость: {cap.hang > 0 ? `≈ ${cap.hang} вещей на вешалках` : ""}{cap.hang > 0 && cap.shelves > 0 ? ", " : ""}{cap.shelves > 0 ? `${cap.shelves} ${cap.shelves === 1 ? "полка" : cap.shelves < 5 ? "полки" : "полок"}` : ""}</Text>
                   </div>
                 )}
+                <EquipProducts item={selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds}
+                  onSlots={(sl) => setSlots(selItem.id, sl)} onItem={(p) => patchItem(selItem.id, p)} />
                 <div className="flex flex-col gap-1">
                   <Label size="xsmall" className="text-ui-fg-subtle">Заметка</Label>
                   <Textarea rows={2} value={selItem.note ?? ""} onChange={(e) => patchItem(selItem.id, { note: e.target.value || undefined })} />
@@ -501,6 +553,7 @@ const MerchPage = () => {
             <div className="mt-2 flex flex-col gap-1 border-t border-ui-border-base pt-3">
               <Text size="small" weight="plus">В зале</Text>
               <Text size="xsmall">≈ {totals.hang} вещей на вешалках · {totals.shelves} полок</Text>
+              <Text size="xsmall">Разложено моделей: {placedCount} из {products.length} в наличии</Text>
               {[...totals.byType.entries()].sort((a, b) => b[1] - a[1]).map(([t, n]) => (
                 <div key={t} className="flex justify-between text-xs text-ui-fg-subtle"><span>{typeOf(t).name}</span><span>{n}</span></div>
               ))}
@@ -508,6 +561,7 @@ const MerchPage = () => {
           )}
         </Container>
       </div>
+      {curId && <TasksBlock layoutId={curId} layoutName={name} isCurrent={!!cur?.is_current} data={data} dirty={dirty} sceneRef={sceneRef} ensure3d={ensure3d} />}
     </div>
   )
 }
