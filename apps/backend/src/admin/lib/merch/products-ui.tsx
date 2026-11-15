@@ -57,6 +57,12 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
           <span className={railM > cap.railM + 0.01 ? "text-ui-fg-error" : ""}>{cap.railM > 0 && `штанга ${m(railM)} из ${m(cap.railM)} м · вешалок ${fill.rail}`}</span>{cap.railM > 0 && cap.shelf > 0 && " · "}{cap.shelf > 0 && `мест ${fill.shelf} из ${cap.shelf}`}
         </Text>
       </div>
+      {cap.railM > 0 && (
+        <div className="flex items-center gap-2">
+          <Switch checked={!!item.mix} onCheckedChange={(v) => onItem({ mix: v || undefined })} />
+          <Text size="xsmall">Микс — лучшие вещи разных брендов (без брендового блока)</Text>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Switch checked={!!item.lock} onCheckedChange={(v) => onItem({ lock: v || undefined })} />
         <Text size="xsmall">Закрепить — автораскладка не меняет</Text>

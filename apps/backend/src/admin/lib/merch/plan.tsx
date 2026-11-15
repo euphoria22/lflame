@@ -148,7 +148,7 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
         <g key={z.id}>
           <rect x={z.x} y={z.y} width={z.w} height={z.d} fill={z.color} fillOpacity={0.14} stroke={z.color} strokeOpacity={selected === z.id ? 1 : 0.6}
             strokeWidth={selected === z.id ? 0.05 : 0.025} strokeDasharray="0.12 0.08" style={{ cursor: "move" }} onPointerDown={(e) => startZone(e, z)} />
-          <text x={z.x + 0.12} y={z.y + 0.32} fontSize={0.24} fill={z.color} fontWeight={600} pointerEvents="none">{z.name} · {"★".repeat(z.power)}{z.role ? ` · ${ZONE_ROLE_NAME[z.role]}` : ""}</text>
+          <text x={z.x + 0.12} y={z.y + 0.32} fontSize={0.24} fill={z.color} fontWeight={600} pointerEvents="none">{z.name} · {"★".repeat(z.power)}{z.role ? ` · ${ZONE_ROLE_NAME[z.role]}` : ""}{z.brands?.length ? ` · ${z.brands.join(", ")}` : ""}</text>
           {selected === z.id && <rect x={z.x + z.w - 0.12} y={z.y + z.d - 0.12} width={0.24} height={0.24} fill="#fff" stroke={z.color} strokeWidth={0.03} style={{ cursor: "nwse-resize" }} onPointerDown={(e) => startZone(e, z, true)} />}
         </g>
       ))}
@@ -156,7 +156,7 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
       {[...data.items].sort((a, b) => (a.type === "track" ? 1 : 0) - (b.type === "track" ? 1 : 0)).map((it) => {
         const t = typeOf(it.type)
         const sel = selected === it.id
-        const col = GROUP_COLOR[t.group]
+        const col = it.type === "entrance" ? "#16a34a" : it.type === "window_item" ? "#3b82f6" : it.type === "block" ? "#52525b" : GROUP_COLOR[t.group]
         const track = it.type === "track"
         const warn = warnIds?.has(it.id)
         return (
@@ -173,9 +173,9 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
             {t.hangPerM && !t.round && <line x1={-it.w / 2 + 0.05} y1={0} x2={it.w / 2 - 0.05} y2={0} stroke="#1e3a8a" strokeOpacity={0.55} strokeWidth={0.02} />}
             {/* Лицевая сторона у пристенного */}
             {t.wall && !track && <line x1={-it.w / 2} y1={it.d / 2} x2={it.w / 2} y2={it.d / 2} stroke="#111" strokeOpacity={0.5} strokeWidth={0.03} />}
-            {(sel || hover === it.id || it.label || it.gender) && !track && (
+            {(sel || hover === it.id || it.label || it.gender || it.mix || it.brands?.length) && !track && (
               <text y={-it.d / 2 - 0.08} fontSize={0.2} textAnchor="middle" fill="#27272a" transform={it.rot > 90 && it.rot < 270 ? "rotate(180)" : undefined} pointerEvents="none">
-                {it.label || t.name}{it.gender === "women" ? " · жен." : it.gender === "men" ? " · муж." : ""}
+                {it.label || t.name}{it.gender === "women" ? " · жен." : it.gender === "men" ? " · муж." : ""}{it.mix ? " · микс" : it.brands?.length ? ` · ${it.brands.join(", ")}` : ""}
               </text>
             )}
           </g>

@@ -560,6 +560,12 @@ const MerchPage = () => {
               <Text size="small" weight="plus">Зона</Text>
               <Input size="small" value={selZone.name} onChange={(e) => patchZone(selZone.id, { name: e.target.value })} />
               <div className="flex flex-col gap-1">
+                <Label size="xsmall" className="text-ui-fg-subtle">Корнер бренда: только эти бренды (через запятую)</Label>
+                <Input size="small" placeholder="любые" defaultValue={(selZone.brands ?? []).join(", ")} key={`zb${selZone.id}`}
+                  onBlur={(e) => { const v = e.target.value.split(",").map((x) => x.trim()).filter(Boolean); patchZone(selZone.id, { brands: v.length ? v : undefined }) }} />
+                <Text size="xsmall" className="text-ui-fg-subtle">Всё оборудование в зоне берёт только эти бренды, если у самого оборудования бренды не заданы.</Text>
+              </div>
+              <div className="flex flex-col gap-1">
                 <Label size="xsmall" className="text-ui-fg-subtle">Роль зоны (правила раскладки)</Label>
                 <Select size="small" value={selZone.role ?? "none"} onValueChange={(v) => patchZone(selZone.id, { role: v === "none" ? null : (v as ZoneRole) })}>
                   <Select.Trigger><Select.Value /></Select.Trigger>

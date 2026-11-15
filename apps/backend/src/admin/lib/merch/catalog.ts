@@ -42,11 +42,13 @@ export type Item = {
   brands?: string[]
   /** Только мужское или только женское (унисекс подходит к обоим) */
   gender?: "men" | "women"
+  /** «Микс»: лучшие вещи разных брендов, без брендового блока */
+  mix?: boolean
   /** Квадратная стойка: закрытые вручную стороны */
   closed?: ("front" | "back" | "left" | "right")[]
 }
 
-export type Zone = { id: string; name: string; x: number; y: number; w: number; d: number; color: string; /** 1–5: насколько сильное место */ power: number; /** Роль зоны: от неё зависят правила раскладки */ role?: ZoneRole | null }
+export type Zone = { id: string; name: string; x: number; y: number; w: number; d: number; color: string; /** 1–5: насколько сильное место */ power: number; /** Роль зоны: от неё зависят правила раскладки */ role?: ZoneRole | null; /** Корнер бренда: всё оборудование в зоне — только эти бренды */ brands?: string[] }
 
 export type Background = { src: string; x: number; y: number; w: number; opacity: number }
 
@@ -113,8 +115,11 @@ export const CATALOG: EquipType[] = [
   { type: "mannequin", name: "Манекен", group: "decor", w: 0.5, d: 0.35, h: 1.85, hint: "Готовый образ" },
   { type: "mirror", name: "Зеркало", group: "decor", w: 0.8, d: 0.06, h: 2.0, wall: true, hint: "" },
   { type: "fitting", name: "Примерочная", group: "service", w: 1.2, d: 1.2, h: 2.4, hint: "Шторы чёрные" },
-  { type: "cash", name: "Ресепшен", group: "service", w: 2.4, d: 0.6, h: 1.2, hint: "Нержавейка: слева низкая часть с витриной под стеклом для мелких аксессуаров, справа стойка 120 см с полкой-козырьком" },
+  { type: "cash", name: "Ресепшен (стойка)", group: "service", w: 1.5, d: 0.6, h: 1.2, hint: "Нержавейка: стенка 120 см с полкой-козырьком 29,5 см, внутри рабочая поверхность 48 см. Вместе с «Витриной ресепшена» — буква Г" },
+  { type: "showcase", name: "Витрина ресепшена", group: "service", w: 1.05, d: 0.6, h: 1.0, hint: "Низкая часть ресепшена со стеклом — мелкие аксессуары" },
   { type: "column", name: "Колонна", group: "build", w: 0.5, d: 0.5, h: 4.5, hint: "" },
+  { type: "entrance", name: "Вход", group: "build", w: 1.2, d: 0.1, h: 2.2, wall: true, hint: "Входная дверь — ставится на любую стену; от неё считается сила места и вид «От входа»" },
+  { type: "window_item", name: "Окно", group: "build", w: 0.8, d: 0.06, h: 1.4, elev: 0.9, wall: true, hint: "Окно в стене" },
   { type: "block", name: "Не наша площадь", group: "build", w: 3.0, d: 3.0, h: 4.6, hint: "Часть прямоугольника, которая не относится к магазину: в 3D — стены, проходы считаются до неё" },
   { type: "partition", name: "Перегородка", group: "build", w: 3.0, d: 0.1, h: 3.0, hint: "Матовое стекло — отделяет склад" },
   { type: "track", name: "Трек освещения", group: "build", w: 8.0, d: 0.05, h: 0.05, elev: 4.2, hint: "Чёрный трек со споты" },
@@ -156,16 +161,22 @@ export function draftLayout(): LayoutData {
       height: 4.6,
       eave: 2.9,
       walls: { top: "white", right: "white", bottom: "brick", left: "brick" },
-      openings: [{ id: uid(), kind: "door", wall: "left", offset: 2.2, width: 1.4 }],
+      openings: [],
     },
     items: [
-      // Не наша площадь: под коридором и под ресепшеном
+      // Не наша площадь: подсобные помещения с дверями (сверху слева), стена с окном слева, всё под коридором
+      it("block", 9.6 / 2, 2.6 / 2, 0, { w: 9.6, d: 2.6, h: 4.6, label: "Подсобные помещения" }),
+      it("block", 0.55 / 2, (2.6 + 5.6) / 2, 0, { w: 0.55, d: 3.0, h: 4.6 }),
       it("block", (5.9 + HX) / 2, (4.1 + 8.6) / 2, 0, { w: HX - 5.9, d: 8.6 - 4.1, h: 4.6 }),
       it("block", 5.9 / 2, (5.6 + 8.6) / 2, 0, { w: 5.9, d: 3.0, h: 4.6 }),
-      // Вход и ресепшен слева, вдоль коридора — две примерочные
-      it("cash", 3.2, 5.25, 180, { w: 2.4, d: 0.6, label: "Ресепшен" }),
-      it("fitting", HX - 3.75, 1.3, 0, { w: 2.4, d: 2.4 }), it("fitting", HX - 1.25, 1.3, 0, { w: 2.4, d: 2.4 }),
-      it("track", HX / 2 + 0.5, 3.1, 0, { w: HX - 1, elev: 3.4 }),
+      // Вход снизу, окно в левой стене; ресепшен буквой Г: витрина вдоль входа, стойка упирается в колонну
+      it("entrance", 1.5, 5.55, 180, { w: 1.2 }),
+      it("window_item", 0.58, 3.9, 90, { w: 0.8 }),
+      it("showcase", 2.25, 5.1, 90, { w: 1.0 }),
+      it("cash", 3.3, 4.47, 180, { w: 1.5, label: "Ресепшен" }),
+      it("column", 4.3, 4.35, 0, { w: 0.4, d: 0.4, h: 4.6 }),
+      it("fitting", HX - 3.65, 1.3, 0, { w: 2.4, d: 2.4 }), it("fitting", HX - 1.25, 1.3, 0, { w: 2.4, d: 2.4 }),
+      it("track", (0.8 + HX) / 2, 3.35, 0, { w: HX - 0.8, elev: 3.4 }),
       // Зал
       rail(2.28, 0.53), rail(4.37, 0.53), rail(7.1, 0.53), rail(9.25, 0.53), rail(11.34, 0.53), rail(13.41, 0.53),
       rail(5.89, 1.51, 90), rail(10.33, 1.58, 90), rail(13.99, 1.63, 90), rail(13.99, 3.08, 90),
@@ -190,7 +201,7 @@ export function draftLayout(): LayoutData {
       ...[7.1, 8.18, 9.25].map((x) => h("wall_shelf_s", x, 0.15, 0, { elev: 1.95 })),
     ],
     zones: [
-      { id: uid(), name: "Вход и ресепшен", x: 0, y: 0, w: 6, d: 5.6, color: "#a1a1aa", power: 2, role: "entry" },
+      { id: uid(), name: "Вход и ресепшен", x: 0.55, y: 2.6, w: 5.4, d: 3.0, color: "#a1a1aa", power: 2, role: "entry" },
       { id: uid(), name: "Фокус при входе в зал", x: HX, y: 1.0, w: 3.4, d: 3.1, color: "#ef4444", power: 5, role: "focus" },
       { id: uid(), name: "Обувь", x: HX, y: 4.1, w: 5.0, d: 4.5, color: "#f59e0b", power: 3, role: "back" },
       { id: uid(), name: "Центр", x: HX + 3.9, y: 3.3, w: 6.9, d: 3.1, color: "#3b82f6", power: 4, role: "center" },

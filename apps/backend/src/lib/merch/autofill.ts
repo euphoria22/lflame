@@ -52,9 +52,9 @@ export type Assign = Record<string, Slot[]>
 
 export type ZoneRole = "entry" | "focus" | "wall" | "center" | "cash" | "fitting" | "back" | "sale"
 export type Side = "front" | "back" | "left" | "right"
-export type EquipLike = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; rot?: number; lock?: boolean; cats?: string[]; brands?: string[]; gender?: "men" | "women"; /** Закрытые стороны квадратной стойки */ closed?: Side[] }
-export type ZoneLike = { x: number; y: number; w: number; d: number; power: number; role?: ZoneRole | null; name?: string }
-export type RoomLike = { width: number; length: number; openings: { kind: string; wall: string; offset: number; width: number }[] }
+export type EquipLike = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; rot?: number; lock?: boolean; cats?: string[]; brands?: string[]; gender?: "men" | "women"; /** Закрытые стороны квадратной стойки */ closed?: Side[]; /** «Микс»: лучшие вещи разных брендов, без брендового блока */ mix?: boolean }
+export type ZoneLike = { x: number; y: number; w: number; d: number; power: number; role?: ZoneRole | null; name?: string; /** Корнер бренда */ brands?: string[] }
+export type RoomLike = { width: number; length: number; openings: { kind: string; wall: string; offset: number; width: number }[]; /** Вход, поставленный элементом на плане */ entrance?: { x: number; y: number } }
 
 // ── Правила выкладки (раздел «Правила» в админке) ──
 
@@ -272,8 +272,8 @@ export function capacityOf(e: EquipLike): Capacity {
     case "table_cube":
     case "table_white": return { ...none, shelf: Math.min(8, Math.max(1, Math.floor((e.w * e.d) / 0.2))), shelfCats: TABLE_CATS }
     case "podium": return { ...none, shelf: 1, shelfCats: ["obuv", "sumki-i-ryukzaki", "golovnye-ubory"] }
-    // Ресепшен: витрина под стеклом — мелкие аксессуары в два ряда
-    case "cash": return { ...none, shelf: 2 * perLen(Math.min(1.053, e.w * 0.45) - 0.2, 0.2), shelfCats: ["aksessuary", "nizhnee-bele-i-noski"] }
+    // Витрина ресепшена под стеклом — мелкие аксессуары в два ряда
+    case "showcase": return { ...none, shelf: 2 * perLen(e.w - 0.2, 0.2), shelfCats: ["aksessuary", "nizhnee-bele-i-noski"] }
     case "mannequin": return { ...none, rail: 3, railM: 0.2, railCats: HANG_CATS }
     default: return none
   }
@@ -324,9 +324,10 @@ export function strengthOf(e: EquipLike, zones: ZoneLike[], room: RoomLike): num
   const z = zoneOf(e, zones)
   const power = z ? z.power : 2
   const door = room.openings.find((o) => o.kind === "door")
-  if (!door) return power
-  const mid = door.offset + door.width / 2
-  const pt = door.wall === "top" ? [mid, 0] : door.wall === "bottom" ? [mid, room.length] : door.wall === "left" ? [0, mid] : [room.width, mid]
+  if (!door && !room.entrance) return power
+  const mid = door ? door.offset + door.width / 2 : 0
+  const pt = room.entrance ? [room.entrance.x, room.entrance.y]
+    : door!.wall === "top" ? [mid, 0] : door!.wall === "bottom" ? [mid, room.length] : door!.wall === "left" ? [0, mid] : [room.width, mid]
   const dist = Math.hypot(e.x - pt[0], e.y - pt[1])
   const diag = Math.hypot(room.width, room.length) || 1
   return power + 2 * (1 - Math.min(1, dist / diag))
@@ -421,7 +422,14 @@ export function closedSides(e: EquipLike, items: EquipLike[], room?: { width: nu
 }
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y)
 
-export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, products: MProduct[], current: Assign, opts: AutofillOpts = {}): Assign {
+/** Вход элементом «Вход» на плане важнее двери в стене */
+export function withEntrance(room: RoomLike, items: EquipLike[]): RoomLike {
+  const e = items.find((i) => i.type === "entrance")
+  return e ? { ...room, entrance: { x: e.x, y: e.y } } : room
+}
+
+export function autofill(items: EquipLike[], zones: ZoneLike[], rawRoom: RoomLike, products: MProduct[], current: Assign, opts: AutofillOpts = {}): Assign {
+  const room = withEntrance(rawRoom, items)
   const S = opts.settings ?? DEFAULT_SETTINGS
   const byId = new Map(products.map((p) => [p.id, p]))
   const placed = new Set<string>()
@@ -466,6 +474,8 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
     if (placed.has(p.id) || !p.cat || !cats.includes(p.cat)) return false
     if (e.cats?.length && !e.cats.includes(p.cat)) return false
     if (e.brands?.length && !e.brands.includes(p.brand ?? "")) return false
+    // Корнер бренда: зона задаёт бренды, если у самого оборудования они не заданы
+    if (!e.brands?.length && zone?.brands?.length && !zone.brands.includes(p.brand ?? "")) return false
     // Только мужское / только женское; унисекс подходит к обоим
     if (e.gender && p.gender && p.gender !== "unisex" && p.gender !== e.gender) return false
     // Outlet — только в зоне распродажи, и в зоне распродажи — только Outlet
@@ -504,7 +514,9 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
       const pool = avail.filter((p) => fits(p, e, cats, zone))
       if (!pool.length) break
       const groups = new Map<string, MProduct[]>()
-      for (const p of pool) groups.set(p.brand ?? "—", [...(groups.get(p.brand ?? "—") ?? []), p])
+      // «Микс»: одна общая группа — лучшие вещи разных брендов
+      if (e.mix) groups.set("микс", pool)
+      else for (const p of pool) groups.set(p.brand ?? "—", [...(groups.get(p.brand ?? "—") ?? []), p])
       let best: { brand: string; list: MProduct[]; value: number } | null = null
       for (const [brand, list] of groups) {
         // Ценность бренда для места: средний балл того, что поместится, × насколько он заполнит место

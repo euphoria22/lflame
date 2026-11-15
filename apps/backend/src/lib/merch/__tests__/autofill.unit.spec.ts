@@ -112,3 +112,18 @@ describe("квадратная стойка у колонны", () => {
     expect(len).toBeCloseTo(2 * 1.2 + 1.4, 5)
   })
 })
+
+describe("корнер бренда и микс", () => {
+  const ps = [...Array.from({ length: 6 }, (_, i) => prod("A", "kurtki", 0.9 - i * 0.01)), ...Array.from({ length: 6 }, (_, i) => prod("B", "kurtki", 0.8 - i * 0.01))]
+  const rack = { id: "r", type: "rack_base", x: 3, y: 3, w: 1.8, d: 0.4, h: 1.55 }
+  it("зона-корнер: только её бренд", () => {
+    const r = autofill([rack], [{ x: 2, y: 2, w: 2, d: 2, power: 3, brands: ["B"] }], room, ps, {})
+    expect(r.r.every((s) => pById(ps, s.p).brand === "B")).toBe(true)
+  })
+  it("микс: разные бренды на одной стойке", () => {
+    const r = autofill([{ ...rack, w: 4 }], [], room, ps, {}, { settings: { ...DEFAULT_SETTINGS, levels: { ...DEFAULT_SETTINGS.levels, premium: { ...DEFAULT_SETTINGS.levels.premium, spacing: 1 } } } })
+    const r2 = autofill([{ ...rack, w: 4, mix: true }], [], room, ps, {})
+    expect(new Set(r2.r.map((s) => pById(ps, s.p).brand)).size).toBe(2)
+    expect(r.r.length).toBeGreaterThan(0)
+  })
+})

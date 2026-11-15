@@ -11,7 +11,7 @@ export type CheckOpts = { aisle?: number; mainAisle?: number; /** Ширина �
 type Pt = { x: number; y: number }
 
 /** Не мешают проходу: висят на стене или под потолком */
-const AIRBORNE = new Set(["track", "wall_shelf", "wall_shelf_s", "grid_panel", "mirror"])
+const AIRBORNE = new Set(["track", "wall_shelf", "wall_shelf_s", "grid_panel", "mirror", "entrance", "window_item"])
 /** Конструкция помещения — проходы до неё не считаем */
 const STRUCTURE = new Set(["column", "partition", "block"])
 /** Штанги: одежда на плечиках шире самой стойки */
@@ -34,7 +34,9 @@ function overlap(a: Pt[], b: Pt[]): boolean {
       const nx = q.y - p.y, ny = p.x - q.x
       const proj = (pts: Pt[]) => pts.map((v) => v.x * nx + v.y * ny)
       const pa = proj(a), pb = proj(b)
-      if (Math.max(...pa) <= Math.min(...pb) + 1e-6 || Math.max(...pb) <= Math.min(...pa) + 1e-6) return false
+      // Касание (до 1 см заступа) — не пересечение: стойка вплотную к стене, части ресепшена встык
+      const tol = 0.01 * Math.hypot(nx, ny)
+      if (Math.max(...pa) <= Math.min(...pb) + tol || Math.max(...pb) <= Math.min(...pa) + tol) return false
     }
   }
   return true
@@ -79,7 +81,9 @@ export function checkLayout(items: CheckItem[], room: CheckRoom, names: Record<s
   for (let i = 0; i < floor.length; i++) {
     for (let j = i + 1; j < floor.length; j++) {
       const a = floor[i], b = floor[j]
-      const g = gap(poly.get(a.id)!, poly.get(b.id)!)
+      const pa = poly.get(a.id)!, pb = poly.get(b.id)!
+      // Касание (вплотную) — не ошибка; ошибка — когда заходят друг на друга
+      const g = overlap(pa, pb) ? 0 : Math.max(0.001, gap(pa, pb))
       if (g === 0) {
         out.push({ level: "error", text: `${nameOf(a, names)} и ${nameOf(b, names)} стоят друг на друге`, ids: [a.id, b.id] })
       } else if (g < aisle && !STRUCTURE.has(a.type) && !STRUCTURE.has(b.type)) {
@@ -91,12 +95,16 @@ export function checkLayout(items: CheckItem[], room: CheckRoom, names: Record<s
     }
   }
   // Вход: перед дверью свободно 1,2 м; высокое (выше 1,4 м) в первых 3 м закрывает обзор зала
-  for (const door of room.openings.filter((o) => o.kind === "door")) {
+  const doors: Pt[][] = room.openings.filter((o) => o.kind === "door").map((door) => {
     const mid = door.offset + door.width / 2
     const pt = door.wall === "top" ? { x: mid, y: 0 } : door.wall === "bottom" ? { x: mid, y: room.length } : door.wall === "left" ? { x: 0, y: mid } : { x: room.width, y: mid }
-    const doorPoly: Pt[] = door.wall === "top" || door.wall === "bottom"
+    return door.wall === "top" || door.wall === "bottom"
       ? [{ x: door.offset, y: pt.y }, { x: door.offset + door.width, y: pt.y }]
       : [{ x: pt.x, y: door.offset }, { x: pt.x, y: door.offset + door.width }]
+  })
+  // Вход, поставленный элементом «Вход» на любую стену: его лицевая кромка
+  for (const e of items.filter((i) => i.type === "entrance")) { const c = corners(e); doors.push([c[2], c[3]]) }
+  for (const doorPoly of doors) {
     for (const it of floor) {
       const c = poly.get(it.id)!
       const d = Math.min(...c.map((p) => segDist(p, doorPoly[0], doorPoly[1])), ...doorPoly.map((p) => Math.min(...c.map((q, k) => segDist(p, q, c[(k + 1) % 4])))))

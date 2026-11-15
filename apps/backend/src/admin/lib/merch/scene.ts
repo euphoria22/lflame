@@ -181,6 +181,8 @@ export class MerchScene {
   private ceilingGroup = new THREE.Group()
   private walls: Record<WallSide, THREE.Group> = { top: new THREE.Group(), right: new THREE.Group(), bottom: new THREE.Group(), left: new THREE.Group() }
   private itemCache = new Map<string, { key: string; group: THREE.Group }>()
+  /** Вход, поставленный элементом на плане (важнее двери в стене) */
+  private entranceItem: Item | null = null
   private roomKey = ""
   private zonesKey = ""
   private sun: THREE.DirectionalLight
@@ -338,6 +340,7 @@ export class MerchScene {
     }
     // Оборудование: пересобираем только изменённое
     const seen = new Set<string>()
+    this.entranceItem = data.items.find((i) => i.type === "entrance") ?? null
     for (const raw of data.items) {
       // Квадратная стойка: сторона у колонны или стены закрыта — вещи там не висят
       const it = raw.type === "rack_square" ? { ...raw, closed: closedSides(raw, data.items, data.room) } : raw
@@ -873,23 +876,38 @@ export class MerchScene {
         break
       }
       case "cash": {
-        // Ресепшен из нержавейки: слева низкая часть (до 105 см) с витриной под стеклом для мелких аксессуаров,
-        // справа высокая стойка с полкой-козырьком 29,5 см; со стороны продавца — рабочая поверхность 48 см
-        const a = Math.min(1.053, w * 0.45)
-        const lowH = Math.min(0.92, h - 0.2)
-        const xa = -w / 2 + a / 2, xb = -w / 2 + a + (w - a) / 2
-        this.part(g, S.brushed, xa, lowH / 2, 0, a, lowH, d)
-        this.part(g, S.glass, xa, lowH + 0.08, 0, a - 0.02, 0.16, d - 0.02)
-        this.part(g, S.brushed, xa, lowH + 0.16, 0, a, 0.006, d)
-        onSurface(-w / 2 + 0.1, -w / 2 + a - 0.1, lowH + 0.005, d / 4, "bag")
-        onSurface(-w / 2 + 0.1, -w / 2 + a - 0.1, lowH + 0.005, -d / 4, "bag")
-        // Высокая часть: передняя стенка и бока, козырёк сверху, внутри — рабочая поверхность
-        this.part(g, S.brushed, xb, h / 2, d / 2 - 0.01, w - a, h, 0.02)
-        this.part(g, S.brushed, w / 2 - 0.01, h / 2, 0, 0.02, h, d)
-        this.part(g, S.brushed, -w / 2 + a + 0.01, h / 2, 0, 0.02, h, d)
-        this.part(g, S.brushed, xb, h - 0.01, d / 2 - 0.1475, w - a, 0.02, 0.295)
-        this.part(g, S.brushed, xb, 0.75, -d / 2 + 0.242, w - a - 0.04, 0.02, 0.484)
-        this.part(g, S.black, xb + (w - a) / 4, 0.86, -d / 2 + 0.2, 0.32, 0.22, 0.02)
+        // Стойка ресепшена (нержавейка): передняя стенка до 120 см с полкой-козырьком 29,5 см, внутри — рабочая поверхность 48 см
+        this.part(g, S.brushed, 0, h / 2, d / 2 - 0.01, w, h, 0.02)
+        for (const sx of [-1, 1]) this.part(g, S.brushed, sx * (w / 2 - 0.01), h / 2, 0, 0.02, h, d)
+        this.part(g, S.brushed, 0, h - 0.01, d / 2 - 0.1475, w, 0.02, 0.295)
+        this.part(g, S.brushed, 0, 0.75, -d / 2 + 0.242, w - 0.04, 0.02, 0.484)
+        this.part(g, S.black, w / 4, 0.86, -d / 2 + 0.2, 0.32, 0.22, 0.02)
+        break
+      }
+      case "showcase": {
+        // Витрина ресепшена: короб из нержавейки, сверху стекло, под ним мелкие аксессуары
+        const lowH = Math.max(0.5, h - 0.16)
+        this.part(g, S.brushed, 0, lowH / 2, 0, w, lowH, d)
+        this.part(g, S.glass, 0, lowH + 0.08, 0, w - 0.02, 0.16, d - 0.02)
+        this.part(g, S.brushed, 0, h, 0, w, 0.006, d)
+        onSurface(-w / 2 + 0.1, w / 2 - 0.1, lowH + 0.005, d / 4, "bag")
+        onSurface(-w / 2 + 0.1, w / 2 - 0.1, lowH + 0.005, -d / 4, "bag")
+        break
+      }
+      case "entrance": {
+        // Вход: тёмный проём с рамой из нержавейки, перед ним — коврик
+        this.part(g, this.mats.black, 0, h / 2, -d / 2, w, h, 0.03)
+        for (const sx of [-1, 1]) this.part(g, S.brushed, sx * (w / 2), h / 2, -d / 2 + 0.03, 0.05, h, 0.06)
+        this.part(g, S.brushed, 0, h, -d / 2 + 0.03, w + 0.05, 0.05, 0.06)
+        const mat = this.part(g, new THREE.MeshStandardMaterial({ color: "#2b2b2d", roughness: 1 }), 0, 0.005, 0.5, w, 0.01, 0.9)
+        mat.castShadow = false
+        break
+      }
+      case "window_item": {
+        // Окно в стене: рама и стекло (высота крепления — низ окна)
+        this.part(g, S.glass, 0, h / 2, 0, w, h, 0.02)
+        for (const sx of [-1, 1]) this.part(g, S.black, sx * (w / 2), h / 2, 0, 0.05, h, 0.08)
+        for (const y of [0, h]) this.part(g, S.black, 0, y, 0, w + 0.05, 0.05, 0.08)
         break
       }
       case "column":
@@ -987,6 +1005,13 @@ export class MerchScene {
   /** Точка чуть внутри входной двери (или середина нижней стены) */
   private entrance() {
     const room = this.room!
+    const ei = this.entranceItem
+    if (ei) {
+      // Стоим перед входом, лицом наружу от его стены (в магазин)
+      const a = (ei.rot * Math.PI) / 180
+      const dx = -Math.sin(a), dy = Math.cos(a)
+      return { x: ei.x + dx * 0.6, z: ei.y + dy * 0.6, yaw: Math.atan2(dx, dy) }
+    }
     const door = room.openings.find((o) => o.kind === "door")
     if (!door) return { x: room.width / 2, z: room.length - 0.25, yaw: Math.PI }
     const mid = door.offset + door.width / 2
