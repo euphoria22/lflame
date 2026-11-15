@@ -1,10 +1,11 @@
 import { Badge, Button, IconButton, Input, Label, Switch, Text } from "@medusajs/ui"
 import { useMemo, useState } from "react"
-import { capacityOf, CAT_NAME, MProduct, Place, Slot, usedOf } from "../../../lib/merch/autofill"
+import { capacityOf, CAT_NAME, facingsOf, levelOf, MerchSettings, MProduct, Place, railCapacityFor, Slot, usedOf } from "../../../lib/merch/autofill"
 import { Item } from "./catalog"
 
 /** Товары на выбранном оборудовании: порядок, удаление, добавление поиском, закрепление и ограничения для автораскладки */
-export function EquipProducts({ item, slots, products, used, onSlots, onItem }: {
+export function EquipProducts({ item, slots, products, used, settings, onSlots, onItem }: {
+  settings: MerchSettings
   item: Item
   slots: Slot[]
   products: Map<string, MProduct>
@@ -15,6 +16,9 @@ export function EquipProducts({ item, slots, products, used, onSlots, onItem }: 
 }) {
   const cap = capacityOf(item)
   const fill = usedOf(slots)
+  // Норма вешалок — по уровню бренда, который висит на оборудовании (или уровню по умолчанию)
+  const firstBrand = slots.map((s) => products.get(s.p)).find(Boolean)
+  const railNorm = cap.railM ? railCapacityFor(item, firstBrand ? levelOf(firstBrand, settings) : settings.default_level, settings) : 0
   const [q, setQ] = useState("")
   const allowed = useMemo(() => [...new Set([...cap.railCats, ...cap.shelfCats])], [cap.railCats, cap.shelfCats])
   const results = useMemo(() => {
@@ -32,7 +36,7 @@ export function EquipProducts({ item, slots, products, used, onSlots, onItem }: 
   if (!cap.rail && !cap.shelf) return null
   const add = (p: MProduct) => {
     const place: Place = cap.railCats.includes(p.cat ?? "") && cap.rail > 0 ? "rail" : "shelf"
-    onSlots([...slots, { p: p.id, n: place === "rail" ? Math.min(3, Math.max(1, p.sizes.length)) : 1, place }])
+    onSlots([...slots, { p: p.id, n: facingsOf(p, place, settings), place }])
     setQ("")
   }
   const move = (i: number, d: number) => {
@@ -49,7 +53,7 @@ export function EquipProducts({ item, slots, products, used, onSlots, onItem }: 
       <div className="flex items-center justify-between">
         <Text size="small" weight="plus">Товары</Text>
         <Text size="xsmall" className="text-ui-fg-subtle">
-          {cap.rail > 0 && `вешалок ${fill.rail} из ${cap.rail}`}{cap.rail > 0 && cap.shelf > 0 && " · "}{cap.shelf > 0 && `мест ${fill.shelf} из ${cap.shelf}`}
+          {railNorm > 0 && `вешалок ${fill.rail} из ${railNorm}`}{railNorm > 0 && cap.shelf > 0 && " · "}{cap.shelf > 0 && `мест ${fill.shelf} из ${cap.shelf}`}
         </Text>
       </div>
       <div className="flex items-center gap-2">
@@ -104,6 +108,8 @@ export function EquipProducts({ item, slots, products, used, onSlots, onItem }: 
                 </div>
               </div>
               <div className="flex flex-none items-center">
+                <button type="button" title="Лицом вперёд (главная вещь)" onClick={() => onSlots(slots.map((x, j) => (j === i ? { ...x, face: !x.face || undefined } : x)))}
+                  className={`mr-1 rounded px-1 text-[10px] ${s.face ? "bg-ui-tag-blue-bg text-ui-tag-blue-text" : "text-ui-fg-muted"}`}>лицом</button>
                 <Text size="xsmall" className="w-8 text-right text-ui-fg-subtle" title={s.place === "rail" ? "вешалок" : "мест"}>{s.n}{s.place === "rail" ? "в" : "м"}</Text>
                 <IconButton size="2xsmall" variant="transparent" onClick={() => move(i, -1)} title="Выше">↑</IconButton>
                 <IconButton size="2xsmall" variant="transparent" onClick={() => move(i, 1)} title="Ниже">↓</IconButton>

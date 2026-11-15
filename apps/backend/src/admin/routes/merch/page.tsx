@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CATALOG, capacity, draftLayout, FINISH_NAME, GROUP_COLOR, GROUP_NAME, Group, Item, LayoutData, Opening, typeOf, uid, WALL_NAME, WallFinish, WallSide, Zone } from "../../lib/merch/catalog"
 import { extents, Plan } from "../../lib/merch/plan"
 import type { CameraPreset, MerchScene, ProductLook, ViewMode } from "../../lib/merch/scene"
-import { autofill, COLOR_HEX, kindOf, MProduct, Slot } from "../../../lib/merch/autofill"
+import { autofill, COLOR_HEX, DEFAULT_SETTINGS, kindOf, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
+import { RulesBlock } from "../../lib/merch/rules-ui"
 import { EquipProducts } from "../../lib/merch/products-ui"
 import { TasksBlock } from "../../lib/merch/tasks-ui"
 
@@ -92,6 +93,7 @@ const MerchPage = () => {
   const [showZones, setShowZones] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [products, setProducts] = useState<MProduct[]>([])
+  const [settings, setSettings] = useState<MerchSettings>(DEFAULT_SETTINGS)
   const history = useRef<LayoutData[]>([])
   const future = useRef<LayoutData[]>([])
   const committed = useRef<LayoutData | null>(null)
@@ -121,6 +123,7 @@ const MerchPage = () => {
   useEffect(() => { loadList().catch((e: Error) => toast.error(e.message)) }, [loadList])
   useEffect(() => {
     api<{ products: MProduct[] }>("/products").then((d) => setProducts(d.products)).catch((e: Error) => toast.error(`Товары не загрузились: ${e.message}`))
+    api<{ settings: MerchSettings }>("/settings").then((d) => setSettings(d.settings)).catch(() => undefined)
   }, [])
   const pmap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   // Вид и цвет вещи в 3D: по категории и цвету товара
@@ -288,7 +291,7 @@ const MerchPage = () => {
   const runAutofill = (onlyEmpty: boolean) => {
     if (!data) return
     if (!products.length) { toast.error("Товары ещё загружаются"); return }
-    const assign = autofill(data.items, data.zones, data.room, products, data.assign ?? {}, { onlyEmpty })
+    const assign = autofill(data.items, data.zones, data.room, products, data.assign ?? {}, { onlyEmpty, settings })
     change({ ...data, assign })
     const n = Object.values(assign).reduce((a, s) => a + s.length, 0)
     toast.success(`Разложено: ${n} моделей. Проверьте и сохраните — отменить можно Ctrl+Z`)
@@ -508,7 +511,7 @@ const MerchPage = () => {
                     <Text size="xsmall">Вместимость: {cap.hang > 0 ? `≈ ${cap.hang} вещей на вешалках` : ""}{cap.hang > 0 && cap.shelves > 0 ? ", " : ""}{cap.shelves > 0 ? `${cap.shelves} ${cap.shelves === 1 ? "полка" : cap.shelves < 5 ? "полки" : "полок"}` : ""}</Text>
                   </div>
                 )}
-                <EquipProducts item={selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds}
+                <EquipProducts item={selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds} settings={settings}
                   onSlots={(sl) => setSlots(selItem.id, sl)} onItem={(p) => patchItem(selItem.id, p)} />
                 <div className="flex flex-col gap-1">
                   <Label size="xsmall" className="text-ui-fg-subtle">Заметка</Label>
@@ -524,6 +527,17 @@ const MerchPage = () => {
             <>
               <Text size="small" weight="plus">Зона</Text>
               <Input size="small" value={selZone.name} onChange={(e) => patchZone(selZone.id, { name: e.target.value })} />
+              <div className="flex flex-col gap-1">
+                <Label size="xsmall" className="text-ui-fg-subtle">Роль зоны (правила раскладки)</Label>
+                <Select size="small" value={selZone.role ?? "none"} onValueChange={(v) => patchZone(selZone.id, { role: v === "none" ? null : (v as ZoneRole) })}>
+                  <Select.Trigger><Select.Value /></Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="none">Без роли</Select.Item>
+                    {(Object.keys(ZONE_ROLE_NAME) as ZoneRole[]).map((r) => <Select.Item key={r} value={r}>{ZONE_ROLE_NAME[r]}</Select.Item>)}
+                  </Select.Content>
+                </Select>
+                <Text size="xsmall" className="text-ui-fg-subtle">{selZone.role === "entry" ? "Первые метры за дверью: покупатель ещё не смотрит на товар. Стойки здесь не заполняются — только столы, подиумы и манекены." : selZone.role === "focus" ? "Главная история сезона: новинки получают двойной вес, развеска реже." : selZone.role === "cash" ? "Только недорогие аксессуары, бельё, головные уборы — импульсные покупки." : selZone.role === "sale" ? "Только Outlet; Outlet в других зонах не ставится." : "Роль влияет на автораскладку."}</Text>
+              </div>
               <div className="flex flex-col gap-1">
                 <Label size="xsmall" className="text-ui-fg-subtle">Сила места (насколько заметно покупателю)</Label>
                 <div className="flex gap-1">
@@ -561,6 +575,7 @@ const MerchPage = () => {
           )}
         </Container>
       </div>
+      <RulesBlock settings={settings} products={products} onSaved={setSettings} />
       {curId && <TasksBlock layoutId={curId} layoutName={name} isCurrent={!!cur?.is_current} data={data} dirty={dirty} sceneRef={sceneRef} ensure3d={ensure3d} />}
     </div>
   )

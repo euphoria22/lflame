@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { ZONE_ROLE_NAME } from "../../../lib/merch/autofill"
 import { GROUP_COLOR, Item, LayoutData, typeOf, WallSide, Zone } from "./catalog"
 
 /**
@@ -145,7 +146,7 @@ export function Plan({ data, selected, showZones, onSelect, onChange }: Props) {
         <g key={z.id}>
           <rect x={z.x} y={z.y} width={z.w} height={z.d} fill={z.color} fillOpacity={0.14} stroke={z.color} strokeOpacity={selected === z.id ? 1 : 0.6}
             strokeWidth={selected === z.id ? 0.05 : 0.025} strokeDasharray="0.12 0.08" style={{ cursor: "move" }} onPointerDown={(e) => startZone(e, z)} />
-          <text x={z.x + 0.12} y={z.y + 0.32} fontSize={0.24} fill={z.color} fontWeight={600} pointerEvents="none">{z.name} · {"★".repeat(z.power)}</text>
+          <text x={z.x + 0.12} y={z.y + 0.32} fontSize={0.24} fill={z.color} fontWeight={600} pointerEvents="none">{z.name} · {"★".repeat(z.power)}{z.role ? ` · ${ZONE_ROLE_NAME[z.role]}` : ""}</text>
           {selected === z.id && <rect x={z.x + z.w - 0.12} y={z.y + z.d - 0.12} width={0.24} height={0.24} fill="#fff" stroke={z.color} strokeWidth={0.03} style={{ cursor: "nwse-resize" }} onPointerDown={(e) => startZone(e, z, true)} />}
         </g>
       ))}

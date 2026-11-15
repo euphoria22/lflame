@@ -308,7 +308,7 @@ export class MerchScene {
     for (const it of data.items) {
       seen.add(it.id)
       const slots = data.assign?.[it.id]
-      const key = JSON.stringify(it) + (opts.clothes ? "c" : "") + (slots ? JSON.stringify(slots.map((x) => [x.p, x.n, x.place, opts.looks?.get(x.p)?.color])) : "")
+      const key = JSON.stringify(it) + (opts.clothes ? "c" : "") + (slots ? JSON.stringify(slots.map((x) => [x.p, x.n, x.place, x.face, opts.looks?.get(x.p)?.color])) : "")
       const cached = this.itemCache.get(it.id)
       if (cached && cached.key === key && !clothesChanged) continue
       if (cached) this.removeGroup(cached.group)
@@ -546,10 +546,11 @@ export class MerchScene {
     const clothes = this.opts.clothes
     // Настоящие товары: очередь вещей по порядку (модель повторяется по числу вешалок/мест)
     const queue = (place: "rail" | "shelf") => {
-      const out: ProductLook[] = []
+      const out: (ProductLook & { face?: boolean })[] = []
       for (const sl of slots ?? []) if (sl.place === place) {
         const look = this.opts.looks?.get(sl.p) ?? { kind: place === "rail" ? "tee" : "fold", color: "#8a8d91" }
-        for (let k = 0; k < Math.max(1, sl.n); k++) out.push(look)
+        // «Лицом вперёд» — первая вешалка модели развёрнута к покупателю
+        for (let k = 0; k < Math.max(1, sl.n); k++) out.push(k === 0 && sl.face ? { ...look, face: true } : look)
       }
       return out
     }
@@ -564,7 +565,9 @@ export class MerchScene {
       if (railQ) {
         for (let i = 0; i < n && railQ.length; i++) {
           const look = railQ.shift()!
-          const m = new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 1, 1))
+          const m = look.face
+            ? new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z + 0.14), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)), V(1, 1, 1))
+            : new THREE.Matrix4().compose(V(x0 + (i + 0.5) * step, y - 0.06, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.15, 0)), V(1, 1, 1))
           inst.push({ kind: look.kind, m, color: look.color })
         }
         return

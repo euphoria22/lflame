@@ -74,6 +74,7 @@ export const STAFF_PAGE = `<!doctype html>
 
   function row(p, rm) {
     var q = rm ? "убрать" : p.place === "rail" ? (p.n + " " + plural(p.n, "вешалка", "вешалки", "вешалок")) : (p.n > 1 ? p.n + " места" : "1 место")
+    if (p.face && !rm) q = "лицом · " + q
     return '<div class="row' + (rm ? " rm" : "") + '">' + (p.thumb ? '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' : '<img alt="">') +
       '<div class="i"><div class="b">' + esc(p.brand || "") + '</div><div class="n">' + esc(p.title) + '</div>' +
       (p.sizes && p.sizes.length && !rm ? '<div class="s">Размеры: ' + esc(p.sizes.join(", ")) + (p.color ? " · " + esc(p.color) : "") + '</div>' : "") + '</div>' +

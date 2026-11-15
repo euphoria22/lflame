@@ -12,7 +12,7 @@ import { CAT_NAME, Place } from "./autofill"
  * мерчендайзер проверяет фото и оставляет замечания.
  */
 
-export type StepProduct = { id: string; title: string; brand: string | null; cat: string | null; color: string | null; thumb: string | null; sizes: string[]; n: number; place: Place }
+export type StepProduct = { id: string; title: string; brand: string | null; cat: string | null; color: string | null; thumb: string | null; sizes: string[]; n: number; place: Place; face?: boolean }
 export type Step = {
   id: string
   item_id: string
@@ -57,6 +57,7 @@ export function stepText(products: StepProduct[], remove: StepProduct[], type: s
     out.push(`Повесьте слева направо в указанном порядке — ${rail.length} ${plural(rail.length, "модель", "модели", "моделей")}, ${hangers} ${plural(hangers, "вешалка", "вешалки", "вешалок")}.`)
     out.push("Одна модель — все размеры подряд, от меньшего к большему (S → XL). Вешалки крючком в одну сторону, вещи лицом влево.")
     out.push("Между моделями — ровный шаг, штанга не забита: должна свободно двигаться рука.")
+    if (rail.some((p) => p.face)) out.push("Вещи с пометкой «лицом» — главные в своей группе: одну вешалку разверните лицом к покупателю (на торец или кронштейн), остальные размеры — рядом боком.")
   }
   if (shelf.length) {
     const shoes = shelf.some((p) => p.cat === "obuv")
@@ -75,7 +76,7 @@ export async function productInfo(c: MedusaContainer): Promise<Map<string, Omit<
   }]))
 }
 
-export type StepInput = { item_id: string; type: string; title: string; where: string; render?: string | null; products: { p: string; n: number; place: Place }[]; remove?: string[] }
+export type StepInput = { item_id: string; type: string; title: string; where: string; render?: string | null; products: { p: string; n: number; place: Place; face?: boolean }[]; remove?: string[] }
 
 export async function createTask(c: MedusaContainer, input: { layout_id: string; name: string; note?: string | null; steps: StepInput[] }, author: string) {
   const name = String(input.name ?? "").trim().slice(0, 120)
@@ -83,12 +84,12 @@ export async function createTask(c: MedusaContainer, input: { layout_id: string;
   if (!Array.isArray(input.steps) || !input.steps.length) throw new Error("В задании нет шагов — разложите товары по оборудованию")
   if (input.steps.length > 300) throw new Error("Слишком много шагов")
   const info = await productInfo(c)
-  const pick = (id: string, n = 1, place: Place = "rail"): StepProduct | null => {
+  const pick = (id: string, n = 1, place: Place = "rail", face = false): StepProduct | null => {
     const p = info.get(id)
-    return p ? { ...p, n, place } : null
+    return p ? { ...p, n, place, ...(face ? { face: true } : {}) } : null
   }
   const steps: Step[] = input.steps.map((s, i) => {
-    const products = (s.products ?? []).map((x) => pick(x.p, x.n, x.place)).filter((x): x is StepProduct => !!x)
+    const products = (s.products ?? []).map((x) => pick(x.p, x.n, x.place, !!x.face)).filter((x): x is StepProduct => !!x)
     const remove = (s.remove ?? []).map((id) => pick(id)).filter((x): x is StepProduct => !!x)
     const render = typeof s.render === "string" && /^https?:\/\//.test(s.render) ? s.render : null
     return {

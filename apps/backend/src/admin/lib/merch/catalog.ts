@@ -1,4 +1,4 @@
-import type { Assign } from "../../../lib/merch/autofill"
+import type { Assign, ZoneRole } from "../../../lib/merch/autofill"
 
 /**
  * Мерчендайзинг: типы данных расстановки и каталог оборудования (по фото магазина).
@@ -42,7 +42,7 @@ export type Item = {
   brands?: string[]
 }
 
-export type Zone = { id: string; name: string; x: number; y: number; w: number; d: number; color: string; /** 1–5: насколько сильное место */ power: number }
+export type Zone = { id: string; name: string; x: number; y: number; w: number; d: number; color: string; /** 1–5: насколько сильное место */ power: number; /** Роль зоны: от неё зависят правила раскладки */ role?: ZoneRole | null }
 
 export type Background = { src: string; x: number; y: number; w: number; opacity: number }
 
@@ -171,10 +171,10 @@ export function draftLayout(): LayoutData {
       ...[3.33, 5.73, 8.18, 10.3, 12.38].map((x) => it("wall_shelf_s", x, 0.15, 0, { elev: 1.95 })),
     ],
     zones: [
-      { id: uid(), name: "Вход", x: 5.4, y: 6.8, w: 3.4, d: 1.8, color: "#ef4444", power: 5 },
-      { id: uid(), name: "Обувь", x: 0, y: 3.3, w: 1.6, d: 5.3, color: "#f59e0b", power: 3 },
-      { id: uid(), name: "Центр", x: 3.9, y: 3.3, w: 6.9, d: 3.1, color: "#3b82f6", power: 4 },
-      { id: uid(), name: "Белая стена", x: 1.5, y: 0, w: 12.6, d: 1.0, color: "#10b981", power: 4 },
+      { id: uid(), name: "Фокус у входа", x: 5.4, y: 6.8, w: 3.4, d: 1.8, color: "#ef4444", power: 5, role: "focus" },
+      { id: uid(), name: "Обувь", x: 0, y: 3.3, w: 1.6, d: 5.3, color: "#f59e0b", power: 3, role: "back" },
+      { id: uid(), name: "Центр", x: 3.9, y: 3.3, w: 6.9, d: 3.1, color: "#3b82f6", power: 4, role: "center" },
+      { id: uid(), name: "Белая стена", x: 1.5, y: 0, w: 12.6, d: 1.0, color: "#10b981", power: 4, role: "wall" },
     ],
     background: null,
   }
