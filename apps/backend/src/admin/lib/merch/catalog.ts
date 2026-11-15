@@ -40,6 +40,8 @@ export type Item = {
   /** Ограничения для автораскладки: только эти категории / бренды */
   cats?: string[]
   brands?: string[]
+  /** Только мужское или только женское (унисекс подходит к обоим) */
+  gender?: "men" | "women"
 }
 
 export type Zone = { id: string; name: string; x: number; y: number; w: number; d: number; color: string; /** 1–5: насколько сильное место */ power: number; /** Роль зоны: от неё зависят правила раскладки */ role?: ZoneRole | null }

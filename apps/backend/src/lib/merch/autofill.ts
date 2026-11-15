@@ -30,6 +30,8 @@ export type MProduct = {
   warmth?: string | null
   /** Модель без цвета — разные цвета одной модели висят рядом */
   model?: string | null
+  /** Пол: men, women, unisex */
+  gender?: string
   /** Новинка: пришла недавно или отмечена вручную */
   fresh?: boolean
   /** Outlet — вещь с дефектом / уценка */
@@ -49,7 +51,7 @@ export type Slot = { p: string; n: number; place: Place; face?: boolean }
 export type Assign = Record<string, Slot[]>
 
 export type ZoneRole = "entry" | "focus" | "wall" | "center" | "cash" | "fitting" | "back" | "sale"
-export type EquipLike = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; lock?: boolean; cats?: string[]; brands?: string[] }
+export type EquipLike = { id: string; type: string; x: number; y: number; w: number; d: number; h: number; lock?: boolean; cats?: string[]; brands?: string[]; gender?: "men" | "women" }
 export type ZoneLike = { x: number; y: number; w: number; d: number; power: number; role?: ZoneRole | null; name?: string }
 export type RoomLike = { width: number; length: number; openings: { kind: string; wall: string; offset: number; width: number }[] }
 
@@ -392,6 +394,8 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], room: RoomLike, 
     if (placed.has(p.id) || !p.cat || !cats.includes(p.cat)) return false
     if (e.cats?.length && !e.cats.includes(p.cat)) return false
     if (e.brands?.length && !e.brands.includes(p.brand ?? "")) return false
+    // Только мужское / только женское; унисекс подходит к обоим
+    if (e.gender && p.gender && p.gender !== "unisex" && p.gender !== e.gender) return false
     // Outlet — только в зоне распродажи, и в зоне распродажи — только Outlet
     if (zone?.role === "sale") return !!p.outlet
     if (p.outlet) return false

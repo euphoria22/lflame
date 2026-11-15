@@ -173,9 +173,9 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
             {t.hangPerM && !t.round && <line x1={-it.w / 2 + 0.05} y1={0} x2={it.w / 2 - 0.05} y2={0} stroke="#1e3a8a" strokeOpacity={0.55} strokeWidth={0.02} />}
             {/* Лицевая сторона у пристенного */}
             {t.wall && !track && <line x1={-it.w / 2} y1={it.d / 2} x2={it.w / 2} y2={it.d / 2} stroke="#111" strokeOpacity={0.5} strokeWidth={0.03} />}
-            {(sel || hover === it.id || it.label) && !track && (
+            {(sel || hover === it.id || it.label || it.gender) && !track && (
               <text y={-it.d / 2 - 0.08} fontSize={0.2} textAnchor="middle" fill="#27272a" transform={it.rot > 90 && it.rot < 270 ? "rotate(180)" : undefined} pointerEvents="none">
-                {it.label || t.name}
+                {it.label || t.name}{it.gender === "women" ? " · жен." : it.gender === "men" ? " · муж." : ""}
               </text>
             )}
           </g>

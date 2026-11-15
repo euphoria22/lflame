@@ -71,6 +71,15 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
         </div>
       </div>
       <div className="flex flex-col gap-1">
+        <Label size="xsmall" className="text-ui-fg-subtle">Пол (для автораскладки; унисекс подходит к обоим)</Label>
+        <div className="flex gap-1">
+          {([[undefined, "Любой"], ["men", "Только мужское"], ["women", "Только женское"]] as const).map(([g, t]) => (
+            <button key={t} type="button" onClick={() => onItem({ gender: g })}
+              className={`rounded-full border px-2 py-0.5 text-xs ${item.gender === g ? "border-ui-fg-interactive bg-ui-bg-highlight text-ui-fg-interactive" : "border-ui-border-base text-ui-fg-subtle"}`}>{t}</button>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
         <Label size="xsmall" className="text-ui-fg-subtle">Только бренды (через запятую)</Label>
         <Input size="small" list="merch-brands" placeholder="любые" value={(item.brands ?? []).join(", ")}
           onChange={(e) => { const v = e.target.value.split(",").map((x) => x.trim()).filter(Boolean); onItem({ brands: v.length ? v : undefined }) }} />

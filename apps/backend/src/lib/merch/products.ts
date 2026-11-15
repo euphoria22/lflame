@@ -45,7 +45,7 @@ export async function merchProducts(c: MedusaContainer): Promise<{ products: MPr
       id: i.id, title: i.title, brand: i.brand?.name ?? null, cat: i.category?.handle ?? null, sub: i.subtype?.name ?? null,
       color: i.color, thumb: i.thumbnail, sizes: sizesIn.map((z) => z.size),
       score: useOffline ? off.score : i.score ?? 0, site_score: i.score ?? 0,
-      price: i.price, units: i.stock_units ?? 0, warmth: i.warmth ?? null, model: i.model ?? null, outlet: i.outlet, fresh,
+      price: i.price, units: i.stock_units ?? 0, warmth: i.warmth ?? null, model: i.model ?? null, outlet: i.outlet, fresh, gender: i.gender,
       role: off.role, q30: s.q30, q60: s.q60, weeks: off.weeks,
     }
   })

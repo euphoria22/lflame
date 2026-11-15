@@ -88,3 +88,11 @@ describe("образы мерчендайзера", () => {
     expect(r.rack.some((s) => s.p === ps[1].id)).toBe(true)
   })
 })
+
+describe("пол", () => {
+  it("рейл «только женское»: мужское не вешается, унисекс — можно", () => {
+    const ps = [prod("A", "kurtki", 0.9, "black", ["S"], { gender: "men" }), prod("A", "kurtki", 0.8, "black", ["S"], { gender: "women" }), prod("A", "kurtki", 0.7, "black", ["S"], { gender: "unisex" })]
+    const r = autofill([{ id: "w", type: "rack_base", x: 3, y: 3, w: 1.4, d: 0.45, h: 1.65, gender: "women" }], [], room, ps, {})
+    expect(r.w.map((s) => pById(ps, s.p).gender).sort()).toEqual(["unisex", "women"])
+  })
+})
