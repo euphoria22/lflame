@@ -47,6 +47,8 @@ setup_backup_remote() {
         # повторного использования сессии для передачи файлов («session reuse required»).
         export RCLONE_CONFIG_BACKUP_DISABLE_TLS13=true
       fi
+      # FTP не умеет менять дату файла — без этого rclone пишет лишнюю ошибку «SetModTime is not supported»
+      export RCLONE_NO_UPDATE_MODTIME=true
     else
       export RCLONE_CONFIG_BACKUP_TYPE=sftp
       export RCLONE_CONFIG_BACKUP_PORT="${BACKUP_SFTP_PORT:-22}"
