@@ -1,13 +1,38 @@
-import { Badge, Button, IconButton, Input, Label, Switch, Text } from "@medusajs/ui"
+import { Badge, Button, IconButton, Input, Label, Switch, Text, toast } from "@medusajs/ui"
 import { useMemo, useState } from "react"
 import { ROLE_NAME } from "../../../lib/merch/offline"
-import { capacityOf, CAT_NAME, facingsOf, MerchSettings, MProduct, Place, railUsedM, Slot, usedOf } from "../../../lib/merch/autofill"
+import { Advice, adviceFor, adviceLevel, capacityOf, CAT_NAME, facingsOf, MerchSettings, MProduct, orderSlots, placeAllowed, railUsedM, Slot, suggestFor, usedOf, ZoneLike } from "../../../lib/merch/autofill"
 import { Item } from "./catalog"
 
+const LEVEL_CLS: Record<Advice["level"], string> = {
+  bad: "text-ui-fg-error", warn: "text-ui-tag-orange-text", good: "text-ui-tag-green-text", info: "text-ui-fg-subtle",
+}
+const DOT_CLS: Record<Advice["level"], string> = {
+  bad: "bg-ui-tag-red-icon", warn: "bg-ui-tag-orange-icon", good: "bg-ui-tag-green-icon", info: "bg-ui-border-strong",
+}
+
+/** Подсказки списком: что не так и почему */
+function AdviceList({ items, max = 4 }: { items: Advice[]; max?: number }) {
+  const order = { bad: 0, warn: 1, good: 2, info: 3 }
+  const list = [...items].sort((a, b) => order[a.level] - order[b.level]).slice(0, max)
+  if (!list.length) return null
+  return (
+    <ul className="mt-0.5 flex flex-col gap-0.5">
+      {list.map((a, i) => (
+        <li key={i} className={`flex gap-1.5 text-[11px] leading-snug ${LEVEL_CLS[a.level]}`}>
+          <span className={`mt-[5px] h-1.5 w-1.5 flex-none rounded-full ${DOT_CLS[a.level]}`} />{a.text}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /** Товары на выбранном оборудовании: порядок, удаление, добавление поиском, закрепление и ограничения для автораскладки */
-export function EquipProducts({ item, slots, products, used, settings, onSlots, onItem }: {
+export function EquipProducts({ item, zone, slots, products, used, settings, onSlots, onItem }: {
   settings: MerchSettings
   item: Item
+  /** Зона, в которой стоит оборудование — от неё зависят подсказки */
+  zone: ZoneLike | null
   slots: Slot[]
   products: Map<string, MProduct>
   /** Товары, уже стоящие на другом оборудовании */
@@ -17,7 +42,7 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
 }) {
   const cap = capacityOf(item)
   const fill = usedOf(slots)
-  // Штанга — в метрах: вешалки, толщина вещей, запас по уровню бренда, «лицом вперёд»
+  // Штанга — в метрах: вешалки, толщина вещей, запас по уровню бренда
   const railM = cap.railM ? railUsedM(slots, products, settings) : 0
   const m = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",")
   const [q, setQ] = useState("")
@@ -31,12 +56,18 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
       .filter((p) => words.every((w) => `${p.brand ?? ""} ${p.title}`.toLowerCase().includes(w)))
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
-  }, [q, products, allowed, slots])
+      .map((p) => ({ p, ...adviceFor(p, item, zone, slots, products, settings) }))
+  }, [q, products, allowed, slots, item, zone, settings])
+  const list = useMemo(() => [...products.values()], [products])
+  const suggest = useMemo(() => (q.trim().length < 2 ? suggestFor(item, zone, slots, list, used, settings, 5) : []), [q, item, zone, slots, list, used, settings])
   const brands = useMemo(() => [...new Set([...products.values()].map((p) => p.brand).filter(Boolean) as string[])].sort(), [products])
 
   if (!cap.rail && !cap.shelf) return null
   const add = (p: MProduct) => {
-    const place: Place = cap.railCats.includes(p.cat ?? "") && cap.rail > 0 ? "rail" : "shelf"
+    const { place } = adviceFor(p, item, zone, slots, products, settings)
+    // Правило размещения — запрет: свитер на плечики не повесить даже вручную
+    const rule = placeAllowed(p, place, item.type, settings)
+    if (rule) { toast.error(rule.why || "Правила размещения не разрешают сюда", { description: "Правило можно поменять в разделе «Правила выкладки»" }); return }
     onSlots([...slots, { p: p.id, n: facingsOf(p, place, settings), place }])
     setQ("")
   }
@@ -96,12 +127,13 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
         <Input size="small" placeholder="Добавить товар: бренд или название…" value={q} onChange={(e) => setQ(e.target.value)} />
         {results.length > 0 && (
           <div className="absolute z-10 mt-1 flex w-full flex-col overflow-hidden rounded-md border border-ui-border-base bg-ui-bg-base shadow-elevation-flyout">
-            {results.map((p) => (
-              <button key={p.id} type="button" onClick={() => add(p)} className="flex items-center gap-2 px-2 py-1.5 text-left hover:bg-ui-bg-base-hover">
+            {results.map(({ p, advice }) => (
+              <button key={p.id} type="button" onClick={() => add(p)} className="flex items-start gap-2 border-t border-ui-border-base px-2 py-1.5 text-left first:border-t-0 hover:bg-ui-bg-base-hover">
                 {p.thumb ? <img src={p.thumb} alt="" className="h-9 w-7 flex-none rounded object-cover" /> : <div className="h-9 w-7 flex-none rounded bg-ui-bg-subtle" />}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs">{p.title}</div>
                   <div className="text-[11px] text-ui-fg-subtle">{p.brand} · {p.sizes.join(", ")}{used.has(p.id) ? " · уже в зале" : ""}</div>
+                  <AdviceList items={advice.filter((a) => a.level !== "info")} max={2} />
                 </div>
               </button>
             ))}
@@ -109,12 +141,36 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
         )}
       </div>
 
+      {suggest.length > 0 && (
+        <div className="flex flex-col rounded-md border border-ui-border-base">
+          <Text size="xsmall" className="px-2 pt-1.5 text-ui-fg-subtle">Подходит сюда — по баллу, правилам и зоне</Text>
+          {suggest.map(({ p, advice }) => (
+            <button key={p.id} type="button" onClick={() => add(p)} className="flex items-start gap-2 px-2 py-1.5 text-left hover:bg-ui-bg-base-hover">
+              {p.thumb ? <img src={p.thumb} alt="" className="h-9 w-7 flex-none rounded object-cover" /> : <div className="h-9 w-7 flex-none rounded bg-ui-bg-subtle" />}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs">{p.title}</div>
+                <div className="text-[11px] text-ui-fg-subtle">{p.brand} · {p.sizes.join(", ")}</div>
+                <AdviceList items={advice.filter((a) => a.level === "good").length ? advice.filter((a) => a.level === "good") : [{ level: "info", text: "Высокий балл: продаётся и есть размеры" }]} max={1} />
+              </div>
+              <span className="flex-none text-xs text-ui-fg-interactive">+</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {slots.length > 1 && (
+        <div className="flex items-start justify-between gap-2 rounded-md bg-ui-bg-subtle px-2 py-1.5">
+          <Text size="xsmall" className="text-ui-fg-subtle">Порядок на штанге: куртки → свитеры и худи → футболки и рубашки → низ; внутри — от светлого к тёмному</Text>
+          <Button size="small" variant="secondary" className="flex-none" onClick={() => onSlots(orderSlots(slots, products))}>Упорядочить</Button>
+        </div>
+      )}
       {slots.length === 0 && <Text size="xsmall" className="text-ui-fg-subtle">Пусто. Добавьте товары поиском или нажмите «Разложить товары» сверху.</Text>}
       <div className="flex flex-col">
         {slots.map((s, i) => {
           const p = products.get(s.p)
+          const adv = p ? adviceFor(p, item, zone, slots, products, settings).advice : []
+          const lvl = adviceLevel(adv)
           return (
-            <div key={s.p} className="flex items-center gap-2 border-t border-ui-border-base py-1.5 first:border-t-0">
+            <div key={s.p} className="flex items-start gap-2 border-t border-ui-border-base py-1.5 first:border-t-0">
               {p?.thumb ? <img src={p.thumb} alt="" className="h-11 w-9 flex-none rounded object-cover" /> : <div className="h-11 w-9 flex-none rounded bg-ui-bg-subtle" />}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs">{p ? p.title : "Нет в наличии"}</div>
@@ -123,10 +179,9 @@ export function EquipProducts({ item, slots, products, used, settings, onSlots, 
                   {p?.role && p.role !== "base" && <Badge size="2xsmall" color={p.role === "hit" || p.role === "new" ? "green" : p.role === "second_chance" ? "blue" : p.role === "offseason" || p.role === "hit_broken" ? "orange" : "grey"}>{ROLE_NAME[p.role]}</Badge>}
                   {!p && <Badge size="2xsmall" color="red">нет</Badge>}
                 </div>
+                {(lvl === "bad" || lvl === "warn") && <AdviceList items={adv.filter((a) => a.level === "bad" || a.level === "warn")} max={2} />}
               </div>
               <div className="flex flex-none items-center">
-                <button type="button" title="Лицом вперёд (главная вещь)" onClick={() => onSlots(slots.map((x, j) => (j === i ? { ...x, face: !x.face || undefined } : x)))}
-                  className={`mr-1 rounded px-1 text-[10px] ${s.face ? "bg-ui-tag-blue-bg text-ui-tag-blue-text" : "text-ui-fg-muted"}`}>лицом</button>
                 <Text size="xsmall" className="w-8 text-right text-ui-fg-subtle" title={s.place === "rail" ? "вешалок" : "мест"}>{s.n}{s.place === "rail" ? "в" : "м"}</Text>
                 <IconButton size="2xsmall" variant="transparent" onClick={() => move(i, -1)} title="Выше">↑</IconButton>
                 <IconButton size="2xsmall" variant="transparent" onClick={() => move(i, 1)} title="Ниже">↓</IconButton>

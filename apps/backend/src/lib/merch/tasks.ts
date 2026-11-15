@@ -91,7 +91,9 @@ export async function createTask(c: MedusaContainer, input: { layout_id: string;
   const [info, settings] = await Promise.all([productInfo(c), loadMerchSettings()])
   const pick = (id: string, n = 1, place: Place = "rail", face = false): StepProduct | null => {
     const p = info.get(id)
-    return p ? { ...p, n, place, ...(face ? { face: true } : {}) } : null
+    // Развеску лицом вперёд не используем — старые пометки игнорируются
+    void face
+    return p ? { ...p, n, place } : null
   }
   const steps: Step[] = input.steps.map((s, i) => {
     const products = (s.products ?? []).map((x) => pick(x.p, x.n, x.place, !!x.face)).filter((x): x is StepProduct => !!x)

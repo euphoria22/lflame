@@ -195,6 +195,10 @@ export class MerchScene {
   private pitch = 0
   private drag: { id: string; group: THREE.Group; dx: number; dz: number; moved: boolean } | null = null
   private look: { x: number; y: number } | null = null
+  /** Закреплённое оборудование мышкой не двигается */
+  private fixedIds = new Set<string>()
+  /** Плавный перелёт точки обзора (двойной клик) */
+  private fly: { target: THREE.Vector3; cam: THREE.Vector3 } | null = null
   private ray = new THREE.Raycaster()
   private mats: Record<string, THREE.Material>
   private geos: Record<string, THREE.BufferGeometry>
@@ -222,6 +226,9 @@ export class MerchScene {
     this.controls.enableDamping = true
     this.controls.maxPolarAngle = 88 * DEG
     this.controls.minDistance = 1
+    // Правая кнопка (или Shift + левая) двигает точку обзора по полу, а не по экрану
+    this.controls.screenSpacePanning = false
+    this.controls.panSpeed = 1.2
 
     this.scene.add(new THREE.HemisphereLight("#ffffff", "#5a5550", 0.9))
     this.sun = new THREE.DirectionalLight("#fff6ea", 1.6)
@@ -289,6 +296,7 @@ export class MerchScene {
     window.addEventListener("pointermove", this.onMoveEv)
     window.addEventListener("pointerup", this.onUp)
     dom.addEventListener("wheel", this.onWheel, { passive: false })
+    dom.addEventListener("dblclick", this.onDbl)
     window.addEventListener("keydown", this.onKey)
     window.addEventListener("keyup", this.onKeyUp)
     this.renderer.setAnimationLoop(() => this.tick())
@@ -302,6 +310,7 @@ export class MerchScene {
     window.removeEventListener("pointermove", this.onMoveEv)
     window.removeEventListener("pointerup", this.onUp)
     dom.removeEventListener("wheel", this.onWheel)
+    dom.removeEventListener("dblclick", this.onDbl)
     window.removeEventListener("keydown", this.onKey)
     window.removeEventListener("keyup", this.onKeyUp)
     this.controls.dispose()
@@ -341,6 +350,7 @@ export class MerchScene {
     // Оборудование: пересобираем только изменённое
     const seen = new Set<string>()
     this.entranceItem = data.items.find((i) => i.type === "entrance") ?? null
+    this.fixedIds = new Set(data.items.filter((i) => i.fixed).map((i) => i.id))
     for (const raw of data.items) {
       // Квадратная стойка: сторона у колонны или стены закрыта — вещи там не висят
       const it = raw.type === "rack_square" ? { ...raw, closed: closedSides(raw, data.items, data.room) } : raw
@@ -588,7 +598,7 @@ export class MerchScene {
       for (const sl of slots ?? []) if (sl.place === place) {
         const look = this.opts.looks?.get(sl.p) ?? { kind: place === "rail" ? "tee" : "fold", color: "#8a8d91" }
         // «Лицом вперёд» — первая вешалка модели развёрнута к покупателю
-        for (let k = 0; k < Math.max(1, sl.n); k++) out.push(k === 0 && sl.face ? { ...look, face: true } : look)
+        for (let k = 0; k < Math.max(1, sl.n); k++) out.push(look)
       }
       return out
     }
@@ -1100,6 +1110,26 @@ export class MerchScene {
       if (turn) { this.yaw += turn * dt * 1.6; this.applyLook() }
       if (f || s) this.walkBy(f * dt * 1.8, s * dt * 1.4)
     } else {
+      // WASD — сдвинуть точку обзора по залу; двойной клик — плавно перелететь
+      const f = (this.keys.has("w") ? 1 : 0) - (this.keys.has("s") ? 1 : 0)
+      const sd = (this.keys.has("d") ? 1 : 0) - (this.keys.has("a") ? 1 : 0)
+      if (f || sd) {
+        this.fly = null
+        const dir = new THREE.Vector3().subVectors(this.controls.target, this.camera.position).setY(0)
+        if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1)
+        dir.normalize()
+        const right = new THREE.Vector3(-dir.z, 0, dir.x)
+        const speed = Math.max(2, this.camera.position.distanceTo(this.controls.target) * 0.6) * dt
+        this.panBy(dir.multiplyScalar(f * speed).add(right.multiplyScalar(sd * speed)))
+      }
+      if (this.fly) {
+        const k = 1 - Math.pow(0.0005, dt)
+        const dT = this.fly.target.clone().sub(this.controls.target).multiplyScalar(k)
+        this.controls.target.add(dT)
+        this.camera.position.add(this.fly.cam.clone().sub(this.camera.position).multiplyScalar(k))
+        if (this.controls.target.distanceTo(this.fly.target) < 0.01) this.fly = null
+      }
+      this.clampTarget()
       this.controls.update()
       // «Кукольный домик»: стены между камерой и залом прячем
       if (this.room) {
@@ -1147,6 +1177,8 @@ export class MerchScene {
     if (!o) { this.cb.onSelect(null); return }
     const id = o.userData.id as string
     this.cb.onSelect(id)
+    // Закреплённое только выделяется, мышь крутит камеру
+    if (this.fixedIds.has(id)) return
     const fp = this.floorPoint(e)
     if (!fp) return
     const group = o as THREE.Group
@@ -1186,6 +1218,33 @@ export class MerchScene {
     if (moved) this.cb.onMove(id, Math.round(group.position.x * 100) / 100, Math.round(group.position.z * 100) / 100)
   }
 
+  /** Сдвинуть камеру и точку обзора вместе */
+  private panBy(v: THREE.Vector3) {
+    this.controls.target.add(v)
+    this.camera.position.add(v)
+  }
+
+  /** Точка обзора не уходит за пределы зала (с запасом 1 м) */
+  private clampTarget() {
+    if (!this.room) return
+    const t = this.controls.target
+    const nx = Math.min(this.room.width + 1, Math.max(-1, t.x)), nz = Math.min(this.room.length + 1, Math.max(-1, t.z)), ny = Math.min(3, Math.max(0, t.y))
+    if (nx !== t.x || ny !== t.y || nz !== t.z) this.panBy(new THREE.Vector3(nx - t.x, ny - t.y, nz - t.z))
+  }
+
+  /** Двойной клик: точка обзора — туда, куда кликнули (оборудование или пол), камера летит следом */
+  private onDbl = (e: MouseEvent) => {
+    if (this.mode !== "orbit") return
+    this.ray.setFromCamera(this.pointer(e as PointerEvent), this.camera)
+    const hit = this.ray.intersectObjects(this.itemsGroup.children, true)[0]?.point ?? this.floorPoint(e as PointerEvent)
+    if (!hit) return
+    const target = new THREE.Vector3(hit.x, Math.min(1.2, Math.max(0.3, hit.y)), hit.z)
+    // Камера подлетает ближе (на 60 % расстояния, но не ближе 3 м), направление взгляда сохраняется
+    const off = this.camera.position.clone().sub(this.controls.target)
+    off.setLength(Math.max(3, off.length() * 0.6))
+    this.fly = { target, cam: target.clone().add(off) }
+  }
+
   private onWheel = (e: WheelEvent) => {
     if (this.mode !== "walk") return
     e.preventDefault()
@@ -1193,12 +1252,15 @@ export class MerchScene {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if (this.mode !== "walk") return
     const tag = (e.target as HTMLElement)?.tagName
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.ctrlKey || e.metaKey) return
+    // 3D не на экране (вкладка «План») — клавиши не перехватываем
+    if (!this.renderer.domElement.isConnected || !this.renderer.domElement.offsetParent) return
     const k = e.key.toLowerCase()
     const map: Record<string, string> = { "ц": "w", "ы": "s", "ф": "a", "в": "d" }
     const key = map[k] ?? k
+    // В обзоре стрелки двигают выбранное оборудование — камере только WASD
+    if (this.mode !== "walk" && key.startsWith("arrow")) return
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       this.keys.add(key)
       e.preventDefault()

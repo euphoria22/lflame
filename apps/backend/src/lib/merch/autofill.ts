@@ -9,10 +9,11 @@
  * 3. Одна стойка — один бренд («брендовый блок»); второй — если первый занял меньше 70 %. Повтор бренда штрафуется,
  *    якорные бренды — без штрафа на первых двух местах. Люкс не ставится вплотную к bridge, одинаковый стиль — рядом.
  * 4. Плотность и число размеров — по уровню бренда (bridge / премиум / люкс), в фокус-зоне — реже.
- * 5. Внутри бренда — капсулы: главная вещь (лицом вперёд) → верхняя одежда → средний слой → первый слой → низ,
+ * 5. Внутри бренда — капсулы: главная вещь → верхняя одежда → средний слой → первый слой → низ,
  *    в капсуле цвет главной вещи + нейтральные; внутри слоя — от светлого к тёмному, модели разных цветов рядом.
  * 6. Роли зон: «вход» — только столы, подиумы и манекены; «касса» — недорогие аксессуары; «распродажа» — Outlet.
  * 7. Закреплённое оборудование не трогается; у оборудования можно ограничить категории и бренды.
+ * 8. Правила размещения: например, свитеры — только сложенными на столах и полках, не на плечиках.
  */
 
 export type MProduct = {
@@ -46,7 +47,7 @@ export type MProduct = {
 }
 
 export type Place = "rail" | "shelf"
-/** Товар на оборудовании: n — вешалок (на штанге) или мест (на полке/столе); face — лицом вперёд */
+/** Товар на оборудовании: n — вешалок (на штанге) или мест (на полке/столе); face — устарело, развеску лицом не используем */
 export type Slot = { p: string; n: number; place: Place; face?: boolean }
 export type Assign = Record<string, Slot[]>
 
@@ -66,8 +67,8 @@ export type LevelRule = {
   spacing: number
   /** Сколько размеров одной модели вешать */
   max_sizes: number
-  /** Каждая N-я модель лицом вперёд (0 — только главная вещь капсулы) */
-  face_every: number
+  /** Устарело: развеску лицом вперёд магазин не использует */
+  face_every?: number
   /** Сколько «мест» на полке/столе занимает одна вещь (люкс — просторнее) */
   shelf_cost: number
 }
@@ -80,6 +81,11 @@ export type Checklist = { id: string; name: string; items: string[]; days: numbe
 export type StandardKind = "all" | "rail" | "shelf" | "shoes" | "table"
 /** Стандарты магазина — добавляются к шагам задания по типу оборудования */
 export type Standards = Record<StandardKind, string[]>
+/**
+ * Правило размещения: вещи категории (и со словом в названии, если слова заданы) — только сложенными
+ * на столах и полках (fold) или только на вешалках (hang). Манекена правило не касается.
+ */
+export type PlaceRule = { id: string; cat: string; words: string[]; only: "fold" | "hang"; why: string; active: boolean }
 export type MerchSettings = {
   levels: Record<Level, LevelRule>
   brands: Record<string, BrandRule>
@@ -101,6 +107,8 @@ export type MerchSettings = {
   area_plan: { enabled: boolean; mix: number; shares: Record<string, number> }
   /** Довешивание: каждый день в time (Омск) — что продано вчера, принести со склада */
   replenish: { enabled: boolean; time: string }
+  /** Правила размещения по категориям */
+  place_rules: PlaceRule[]
 }
 
 export const LEVEL_NAME: Record<Level, string> = { bridge: "Bridge / middle", premium: "Премиум", luxury: "Люкс" }
@@ -111,9 +119,9 @@ export const ZONE_ROLE_NAME: Record<ZoneRole, string> = {
 
 export const DEFAULT_SETTINGS: MerchSettings = {
   levels: {
-    bridge: { spacing: 1.1, max_sizes: 5, face_every: 0, shelf_cost: 1 },
-    premium: { spacing: 1.4, max_sizes: 4, face_every: 0, shelf_cost: 1.2 },
-    luxury: { spacing: 2.2, max_sizes: 1, face_every: 3, shelf_cost: 1.6 },
+    bridge: { spacing: 1.1, max_sizes: 5, shelf_cost: 1 },
+    premium: { spacing: 1.4, max_sizes: 4, shelf_cost: 1.2 },
+    luxury: { spacing: 2.2, max_sizes: 1, shelf_cost: 1.6 },
   },
   brands: {},
   default_level: "premium",
@@ -125,7 +133,7 @@ export const DEFAULT_SETTINGS: MerchSettings = {
     all: ["Вещи отпарены, без складок от упаковки", "Ценник и бирки спрятаны внутрь, защитный датчик — в одном месте у всей категории"],
     rail: [
       "Одна модель — все размеры подряд, от меньшего к большему (S → XL)",
-      "Вешалки одного вида, крючком в одну сторону; вещи лицом влево",
+      "Вешалки одного вида, крючком в одну сторону, все вещи смотрят в одну сторону",
       "Пуговица или молния застёгнута на треть, капюшон расправлен",
       "Ровный шаг между моделями, штанга не забита: рука должна свободно двигаться",
     ],
@@ -137,6 +145,9 @@ export const DEFAULT_SETTINGS: MerchSettings = {
   score_source: "offline",
   area_plan: { enabled: false, mix: 0.5, shares: {} },
   replenish: { enabled: false, time: "11:00" },
+  place_rules: [
+    { id: "sweaters", cat: "svitery-i-kardigany", words: ["свитер", "джемпер", "пуловер", "sweater", "jumper", "knit"], only: "fold", why: "Вязаный трикотаж на плечиках вытягивается в плечах и теряет форму — только сложенным на столе или полке", active: true },
+  ],
   checklists: [
     { id: "morning", name: "Утренний обход", items: ["Свет и музыка включены", "Штанги ровные, размеры на месте после вчерашнего дня", "Отпарить вещи на манекенах и у входа", "Пыль на столах и полках", "Примерочные: зеркала, крючки, пустые вешалки убраны"], days: [0, 1, 2, 3, 4, 5, 6], time: "11:30", enabled: false },
     { id: "closing", name: "Закрытие", items: ["Вещи из примерочных развешаны на места", "Вешалки крючком в одну сторону", "Стопки на столах сложены заново", "Пустые вешалки убраны на склад"], days: [0, 1, 2, 3, 4, 5, 6], time: "20:45", enabled: false },
@@ -161,6 +172,7 @@ export function mergeSettings(raw: Partial<MerchSettings> | null | undefined): M
     looks: r.looks ?? [],
     area_plan: { ...DEFAULT_SETTINGS.area_plan, ...(r.area_plan ?? {}), shares: { ...(r.area_plan?.shares ?? {}) } },
     replenish: { ...DEFAULT_SETTINGS.replenish, ...(r.replenish ?? {}) },
+    place_rules: r.place_rules ?? DEFAULT_SETTINGS.place_rules,
     checklists: r.checklists ?? DEFAULT_SETTINGS.checklists,
   }
 }
@@ -174,7 +186,6 @@ export function validateSettings(raw: unknown): MerchSettings {
     const r = s.levels[l]
     num(r.spacing, 0.8, 5, `${LEVEL_NAME[l]}: запас между вещами`)
     num(r.max_sizes, 1, 8, `${LEVEL_NAME[l]}: размеров модели`)
-    num(r.face_every, 0, 20, `${LEVEL_NAME[l]}: лицом вперёд`)
     num(r.shelf_cost, 0.5, 4, `${LEVEL_NAME[l]}: места на полке`)
   }
   num(s.focus_density, 0.3, 1, "Плотность в фокус-зоне")
@@ -202,6 +213,15 @@ export function validateSettings(raw: unknown): MerchSettings {
   }
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.replenish.time)) throw new Error("Довешивание: время в виде 11:00")
   s.replenish.enabled = !!s.replenish.enabled
+  if (!Array.isArray(s.place_rules) || s.place_rules.length > 50) throw new Error("Правил размещения — не больше 50")
+  s.place_rules = s.place_rules.map((r) => {
+    const cat = String(r.cat ?? "")
+    if (cat && !CAT_NAME[cat]) throw new Error("Правило размещения: неизвестная категория")
+    if (!["fold", "hang"].includes(r.only)) throw new Error("Правило размещения: неверное место")
+    const words = (Array.isArray(r.words) ? r.words : []).map((w) => String(w).trim().toLowerCase().slice(0, 40)).filter(Boolean).slice(0, 20)
+    if (!cat && !words.length) throw new Error("Правило размещения: укажите категорию или слова в названии")
+    return { id: String(r.id || Math.random().toString(36).slice(2, 10)).slice(0, 20), cat, words, only: r.only, why: String(r.why ?? "").trim().slice(0, 300), active: !!r.active }
+  })
   if (!Array.isArray(s.looks) || s.looks.length > 100) throw new Error("Образов — не больше 100")
   s.looks = s.looks.map((l) => {
     const name = String(l.name ?? "").trim().slice(0, 80)
@@ -353,6 +373,20 @@ export function railMetersOf(p: MProduct, n: number, face: boolean, s: MerchSett
   return (n * step + (face ? Math.max(0, hangerOf(p.cat, s).w - step) : 0)) / 100
 }
 
+/** Правило размещения, которое касается товара (первое подходящее из включённых) */
+export function placeRuleOf(p: Pick<MProduct, "cat" | "title">, s: MerchSettings = DEFAULT_SETTINGS): PlaceRule | null {
+  const t = (p.title ?? "").toLowerCase()
+  return (s.place_rules ?? []).find((r) => r.active && (!r.cat || r.cat === p.cat) && (!r.words.length || r.words.some((w) => t.includes(w)))) ?? null
+}
+
+/** Можно ли положить товар сюда по правилам размещения (манекен — исключение: на нём вещь надета) */
+export function placeAllowed(p: Pick<MProduct, "cat" | "title">, place: Place, equipType: string, s: MerchSettings = DEFAULT_SETTINGS): PlaceRule | null {
+  if (equipType === "mannequin") return null
+  const r = placeRuleOf(p, s)
+  if (!r) return null
+  return (r.only === "fold" && place === "rail") || (r.only === "hang" && place === "shelf") ? r : null
+}
+
 /** Вешалок на модель: по числу размеров в наличии, но не больше нормы уровня; последний размер — одна вешалка */
 export function facingsOf(p: MProduct, place: Place, s: MerchSettings = DEFAULT_SETTINGS): number {
   if (place === "shelf") return 1
@@ -471,8 +505,9 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], rawRoom: RoomLik
   }
   const styleOf = (b: string) => brandRule(b)?.style ?? null
 
-  const fits = (p: MProduct, e: EquipLike, cats: string[], zone: ZoneLike | null) => {
+  const fits = (p: MProduct, e: EquipLike, cats: string[], zone: ZoneLike | null, place: Place) => {
     if (placed.has(p.id) || !p.cat || !cats.includes(p.cat)) return false
+    if (placeAllowed(p, place, e.type, S)) return false
     if (e.cats?.length && !e.cats.includes(p.cat)) return false
     if (e.brands?.length && !e.brands.includes(p.brand ?? "")) return false
     // Корнер бренда: зона задаёт бренды, если у самого оборудования они не заданы
@@ -512,7 +547,7 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], rawRoom: RoomLik
       return Math.max(0.01, p.score) * k
     }
     while (left > 1e-6 && blocks < 3) {
-      const pool = avail.filter((p) => fits(p, e, cats, zone))
+      const pool = avail.filter((p) => fits(p, e, cats, zone, place))
       if (!pool.length) break
       const groups = new Map<string, MProduct[]>()
       // «Микс»: одна общая группа — лучшие вещи разных брендов
@@ -567,30 +602,8 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], rawRoom: RoomLik
         left -= c
         if (left <= 1e-6) break
       }
-      const rule = S.levels[brandLevel(best.brand)]
-      let caps = place === "rail" ? capsules(chosen) : [chosen]
-      if (place === "rail") {
-        // Вещи «лицом вперёд» занимают ширину плечиков — если не влезло, убираем последние вещи капсул
-        const isFace = (i: number, k: number) => i === 0 || (rule.face_every > 0 && k % rule.face_every === 0)
-        const extra = () => { let k = 0, m = 0; for (const g of caps) g.forEach((p, i) => { k++; if (isFace(i, k)) m += railMetersOf(p, 1, true, S) - railMetersOf(p, 1, false, S) }); return m }
-        while (extra() > left + 1e-6) {
-          const g = [...caps].sort((a, b) => b.length - a.length)[0]
-          if (!g || g.length <= 1) { const last = caps.pop(); last?.forEach((p) => { placed.delete(p.id); left += cost(p) }); if (!caps.length) break; continue }
-          const p = g.pop()!
-          placed.delete(p.id)
-          left += cost(p)
-        }
-        left -= extra()
-        caps = caps.filter((g) => g.length)
-      }
-      let k = 0
-      for (const group of caps) {
-        group.forEach((p, i) => {
-          k++
-          const face = place === "rail" && (i === 0 || (rule.face_every > 0 && k % rule.face_every === 0))
-          out.push({ p: p.id, n: facingsOf(p, place, S), place, ...(face ? { face: true } : {}) })
-        })
-      }
+      const caps = place === "rail" ? capsules(chosen) : [chosen]
+      for (const group of caps) for (const p of group) out.push({ p: p.id, n: facingsOf(p, place, S), place })
       brandUses.set(best.brand, (brandUses.get(best.brand) ?? 0) + 1)
       equipBrands.set(e.id, new Set([...(equipBrands.get(e.id) ?? []), best.brand]))
       blocks++
@@ -606,9 +619,9 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], rawRoom: RoomLik
   const busy = new Set<string>()
   const lookItems = (l: Look) => l.products.map((id) => byId.get(id)).filter((p): p is MProduct => !!p && p.sizes.length > 0 && !placed.has(p.id) && !p.outlet)
   const seed = (railJob: Job, ps: MProduct[]) => {
-    const list = ps.filter((p) => p.cat && railJob.cap.railCats.includes(p.cat))
+    const list = ps.filter((p) => p.cat && railJob.cap.railCats.includes(p.cat) && !placeAllowed(p, "rail", railJob.e.type, S))
     if (!list.length) return
-    seeded.set(railJob.e.id, [...(seeded.get(railJob.e.id) ?? []), ...list.map((p, i) => ({ p: p.id, n: facingsOf(p, "rail", S), place: "rail" as Place, ...(i === 0 ? { face: true } : {}) }))])
+    seeded.set(railJob.e.id, [...(seeded.get(railJob.e.id) ?? []), ...list.map((p) => ({ p: p.id, n: facingsOf(p, "rail", S), place: "rail" as Place }))])
     list.forEach((p) => placed.add(p.id))
   }
   const freeRail = (near?: EquipLike) => jobs
@@ -628,7 +641,7 @@ export function autofill(items: EquipLike[], zones: ZoneLike[], rawRoom: RoomLik
       const t = jobs.filter((j) => (j.e.type.startsWith("table") || j.e.type === "podium") && !busy.has(j.e.id) && j.zone?.role !== "sale").sort(byStrength)[0]
       if (!t) continue
       busy.add(t.e.id)
-      const list = ps.filter((p) => p.cat && t.cap.shelfCats.includes(p.cat)).slice(0, t.cap.shelf)
+      const list = ps.filter((p) => p.cat && t.cap.shelfCats.includes(p.cat) && !placeAllowed(p, "shelf", t.e.type, S)).slice(0, t.cap.shelf)
       result[t.e.id] = list.map((p) => ({ p: p.id, n: 1, place: "shelf" as Place }))
       list.forEach((p) => placed.add(p.id))
     } else {
@@ -713,7 +726,94 @@ export function usedOf(slots: Slot[] | undefined) {
   return { rail: s.filter((x) => x.place === "rail").reduce((a, x) => a + x.n, 0), shelf: s.filter((x) => x.place === "shelf").reduce((a, x) => a + x.n, 0) }
 }
 
-/** Сколько метров штанги занято товарами (с учётом вешалок, толщины вещей и «лицом вперёд») */
+/** Сколько метров штанги занято товарами (с учётом вешалок и толщины вещей) */
 export function railUsedM(slots: Slot[] | undefined, byId: Map<string, MProduct>, s: MerchSettings = DEFAULT_SETTINGS) {
-  return (slots ?? []).filter((x) => x.place === "rail").reduce((a, x) => { const p = byId.get(x.p); return a + (p ? railMetersOf(p, x.n, !!x.face, s) : x.n * 0.03) }, 0)
+  return (slots ?? []).filter((x) => x.place === "rail").reduce((a, x) => { const p = byId.get(x.p); return a + (p ? railMetersOf(p, x.n, false, s) : x.n * 0.03) }, 0)
+}
+
+// ── Подсказки при ручной раскладке ──
+
+export type Advice = { level: "bad" | "warn" | "good" | "info"; text: string }
+
+const GENDER_NAME: Record<string, string> = { men: "мужское", women: "женское" }
+
+/**
+ * Подходит ли товар на это оборудование и почему: те же правила, что у автораскладки, но словами.
+ * bad — нарушает правило, warn — можно, но хуже, good — правильное место, info — как выложить.
+ */
+export function adviceFor(p: MProduct, e: EquipLike, zone: ZoneLike | null, slots: Slot[], byId: Map<string, MProduct>, S: MerchSettings = DEFAULT_SETTINGS): { place: Place; advice: Advice[] } {
+  const cap = capacityOf(e)
+  const out: Advice[] = []
+  const cat = p.cat ?? ""
+  const canRail = cap.railM > 0 && cap.railCats.includes(cat)
+  const canShelf = cap.shelf > 0 && cap.shelfCats.includes(cat)
+  // Место: на штангу, если можно и правило не запрещает, иначе — на полку
+  let place: Place = canRail && !placeAllowed(p, "rail", e.type, S) ? "rail" : canShelf ? "shelf" : "rail"
+  if (!canRail && !canShelf) out.push({ level: "bad", text: `${CAT_NAME[cat] ?? "Эта категория"} — не для этого оборудования` })
+  const rule = placeAllowed(p, place, e.type, S)
+  if (rule) out.push({ level: "bad", text: rule.why || (rule.only === "fold" ? "Только сложенным на столе или полке" : "Только на вешалке") })
+  else if (placeRuleOf(p, S) && e.type !== "mannequin") out.push({ level: "good", text: placeRuleOf(p, S)!.only === "fold" ? "Сложенным — правильно для этой вещи" : "На вешалке — правильно для этой вещи" })
+  if (e.cats?.length && !e.cats.includes(cat)) out.push({ level: "warn", text: `Здесь выбраны только: ${e.cats.map((c) => CAT_NAME[c] ?? c).join(", ")}` })
+  if (e.gender && p.gender && p.gender !== "unisex" && p.gender !== e.gender) out.push({ level: "bad", text: `Оборудование только под ${GENDER_NAME[e.gender]}` })
+  const brand = p.brand ?? "—"
+  if (e.brands?.length && !e.brands.includes(brand)) out.push({ level: "warn", text: `Оборудование под ${e.brands.join(", ")}` })
+  else if (!e.brands?.length && zone?.brands?.length && !zone.brands.includes(brand)) out.push({ level: "warn", text: `Зона «${zone.name ?? "корнер"}» — корнер ${zone.brands.join(", ")}` })
+  if (zone?.role === "sale" && !p.outlet) out.push({ level: "warn", text: "Зона распродажи — только Outlet" })
+  if (zone?.role !== "sale" && p.outlet) out.push({ level: "bad", text: "Outlet — только в зоне распродажи, рядом с полной ценой он дешевит соседей" })
+  if (zone?.role === "cash" && !CASH_CATS.includes(cat)) out.push({ level: "warn", text: "У кассы — недорогие мелочи для импульсной покупки" })
+  if (zone?.role === "entry" && place === "rail") out.push({ level: "warn", text: "В зоне входа покупатель ещё не смотрит на стойки — лучше стол или манекен" })
+
+  // Брендовый блок: один бренд на стойке читается целиком
+  if (place === "rail" && !e.mix && e.type !== "mannequin") {
+    const others = [...new Set(slots.filter((x) => x.place === "rail" && x.p !== p.id).map((x) => byId.get(x.p)?.brand ?? "—"))].filter((b) => b !== brand)
+    if (others.length) out.push({ level: "warn", text: `На стойке уже ${others.join(", ")}: один бренд на стойке легче читается. Второй — если первый занимает меньше 70 %` })
+    else if (slots.some((x) => x.p !== p.id)) out.push({ level: "good", text: "Тот же бренд — брендовый блок не разбит" })
+  }
+
+  // Роль по продажам и сила места
+  const strong = (zone?.power ?? 2) >= 4
+  if (p.role === "hit" || p.role === "new") out.push(strong ? { level: "good", text: `${p.role === "hit" ? "Хит" : "Новинка"} в сильном месте — правильно` } : { level: "warn", text: `${p.role === "hit" ? "Хит" : "Новинка"} — лучше в сильное место (4–5 звёзд), ближе ко входу` })
+  if (p.role === "second_chance") out.push(strong ? { level: "good", text: "Мало продаётся, но смотрят: сильное место даст второй шанс" } : { level: "info", text: "Мало продаётся — попробуйте сильное место, это второй шанс" })
+  if (p.role === "hit_broken") out.push(strong ? { level: "warn", text: "Хит без ходовых размеров: в фокусе покупатель не найдёт свой — лучше у примерочных" } : { level: "good", text: "Хит без размеров — правильно не в фокусе" })
+  if (p.role === "offseason" && zone?.role !== "back") out.push({ level: "warn", text: "Не сезон — место ему в дальней зоне" })
+  if (p.fresh && zone?.role === "focus") out.push({ level: "good", text: "Новинка в фокусе — правильно" })
+  if (p.units <= 1 && !S.last_unit) out.push({ level: "warn", text: "Последняя единица — её могут купить на сайте" })
+
+  // Как выложить
+  if (place === "rail" && e.type !== "mannequin") {
+    const n = facingsOf(p, "rail", S)
+    const lv = levelOf(p, S)
+    out.push({ level: "info", text: `Вешать ${n} ${n === 1 ? "размер" : n < 5 ? "размера" : "размеров"} (${LEVEL_NAME[lv]}: до ${S.levels[lv].max_sizes}), от меньшего к большему` })
+    const free = cap.railM - railUsedM(slots.filter((x) => x.p !== p.id), byId, S)
+    const need = railMetersOf(p, n, false, S)
+    if (need > free + 0.005) out.push({ level: "bad", text: `Не влезет: на штанге свободно ${fmtM(Math.max(0, free))} м, нужно ${fmtM(need)} м` })
+  }
+  if (place === "shelf" && cap.shelf > 0) {
+    const used = slots.filter((x) => x.place === "shelf" && x.p !== p.id).reduce((a, x) => a + x.n, 0)
+    if (used + 1 > cap.shelf) out.push({ level: "bad", text: `Мест нет: занято ${used} из ${cap.shelf}` })
+  }
+  return { place, advice: out }
+}
+
+const fmtM = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",")
+
+/** Общая оценка подсказок: худший уровень */
+export function adviceLevel(a: Advice[]): Advice["level"] {
+  return a.some((x) => x.level === "bad") ? "bad" : a.some((x) => x.level === "warn") ? "warn" : a.some((x) => x.level === "good") ? "good" : "info"
+}
+
+/**
+ * Что подходит сюда: товары, ещё не стоящие в зале, без нарушений правил. Выше — тот же бренд, что уже на
+ * оборудовании (брендовый блок), потом — по баллу.
+ */
+export function suggestFor(e: EquipLike, zone: ZoneLike | null, slots: Slot[], products: MProduct[], used: Set<string>, S: MerchSettings = DEFAULT_SETTINGS, limit = 6) {
+  const byId = new Map(products.map((p) => [p.id, p]))
+  const here = new Set(slots.map((x) => x.p))
+  const brands = new Set(slots.map((x) => byId.get(x.p)?.brand).filter(Boolean) as string[])
+  return products
+    .filter((p) => p.sizes.length > 0 && !used.has(p.id) && !here.has(p.id))
+    .map((p) => ({ p, ...adviceFor(p, e, zone, slots, byId, S) }))
+    .filter((x) => !x.advice.some((a) => a.level === "bad" || a.level === "warn"))
+    .sort((a, b) => (brands.has(b.p.brand ?? "") ? 1 : 0) - (brands.has(a.p.brand ?? "") ? 1 : 0) || b.p.score - a.p.score)
+    .slice(0, limit)
 }

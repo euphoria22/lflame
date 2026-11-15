@@ -1,6 +1,6 @@
 import { Button, Container, Heading, Input, Select, Switch, Text, toast } from "@medusajs/ui"
 import { useEffect, useMemo, useState } from "react"
-import { Level, LEVEL_NAME, MerchSettings, MProduct } from "../../../lib/merch/autofill"
+import { CAT_NAME, Level, LEVEL_NAME, MerchSettings, MProduct, placeRuleOf, PlaceRule } from "../../../lib/merch/autofill"
 
 const LEVELS: Level[] = ["bridge", "premium", "luxury"]
 const num = (v: number) => String(v).replace(".", ",")
@@ -50,7 +50,7 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
         <div>
           <Heading level="h2">Правила выкладки</Heading>
           <Text size="small" className="text-ui-fg-subtle">
-            Уровень бренда задаёт плотность на штанге, сколько размеров вешать и что ставить лицом вперёд. Якорный бренд получает постоянный корнер.
+            Уровень бренда задаёт плотность на штанге и сколько размеров вешать. Правила размещения говорят, что нельзя вешать на плечики. Якорный бренд получает постоянный корнер.
             {unset > 0 && ` Не указан уровень у ${unset} брендов — для них «${LEVEL_NAME[v.default_level]}».`}
           </Text>
         </div>
@@ -68,7 +68,6 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
                   <th className="pb-2 pr-4 font-normal">Уровень</th>
                   <th className="pb-2 pr-4 font-normal">Запас между вещами (1 — вплотную)</th>
                   <th className="pb-2 pr-4 font-normal">Размеров модели</th>
-                  <th className="pb-2 pr-4 font-normal">Лицом вперёд: каждая N-я (0 — только главная вещь капсулы)</th>
                   <th className="pb-2 font-normal">Мест на полке за вещь</th>
                 </tr>
               </thead>
@@ -76,7 +75,7 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
                 {LEVELS.map((l) => (
                   <tr key={l}>
                     <td className="py-1 pr-4">{LEVEL_NAME[l]}</td>
-                    {(["spacing", "max_sizes", "face_every", "shelf_cost"] as const).map((k) => (
+                    {(["spacing", "max_sizes", "shelf_cost"] as const).map((k) => (
                       <td key={k} className="py-1 pr-4"><Input size="small" className="w-20" defaultValue={num(v.levels[l][k] ?? 0)} key={`${l}${k}${settings.levels[l][k]}`} onBlur={(e) => setLevel(l, k, e.target.value)} /></td>
                     ))}
                   </tr>
@@ -111,7 +110,7 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
                     </label>
                   ))}
                 </div>
-                <Text size="xsmall" className="mt-1 text-ui-fg-subtle">Шаг на штанге = толщина вещи (не меньше вешалки) × запас уровня. Вещь лицом вперёд занимает ширину плечиков.</Text>
+                <Text size="xsmall" className="mt-1 text-ui-fg-subtle">Шаг на штанге = толщина вещи (не меньше вешалки) × запас уровня.</Text>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-4">
@@ -133,6 +132,7 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
               </div>
             </div>
           </div>
+          <PlaceRules rules={v.place_rules} products={products} onChange={(place_rules) => setV({ ...v, place_rules })} />
           <div className="px-6 py-4">
             <Text size="small" weight="plus" className="mb-2">Бренды</Text>
             <datalist id="merch-styles">{["streetwear", "techwear", "classic", "denim", "спорт", ...styles].filter((x, i, a) => a.indexOf(x) === i).map((s) => <option key={s} value={s} />)}</datalist>
@@ -161,5 +161,51 @@ export function RulesBlock({ settings, products, onSaved }: { settings: MerchSet
         </>
       )}
     </Container>
+  )
+}
+
+/** Правила размещения: «свитеры — только на столы и полки» и подобные */
+function PlaceRules({ rules, products, onChange }: { rules: PlaceRule[]; products: MProduct[]; onChange: (r: PlaceRule[]) => void }) {
+  const patch = (id: string, p: Partial<PlaceRule>) => onChange(rules.map((r) => (r.id === id ? { ...r, ...p } : r)))
+  const add = () => onChange([...rules, { id: Math.random().toString(36).slice(2, 10), cat: "", words: [], only: "fold", why: "", active: true }])
+  // Сколько товаров в наличии попадает под каждое правило — чтобы было видно, что слова сработали
+  const hits = (r: PlaceRule) => products.filter((p) => placeRuleOf(p, { place_rules: [{ ...r, active: true }] } as MerchSettings)).length
+  return (
+    <div className="flex flex-col gap-2 px-6 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Text size="small" weight="plus">Правила размещения</Text>
+          <Text size="xsmall" className="text-ui-fg-subtle">Что нельзя вешать на плечики или класть на полки. Работает в автораскладке и в подсказках при ручной выкладке. Манекена не касается.</Text>
+        </div>
+        <Button size="small" variant="secondary" onClick={add}>Добавить правило</Button>
+      </div>
+      {rules.length === 0 && <Text size="xsmall" className="text-ui-fg-subtle">Правил нет.</Text>}
+      {rules.map((r) => (
+        <div key={r.id} className="grid items-start gap-2 rounded-md border border-ui-border-base p-2" style={{ gridTemplateColumns: "auto 180px minmax(140px,1fr) 210px minmax(200px,2fr) auto" }}>
+          <div className="pt-1.5"><Switch checked={r.active} onCheckedChange={(c) => patch(r.id, { active: c })} /></div>
+          <Select size="small" value={r.cat || "any"} onValueChange={(x) => patch(r.id, { cat: x === "any" ? "" : x })}>
+            <Select.Trigger><Select.Value /></Select.Trigger>
+            <Select.Content>
+              <Select.Item value="any">Любая категория</Select.Item>
+              {Object.entries(CAT_NAME).map(([k, n]) => <Select.Item key={k} value={k}>{n}</Select.Item>)}
+            </Select.Content>
+          </Select>
+          <div className="flex flex-col gap-0.5">
+            <Input size="small" placeholder="слова в названии, через запятую" defaultValue={r.words.join(", ")} key={r.words.join(",")}
+              onBlur={(e) => patch(r.id, { words: e.target.value.split(",").map((w) => w.trim().toLowerCase()).filter(Boolean) })} />
+            <Text size="xsmall" className="text-ui-fg-muted">{r.words.length ? "любое из слов" : "все вещи категории"} · сейчас {hits(r)} в наличии</Text>
+          </div>
+          <Select size="small" value={r.only} onValueChange={(x) => patch(r.id, { only: x as PlaceRule["only"] })}>
+            <Select.Trigger><Select.Value /></Select.Trigger>
+            <Select.Content>
+              <Select.Item value="fold">Только столы и полки</Select.Item>
+              <Select.Item value="hang">Только на вешалках</Select.Item>
+            </Select.Content>
+          </Select>
+          <Input size="small" placeholder="Почему — увидит мерчендайзер" value={r.why} onChange={(e) => patch(r.id, { why: e.target.value })} />
+          <Button size="small" variant="transparent" onClick={() => onChange(rules.filter((x) => x.id !== r.id))}>Удалить</Button>
+        </div>
+      ))}
+    </div>
   )
 }

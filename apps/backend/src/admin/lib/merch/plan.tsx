@@ -90,6 +90,8 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
   const startItem = (e: React.PointerEvent, it: Item) => {
     e.stopPropagation()
     onSelect(it.id)
+    // Закреплённое только выделяется
+    if (it.fixed) return
     const p = toM(e)
     drag.current = { kind: "item", id: it.id, dx: it.x - p.x, dy: it.y - p.y, start: data }
   }
@@ -160,7 +162,7 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
         const track = it.type === "track"
         const warn = warnIds?.has(it.id)
         return (
-          <g key={it.id} transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`} style={{ cursor: "move" }}
+          <g key={it.id} transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`} style={{ cursor: it.fixed ? "pointer" : "move" }}
             onPointerDown={(e) => startItem(e, it)} onPointerEnter={() => setHover(it.id)} onPointerLeave={() => setHover(null)}>
             {track ? (
               <line x1={-it.w / 2} y1={0} x2={it.w / 2} y2={0} stroke="#18181b" strokeOpacity={sel ? 0.9 : 0.35} strokeWidth={sel ? 0.08 : 0.04} strokeDasharray="0.25 0.15" />
@@ -171,6 +173,13 @@ export function Plan({ data, selected, showZones, onSelect, onChange, warnIds }:
             )}
             {/* Штанга — линией, чтобы было видно, куда смотрят вещи */}
             {t.hangPerM && !t.round && <line x1={-it.w / 2 + 0.05} y1={0} x2={it.w / 2 - 0.05} y2={0} stroke="#1e3a8a" strokeOpacity={0.55} strokeWidth={0.02} />}
+            {/* Замок у закреплённого на месте */}
+            {it.fixed && !track && (
+              <g transform={`rotate(${-it.rot}) translate(${-0.09} ${-0.1})`} pointerEvents="none">
+                <path d="M0.04 0.09 V0.05 a0.05 0.05 0 0 1 0.1 0 V0.09" fill="none" stroke="#3f3f46" strokeWidth={0.022} />
+                <rect x={0.01} y={0.09} width={0.16} height={0.12} rx={0.02} fill="#3f3f46" />
+              </g>
+            )}
             {/* Лицевая сторона у пристенного */}
             {t.wall && !track && <line x1={-it.w / 2} y1={it.d / 2} x2={it.w / 2} y2={it.d / 2} stroke="#111" strokeOpacity={0.5} strokeWidth={0.03} />}
             {(sel || hover === it.id || it.label || it.gender || it.mix || it.brands?.length) && !track && (

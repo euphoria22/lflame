@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CATALOG, capacity, draftLayout, FINISH_NAME, GROUP_COLOR, GROUP_NAME, Group, Item, LayoutData, Opening, typeOf, uid, WALL_NAME, WallFinish, WallSide, Zone } from "../../lib/merch/catalog"
 import { extents, Plan } from "../../lib/merch/plan"
 import type { CameraPreset, MerchScene, ProductLook, ViewMode } from "../../lib/merch/scene"
-import { autofill, closedSides, COLOR_HEX, type Side, DEFAULT_SETTINGS, hangerOf, kindOf, stepCm, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
+import { autofill, closedSides, zoneOf, COLOR_HEX, type Side, DEFAULT_SETTINGS, hangerOf, kindOf, stepCm, MerchSettings, MProduct, Slot, ZONE_ROLE_NAME, ZoneRole } from "../../../lib/merch/autofill"
 import { RulesBlock } from "../../lib/merch/rules-ui"
 import { ChecklistsBlock, LooksBlock, StandardsBlock } from "../../lib/merch/extra-ui"
 import { PlanBlock, ReportBlock } from "../../lib/merch/report-ui"
@@ -210,6 +210,7 @@ const MerchPage = () => {
         return
       }
       if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removeSel() }
+      else if (selItem.fixed && (e.code === "KeyR" || e.key.startsWith("Arrow"))) { e.preventDefault(); toast.info("Оборудование закреплено на месте — снимите закрепление, чтобы двигать") }
       else if (e.code === "KeyR") { e.preventDefault(); patchItem(selItem.id, { rot: (selItem.rot + (e.shiftKey ? 15 : 90)) % 360 }) }
       else if ((e.ctrlKey || e.metaKey) && e.code === "KeyD") { e.preventDefault(); duplicate() }
       else if (e.key.startsWith("Arrow")) {
@@ -341,7 +342,7 @@ const MerchPage = () => {
 
   const planEl = <Plan data={data} selected={selected} showZones={showZones} onSelect={setSelected} onChange={change} warnIds={showWarn ? warnIds : undefined} />
   const sceneEl = <Scene3D data={data} selected={selected} clothes={clothes} zones={showZones} looks={looks} sceneRef={sceneRef}
-    onSelect={setSelected} onMove={(id, x, y) => patchItem(id, { x, y })} />
+    onSelect={setSelected} onMove={(id, x, y) => { if (!data.items.find((i) => i.id === id)?.fixed) patchItem(id, { x, y }) }} />
 
   return (
     <div className="flex flex-col gap-3">
@@ -370,7 +371,7 @@ const MerchPage = () => {
 
       <div className="grid gap-3" style={{ gridTemplateColumns: "240px minmax(0,1fr) 280px" }}>
         {/* Слева: оборудование и помещение */}
-        <Container className="flex max-h-[calc(100vh-180px)] flex-col gap-4 overflow-y-auto p-4">
+        <Container className="flex max-h-[calc(100vh-180px)] flex-col gap-4 overflow-y-auto p-4 [&>*]:shrink-0">
           <div>
             <Text size="small" weight="plus">Добавить на план</Text>
             <Text size="xsmall" className="text-ui-fg-subtle">Появится в центре зала — перетащите на место</Text>
@@ -471,12 +472,12 @@ const MerchPage = () => {
           <Text size="xsmall" className="text-ui-fg-subtle">
             {mode === "walk" && view !== "plan"
               ? "Обход зала: зажмите мышку и ведите — поворот головы; W/S или ↑/↓ — вперёд-назад, A/D — шаг в сторону, ←/→ — поворот, колесо — шаги."
-              : "Перетаскивайте оборудование на плане или в 3D. R — повернуть на 90° (Shift+R — на 15°), стрелки — сдвиг на 1 см (с Shift — 10 см), Delete — удалить, Ctrl+D — копия, Ctrl+Z — отменить. В 3D: вращение — левой кнопкой по пустому месту, сдвиг вида — правой, приближение — колесом."}
+              : "Перетаскивайте оборудование на плане или в 3D. R — повернуть на 90° (Shift+R — на 15°), стрелки — сдвиг на 1 см (с Shift — 10 см), Delete — удалить, Ctrl+D — копия, Ctrl+Z — отменить. В 3D: левая кнопка по пустому месту — вращать камеру, правая кнопка (или Shift + левая) — двигать точку обзора по залу, W/A/S/D — то же с клавиатуры, двойной клик — смотреть на это место, колесо — ближе-дальше."}
           </Text>
         </div>
 
         {/* Справа: свойства выбранного и итоги */}
-        <Container className="flex max-h-[calc(100vh-180px)] flex-col gap-3 overflow-y-auto p-4">
+        <Container className="flex max-h-[calc(100vh-180px)] flex-col gap-3 overflow-y-auto p-4 [&>*]:shrink-0">
           {selItem ? (() => {
             const t = typeOf(selItem.type)
             const cap = capacity(selItem)
@@ -487,17 +488,22 @@ const MerchPage = () => {
                   <Text size="small" weight="plus">{t.name}</Text>
                   {t.hint && <Text size="xsmall" className="text-ui-fg-subtle">{t.hint}</Text>}
                 </div>
-                <Select size="small" value={selItem.type} onValueChange={(v) => {
+                <div className="flex items-center gap-2 rounded-md bg-ui-bg-subtle px-2 py-1.5">
+                  <Switch checked={!!selItem.fixed} onCheckedChange={(v) => patchItem(selItem.id, { fixed: v || undefined })} />
+                  <Text size="xsmall">Закрепить на месте — не двигается мышкой и стрелками</Text>
+                </div>
+                {!selItem.fixed && <Select size="small" value={selItem.type} onValueChange={(v) => {
                   const nt = typeOf(v)
                   patchItem(selItem.id, { type: v, w: nt.w, d: nt.d, h: nt.h, elev: nt.elev })
                 }}>
                   <Select.Trigger><Select.Value /></Select.Trigger>
                   <Select.Content>{CATALOG.map((c) => <Select.Item key={c.type} value={c.type}>{c.name}</Select.Item>)}</Select.Content>
-                </Select>
+                </Select>}
                 <div className="flex flex-col gap-1">
                   <Label size="xsmall" className="text-ui-fg-subtle">Подпись на плане</Label>
                   <Input size="small" value={selItem.label ?? ""} placeholder="Например: «Стойка C.P. Company»" onChange={(e) => patchItem(selItem.id, { label: e.target.value || undefined })} />
                 </div>
+                {!selItem.fixed && <>
                 <div className="grid grid-cols-3 gap-2">
                   <NumField label="Длина" value={selItem.w} onChange={(v) => patchItem(selItem.id, { w: Math.max(0.05, v) })} />
                   <NumField label="Глубина" value={selItem.d} onChange={(v) => patchItem(selItem.id, { d: Math.max(0.02, v) })} />
@@ -513,6 +519,7 @@ const MerchPage = () => {
                   <Button size="small" variant="secondary" onClick={() => patchItem(selItem.id, { rot: (selItem.rot + 270) % 360 })}>↺</Button>
                   <Button size="small" variant="secondary" onClick={() => patchItem(selItem.id, { rot: (selItem.rot + 90) % 360 })}>↻</Button>
                 </div>
+                </>}
                 <Text size="xsmall" className="text-ui-fg-subtle">
                   Края: от {num(selItem.x - hx)} до {num(selItem.x + hx)} м по горизонтали, от {num(selItem.y - hy)} до {num(selItem.y + hy)} м по вертикали.
                 </Text>
@@ -543,7 +550,7 @@ const MerchPage = () => {
                     </div>
                   )
                 })()}
-                <EquipProducts item={selItem.type === "rack_square" ? { ...selItem, closed: closedSides(selItem, data.items, data.room) } : selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds} settings={settings}
+                <EquipProducts zone={zoneOf(selItem, data.zones)} item={selItem.type === "rack_square" ? { ...selItem, closed: closedSides(selItem, data.items, data.room) } : selItem} slots={data.assign?.[selItem.id] ?? []} products={pmap} used={usedIds} settings={settings}
                   onSlots={(sl) => setSlots(selItem.id, sl)} onItem={(p) => patchItem(selItem.id, p)} />
                 <div className="flex flex-col gap-1">
                   <Label size="xsmall" className="text-ui-fg-subtle">Заметка</Label>

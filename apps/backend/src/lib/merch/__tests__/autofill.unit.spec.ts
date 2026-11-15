@@ -1,4 +1,4 @@
-import { autofill, capacityOf, capsules, closedSides, railMetersOf, railUsedM, DEFAULT_SETTINGS, facingsOf, MerchSettings, MProduct, usedOf } from "../autofill"
+import { adviceFor, autofill, placeAllowed, suggestFor, capacityOf, capsules, closedSides, railMetersOf, railUsedM, DEFAULT_SETTINGS, facingsOf, MerchSettings, MProduct, usedOf } from "../autofill"
 
 const room = { width: 14, length: 8, openings: [{ kind: "door", wall: "bottom", offset: 6, width: 1.2 }] }
 let n = 0
@@ -46,8 +46,8 @@ describe("автораскладка", () => {
     const rackBrand = pById(products, res.far[0].p).brand
     expect(pById(products, res.shelf[0].p).brand).toBe(rackBrand)
   })
-  it("главная вещь капсулы — лицом вперёд", () => {
-    expect(res.near[0].face).toBe(true)
+  it("развеску лицом вперёд не используем", () => {
+    expect(Object.values(res).flat().some((s) => s.face)).toBe(false)
   })
   it("закреплённое не меняется", () => {
     const r2 = autofill([{ ...near, lock: true }, far], [], room, products, { near: [{ p: "p20", n: 1, place: "rail" }] })
@@ -82,14 +82,14 @@ describe("уровни и капсулы", () => {
 })
 
 describe("образы мерчендайзера", () => {
-  it("манекен — из образа, вещи образа висят на ближайшей стойке первыми, лицом вперёд", () => {
+  it("манекен — из образа, вещи образа висят на ближайшей стойке первыми", () => {
     const ps = [prod("A", "kurtki", 0.2, "green"), prod("A", "bryuki", 0.2, "black"), ...Array.from({ length: 8 }, (_, i) => prod("B", "kurtki", 0.9 - i * 0.01))]
     const S: MerchSettings = { ...DEFAULT_SETTINGS, looks: [{ id: "l1", name: "Образ", place: "mannequin", products: [ps[0].id, ps[1].id], active: true }] }
     const man = { id: "man", type: "mannequin", x: 3, y: 3, w: 0.5, d: 0.35, h: 1.85 }
     const rack = { id: "rack", type: "rack_base", x: 4, y: 3, w: 1.4, d: 0.45, h: 1.65 }
     const r = autofill([man, rack], [], room, ps, {}, { settings: S })
     expect(r.man.map((s) => s.p)).toEqual([ps[0].id, ps[1].id])
-    expect(r.rack[0]).toMatchObject({ p: ps[0].id, face: true })
+    expect(r.rack[0].p).toBe(ps[0].id)
     expect(r.rack.some((s) => s.p === ps[1].id)).toBe(true)
   })
 })
@@ -125,5 +125,44 @@ describe("корнер бренда и микс", () => {
     const r2 = autofill([{ ...rack, w: 4, mix: true }], [], room, ps, {})
     expect(new Set(r2.r.map((s) => pById(ps, s.p).brand)).size).toBe(2)
     expect(r.r.length).toBeGreaterThan(0)
+  })
+})
+
+describe("правила размещения и подсказки", () => {
+  const sweater = prod("Stone", "svitery-i-kardigany", 0.9, "black", ["S", "M"], { title: "Свитер Stone Island шерсть" })
+  const cardigan = prod("Stone", "svitery-i-kardigany", 0.8, "black", ["S", "M"], { title: "Кардиган Stone Island" })
+  const tees = Array.from({ length: 6 }, (_, i) => prod("Stone", "futbolki-i-longslivy", 0.5 - i * 0.01))
+  const rack = { id: "rack", type: "rack_base", x: 3, y: 3, w: 1.8, d: 0.4, h: 1.55 }
+  const table = { id: "table", type: "table_cube", x: 5, y: 3, w: 1, d: 1, h: 0.5 }
+
+  it("свитер по умолчанию нельзя на плечики, кардиган — можно, на манекен — можно", () => {
+    expect(placeAllowed(sweater, "rail", "rack_base")).not.toBeNull()
+    expect(placeAllowed(sweater, "shelf", "table_cube")).toBeNull()
+    expect(placeAllowed(cardigan, "rail", "rack_base")).toBeNull()
+    expect(placeAllowed(sweater, "rail", "mannequin")).toBeNull()
+  })
+  it("автораскладка кладёт свитер на стол, а не на стойку", () => {
+    const r = autofill([rack, table], [], room, [sweater, cardigan, ...tees], {})
+    expect((r.rack ?? []).some((s) => s.p === sweater.id)).toBe(false)
+    expect((r.table ?? []).some((s) => s.p === sweater.id)).toBe(true)
+  })
+  it("выключенное правило не действует", () => {
+    const S: MerchSettings = { ...DEFAULT_SETTINGS, place_rules: DEFAULT_SETTINGS.place_rules.map((x) => ({ ...x, active: false })) }
+    expect(placeAllowed(sweater, "rail", "rack_base", S)).toBeNull()
+  })
+  it("подсказка объясняет, почему свитер не на стойку, и чужой бренд на стойке", () => {
+    const byId = new Map([sweater, ...tees].map((p) => [p.id, p]))
+    const a = adviceFor(sweater, rack, null, [], byId)
+    expect(a.advice.some((x) => x.level === "bad" && /трикотаж/i.test(x.text))).toBe(true)
+    const other = prod("CP", "kurtki", 0.9)
+    byId.set(other.id, other)
+    const b = adviceFor(other, rack, null, [{ p: tees[0].id, n: 3, place: "rail" }], byId)
+    expect(b.advice.some((x) => x.level === "warn" && x.text.includes("Stone"))).toBe(true)
+  })
+  it("«подходит сюда» — без свитера на стойке, свой бренд выше", () => {
+    const other = prod("CP", "kurtki", 0.99)
+    const list = suggestFor(rack, null, [{ p: tees[0].id, n: 3, place: "rail" }], [sweater, other, ...tees], new Set([tees[0].id]))
+    expect(list.some((x) => x.p.id === sweater.id)).toBe(false)
+    expect(list[0].p.brand).toBe("Stone")
   })
 })
