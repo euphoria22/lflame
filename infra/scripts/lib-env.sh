@@ -43,9 +43,9 @@ setup_backup_remote() {
         # У хостинга сертификат часто выписан на общее имя сервера, а не на ваш поддомен
         export RCLONE_CONFIG_BACKUP_NO_CHECK_CERTIFICATE=true
         # FTP-сервер Beget выдаёт «билет сессии» TLS 1.3 со сроком больше допустимого — клиент rclone его отвергает
-        # («session ticket with invalid lifetime»). Без кэша сессий и без TLS 1.3 соединение проходит.
+        # («session ticket with invalid lifetime»). Поэтому TLS 1.2; кэш сессий оставляем — Beget требует
+        # повторного использования сессии для передачи файлов («session reuse required»).
         export RCLONE_CONFIG_BACKUP_DISABLE_TLS13=true
-        export RCLONE_CONFIG_BACKUP_TLS_CACHE_SIZE=0
       fi
     else
       export RCLONE_CONFIG_BACKUP_TYPE=sftp
