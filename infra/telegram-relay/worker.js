@@ -2,11 +2,11 @@
  * Посредник для Telegram (Cloudflare Worker): уведомления магазину и посты в канал.
  * С серверов в РФ api.telegram.org недоступен; сервер шлёт запрос сюда, а Worker — в Telegram.
  *
- * Пропускает только нужные методы (сообщение, фото и альбом с фото файлами, правка подписи поста) и только с секретом
+ * Пропускает только нужные методы (сообщение, фото и альбом с фото файлами, правка подписи поста, приём команд бота графика смен) и только с секретом
  * в заголовке X-Relay-Secret — он задаётся в настройках Worker как переменная RELAY_SECRET (тип Secret)
  * и на сервере как TELEGRAM_RELAY_SECRET.
  */
-const METHODS = ["sendMessage", "sendMediaGroup", "sendPhoto", "editMessageCaption", "getChat"]
+const METHODS = ["sendMessage", "sendMediaGroup", "sendPhoto", "editMessageCaption", "getChat", "getUpdates", "setMyCommands"]
 
 export default {
   async fetch(request, env) {
