@@ -27,7 +27,7 @@ const AbandonedBlock = ({ value, stats, onSaved }: { value: Abandoned; stats: Ab
   const test = async () => {
     setBusy("test")
     try {
-      const r = await fetch("/admin/abandoned/test", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: testTo }) })
+      const r = await fetch("/admin/abandoned/send-test", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: testTo }) })
       const d = (await r.json().catch(() => ({}))) as { message?: string; to?: string }
       if (!r.ok) throw new Error(d.message ?? `Не отправилось (ответ сервера ${r.status})`)
       toast.success(`Пробное письмо отправлено на ${d.to}`)
