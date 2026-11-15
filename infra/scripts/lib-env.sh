@@ -37,6 +37,8 @@ setup_backup_remote() {
     RCLONE_CONFIG_BACKUP_PASS="$(rclone obscure "$BACKUP_SFTP_PASSWORD")"
     export RCLONE_CONFIG_BACKUP_PASS
     export RCLONE_CONFIG_BACKUP_SHELL_TYPE=unix
+    # Не висеть молча, если хостинг недоступен
+    export RCLONE_CONTIMEOUT=20s RCLONE_TIMEOUT=2m RCLONE_LOW_LEVEL_RETRIES=2 RCLONE_RETRIES=2
     BACKUP_REMOTE="backup:${BACKUP_SFTP_PATH:-laflamme-backups}"
   fi
 }
