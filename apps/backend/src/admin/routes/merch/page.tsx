@@ -601,7 +601,7 @@ const MerchPage = () => {
       <LooksBlock settings={settings} products={products} onSaved={setSettings} />
       <StandardsBlock settings={settings} onSaved={setSettings} />
       <ChecklistsBlock settings={settings} onSaved={setSettings} />
-      {curId && <TasksBlock layoutId={curId} layoutName={name} isCurrent={!!cur?.is_current} data={data} dirty={dirty} sceneRef={sceneRef} ensure3d={ensure3d} />}
+      {curId && <TasksBlock layoutId={curId} layoutName={name} isCurrent={!!cur?.is_current} data={data} dirty={dirty} sceneRef={sceneRef} ensure3d={ensure3d} products={pmap} />}
     </div>
   )
 }

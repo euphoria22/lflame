@@ -81,7 +81,7 @@ export async function productInfo(c: MedusaContainer): Promise<Map<string, Omit<
   }]))
 }
 
-export type StepInput = { item_id: string; type: string; title: string; where: string; render?: string | null; products: { p: string; n: number; place: Place; face?: boolean }[]; remove?: string[] }
+export type StepInput = { item_id: string; type: string; title: string; where: string; render?: string | null; products: { p: string; n: number; place: Place; face?: boolean }[]; remove?: string[]; reason?: string }
 
 export async function createTask(c: MedusaContainer, input: { layout_id: string; name: string; note?: string | null; steps: StepInput[] }, author: string) {
   const name = String(input.name ?? "").trim().slice(0, 120)
@@ -99,7 +99,7 @@ export async function createTask(c: MedusaContainer, input: { layout_id: string;
     const render = typeof s.render === "string" && /^https?:\/\//.test(s.render) ? s.render : null
     return {
       id: `s${i + 1}`, item_id: String(s.item_id), title: String(s.title).slice(0, 120), where: String(s.where ?? "").slice(0, 200), render,
-      products, remove, text: stepText(products, remove, s.type, settings.standards), done_at: null, done_by: null, photos: [], comment: null, review: null,
+      products, remove, text: [...(s.reason ? [`Зачем: ${String(s.reason).slice(0, 200)}.`] : []), ...stepText(products, remove, s.type, settings.standards)], done_at: null, done_by: null, photos: [], comment: null, review: null,
     }
   })
   const row = await svc(c).createMerchTasks({ layout_id: input.layout_id, name, note: input.note ? String(input.note).slice(0, 2000) : null, token: randomBytes(18).toString("hex"), steps: steps as unknown as Record<string, unknown>, author, status: "open" })

@@ -1,6 +1,6 @@
 import { Badge, Button, Container, Heading, Input, Text, Textarea, toast } from "@medusajs/ui"
 import { useCallback, useEffect, useState } from "react"
-import { Assign, capacityOf, Slot } from "../../../lib/merch/autofill"
+import { Assign, capacityOf, MProduct, Slot } from "../../../lib/merch/autofill"
 import { Item, LayoutData, typeOf } from "./catalog"
 import type { MerchScene } from "./scene"
 
@@ -39,14 +39,15 @@ export function titleOf(it: Item, data: LayoutData): string {
 
 const sameSlots = (a: Slot[] = [], b: Slot[] = []) => JSON.stringify(a.map((s) => [s.p, s.n])) === JSON.stringify(b.map((s) => [s.p, s.n]))
 
-export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, sceneRef, ensure3d }: {
+export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, sceneRef, ensure3d, products }: {
+  products: Map<string, MProduct>
   layoutId: string; layoutName: string; isCurrent: boolean; data: LayoutData; dirty: boolean
   sceneRef: React.MutableRefObject<MerchScene | null>
   /** Включить 3D-вид (для картинок к шагам) — вернёт, когда сцена готова */
   ensure3d: () => Promise<boolean>
 }) {
   const [tasks, setTasks] = useState<TaskInfo[]>([])
-  const [form, setForm] = useState<{ name: string; note: string; onlyChanges: boolean; renders: boolean } | null>(null)
+  const [form, setForm] = useState<{ name: string; note: string; onlyChanges: boolean; renders: boolean; limit: number } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [open, setOpen] = useState<TaskFull | null>(null)
   const load = useCallback(() => { api<{ tasks: TaskInfo[] }>("/tasks").then((d) => setTasks(d.tasks)).catch((e: Error) => toast.error(e.message)) }, [])
@@ -65,12 +66,31 @@ export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, scene
         if (cur) base = ((await api<{ layout: { data: LayoutData } }>(`/layouts/${cur.id}`)).layout.data.assign ?? {})
       }
       const assign = data.assign ?? {}
-      const items = data.items.filter((it) => {
+      // Польза шага: новые товары (по баллу) + новинки и «второй шанс»; причины — простыми словами
+      const why = (it: { id: string }) => {
+        const now = assign[it.id] ?? []
+        const before = base?.[it.id] ?? []
+        const added = now.filter((s) => !before.some((x) => x.p === s.p)).map((s) => products.get(s.p)).filter(Boolean) as MProduct[]
+        const removed = before.filter((s) => !now.some((x) => x.p === s.p))
+        const fresh = added.filter((p) => p.fresh).length
+        const second = added.filter((p) => p.role === "second_chance").length
+        const reasons = [
+          fresh ? `новая поставка: ${fresh}` : "",
+          second ? `«второй шанс» залежавшемуся: ${second}` : "",
+          removed.length ? `убираем ${removed.length} — освобождаем место` : "",
+          !base ? "выкладка по плану" : "",
+        ].filter(Boolean)
+        const effect = added.reduce((a, p) => a + p.score, 0) + fresh * 0.5 + second * 0.3
+        return { effect, reason: reasons.join("; ") }
+      }
+      let items = data.items.filter((it) => {
         const c = capacityOf(it)
         if (!c.rail && !c.shelf) return false
         if (base) return !sameSlots(assign[it.id], base[it.id])
         return (assign[it.id]?.length ?? 0) > 0
       })
+      // «Не больше N шагов»: самые полезные перестановки
+      if (form.limit > 0 && items.length > form.limit) items = [...items].sort((a, b) => why(b).effect - why(a).effect).slice(0, form.limit)
       if (!items.length) throw new Error(base ? "Отличий от текущей расстановки нет" : "На оборудовании нет товаров — сначала разложите товары")
       const has3d = form.renders ? await ensure3d() : false
       const steps = []
@@ -83,7 +103,7 @@ export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, scene
         const now = assign[it.id] ?? []
         const before = base?.[it.id] ?? []
         steps.push({
-          item_id: it.id, type: it.type, title: titleOf(it, data), where: whereOf(it, data), render,
+          item_id: it.id, type: it.type, title: titleOf(it, data), where: whereOf(it, data), render, reason: why(it).reason,
           products: now, remove: before.filter((s) => !now.some((x) => x.p === s.p)).map((s) => s.p),
         })
       }
@@ -123,7 +143,7 @@ export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, scene
           <Heading level="h2">Задания консультантам</Heading>
           <Text size="small" className="text-ui-fg-subtle">Задание собирается из этого варианта: по каждому оборудованию — картинка из 3D, что и в каком порядке повесить, что убрать. Консультант открывает ссылку на телефоне, отмечает сделанное и прикладывает фото.</Text>
         </div>
-        {!form && <Button size="small" onClick={() => setForm({ name: `${layoutName} — выкладка ${new Date().toLocaleDateString("ru-RU")}`, note: "", onlyChanges: !isCurrent, renders: true })}>Создать задание</Button>}
+        {!form && <Button size="small" onClick={() => setForm({ name: `${layoutName} — выкладка ${new Date().toLocaleDateString("ru-RU")}`, note: "", onlyChanges: !isCurrent, renders: true, limit: isCurrent ? 0 : 8 })}>Создать задание</Button>}
       </div>
       {form && (
         <div className="flex flex-col gap-3 px-6 py-4">
@@ -136,6 +156,11 @@ export function TasksBlock({ layoutId, layoutName, isCurrent, data, dirty, scene
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.renders} onChange={(e) => setForm({ ...form, renders: e.target.checked })} />
             Добавить к каждому шагу картинку из 3D
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            Не больше
+            <Input size="small" type="number" className="w-20" value={String(form.limit || "")} placeholder="все" onChange={(e) => setForm({ ...form, limit: Math.max(0, Number(e.target.value) || 0) })} />
+            шагов — система возьмёт самые полезные (новинки, «второй шанс», товары с высоким баллом)
           </label>
           <div className="flex gap-2">
             <Button size="small" isLoading={busy === "create"} onClick={create}>Создать и скопировать ссылку</Button>
