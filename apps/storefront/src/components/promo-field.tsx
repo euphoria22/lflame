@@ -26,7 +26,7 @@ export function PromoField({ className = "", defaultOpen = false }: { className?
       <div className={`text-[13px] ${className}`}>
         <div className="flex items-center justify-between gap-3">
           <span>Промокод <b className="font-medium">{current.code}</b>{current.applied && <span className="text-muted"> · применён</span>}</span>
-          <button type="button" disabled={busy} onClick={async () => { setError(await promo(null)) }} className="pill pill-sm">Убрать</button>
+          <button type="button" disabled={busy} onClick={async () => { setError(await promo(null)) }} className="shrink-0 text-[13px] text-muted hover:text-foreground disabled:opacity-50">Убрать</button>
         </div>
         {current.note && <p className="mt-1 text-[12px] leading-snug text-muted">{current.note}</p>}
       </div>
@@ -48,8 +48,8 @@ export function PromoField({ className = "", defaultOpen = false }: { className?
       <div className="flex gap-2">
         <input value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(null) }} placeholder="Введите код" aria-label="Промокод" autoFocus={!defaultOpen}
           onKeyDown={(e) => { if (e.key === "Enter") submit(e) }}
-          className="h-10 min-w-0 flex-1 rounded-full border border-line bg-background px-4 text-[13px] uppercase outline-none placeholder:normal-case focus:border-foreground" />
-        <button type="button" disabled={busy || !code.trim()} onClick={submit} className="h-10 shrink-0 rounded-full border border-foreground px-4 text-[13px] hover:bg-foreground hover:text-background disabled:opacity-50">
+          className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-background px-4 text-[14px] uppercase outline-none placeholder:normal-case focus:border-foreground" />
+        <button type="button" disabled={busy || !code.trim()} onClick={submit} className="h-11 shrink-0 rounded-xl bg-foreground px-4 text-[14px] text-background disabled:opacity-40">
           Применить
         </button>
       </div>

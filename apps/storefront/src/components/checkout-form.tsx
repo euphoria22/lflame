@@ -142,7 +142,6 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
 
         <section className="mt-10">
           <h2 className="mb-4 text-[17px]">3. Оплата</h2>
-          <div className="mb-4"><GiftCardField value={gift} onChange={setGift} due={orderTotal} /></div>
           {paidByGift ? (
             <p className="rounded-xl bg-surface px-4 py-3 text-[13px]">Заказ полностью оплачивается подарочной картой — доплачивать ничего не нужно.</p>
           ) : (
@@ -166,6 +165,7 @@ export function CheckoutForm({ options, notice, defaults }: { options: PaymentOp
             {!offered.length && <p className="text-[13px] text-sale">Оплата сейчас недоступна — позвоните нам, оформим заказ по телефону.</p>}
           </div>
           )}
+          <div className="mt-2"><GiftCardField value={gift} onChange={setGift} due={orderTotal} /></div>
         </section>
 
         <section className="mt-10">

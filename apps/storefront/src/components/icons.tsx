@@ -20,6 +20,9 @@ export const MenuIcon = ({ className }: P) => (
 export const CloseIcon = ({ className }: P) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...base}><path d="M6 6l12 12M18 6 6 18" /></svg>
 )
+export const GiftIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden><rect x="3.5" y="8.5" width="17" height="4" rx="1" /><path d="M5 12.5v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7M12 8.5v12M12 8.5c-1.5-3.5-5.5-4-5.5-1.5 0 1.3 1.6 1.5 5.5 1.5Zm0 0c1.5-3.5 5.5-4 5.5-1.5 0 1.3-1.6 1.5-5.5 1.5Z" /></svg>
+)
 export const ArrowIcon = ({ className }: P) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...base}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 )

@@ -39,13 +39,16 @@ const byScore = (items: CatalogItem[]) => [...items].sort((a, b) => (b.score ?? 
 const popular = (items: CatalogItem[], sort: SortData | null) => smartOrder(items, "all", sort).items
 
 /**
- * Главная (ТЗ, п. 6.1). Структура: баннер-кампания (или разделы), новинки, бренды, блог, распродажа, популярное.
+ * Главная (ТЗ, п. 6.1). Структура: баннер-кампания (или разделы), популярное, бренды, блог, распродажа, новинки.
  * Баннеры и блоки будут управляться из CMS (ТЗ, п. 9); пока изображения берутся из каталога.
  */
 export default async function HomePage() {
   const [items, hero, sort] = await Promise.all([getCatalog(), safeHomeHero(), getSort()])
   const all = scopeItems(items, {})
   const fresh = scopeItems(items, { onlyNew: true }).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  // Популярное — первые 6 по умной сортировке; в «Новых поступлениях» ниже их не повторяем
+  const top = popular(all, sort).slice(0, 6)
+  const topIds = new Set(top.map((i) => i.id))
   const outlet = scopeItems(items, { onlyOutlet: true })
   const maxOff = Math.max(0, ...outlet.map((i) => discountPercent(i.price, i.compare_at) ?? 0))
 
@@ -66,7 +69,8 @@ export default async function HomePage() {
       {/* Первый экран: баннер-кампания из CMS или карточки разделов */}
       <HomeHeroBlock hero={hero} picks={{ men: heroPick(items, "men"), women: heroPick(items, "women") }} />
 
-      <ProductRail title="Новые поступления" items={fresh} href={routes.newIn()} />
+      {/* Популярное — сразу под баннером: самые продаваемые вещи */}
+      <ProductRail title="Популярное" items={top} href={routes.gender("men")} />
 
       {/* Бренды крупным шрифтом */}
       <section className="mt-20 border-y border-line px-4 py-12 md:px-8 md:py-16">
@@ -101,7 +105,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <ProductRail title="Популярное" items={popular(all, sort).slice(8)} href={routes.gender("men")} />
+      <ProductRail title="Новые поступления" items={fresh.filter((i) => !topIds.has(i.id))} href={routes.newIn()} />
     </>
   )
 }
