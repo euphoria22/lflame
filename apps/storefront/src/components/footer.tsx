@@ -15,7 +15,8 @@ export async function Footer() {
   cacheTag("catalog", "settings")
   const [nav, pay] = await Promise.all([getNav(), getShopOptions()])
   const year = new Date().getFullYear()
-  const col = "text-[13px] leading-7 text-muted"
+  // Строки повыше — по ссылкам удобно попадать пальцем
+  const col = "text-[13px] leading-8 text-muted"
   return (
     <footer className="mt-24 border-t border-line">
       <div className="mx-auto max-w-[1680px] px-4 pt-12 md:px-8">
@@ -25,9 +26,9 @@ export async function Footer() {
         <div className="col-span-2 md:col-span-1">
           <LogoWordmark className="h-5 w-auto" aria-label={SITE_NAME} />
           <p className="mt-4 max-w-xs text-[13px] leading-6 text-muted">Мультибрендовый магазин оригинальной одежды, обуви и аксессуаров.</p>
-          <a href="tel:+79131446482" className="mt-4 block text-[13px] hover:opacity-60">+7 913 144-64-82</a>
-          <a href="mailto:admin@laflamme.ru" className="block text-[13px] text-muted hover:text-foreground">admin@laflamme.ru</a>
-          <a href={SUPPORT.telegram} target="_blank" rel="noopener" className="block text-[13px] text-muted hover:text-foreground">Написать в Telegram</a>
+          <a href="tel:+79131446482" className="mt-4 block py-1.5 text-[13px] hover:opacity-60">+7 913 144-64-82</a>
+          <a href="mailto:admin@laflamme.ru" className="block py-1.5 text-[13px] text-muted hover:text-foreground">admin@laflamme.ru</a>
+          <a href={SUPPORT.telegram} target="_blank" rel="noopener" className="block py-1.5 text-[13px] text-muted hover:text-foreground">Написать в Telegram</a>
           <ul className="mt-5 flex gap-2">
             {SOCIAL.map((s) => (
               <li key={s.id}>

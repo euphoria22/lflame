@@ -65,3 +65,24 @@ export function SplitBadge({ amount, productId, cart, size = "s", variant = "sim
     </div>
   )
 }
+
+/**
+ * Подпись «… ₽ × 4 в Сплит» для карточек в каталоге — без SDK Яндекс Пэй. SDK тяжёлый (ставит сторонние
+ * cookie, мешает кэшу «назад/вперёд» и тормозит каталог на телефоне), поэтому официальный бейдж —
+ * только на странице товара и в корзине. Сумма — та же, что в бейдже: четверть цены, вверх до рубля.
+ */
+export function SplitHint({ amount, className = "" }: { amount: number; className?: string }) {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    let alive = true
+    loadOpts().then((o) => { if (alive && o.split_payment && o.split_merchant_id) setOn(true) }).catch(() => null)
+    return () => { alive = false }
+  }, [])
+  if (!on || !(amount > 0)) return null
+  return (
+    <p className={`flex items-center gap-1 text-[11px] leading-none text-foreground ${className}`}>
+      <span aria-hidden className="size-[9px] shrink-0 rounded-full bg-[#2fc84d]" />
+      {Math.ceil(amount / 4).toLocaleString("ru-RU")}&nbsp;₽ × 4 в Сплит
+    </p>
+  )
+}

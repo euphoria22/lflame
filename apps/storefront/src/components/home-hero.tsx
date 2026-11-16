@@ -1,10 +1,10 @@
 import Image from "next/image"
 import Link from "next/link"
-import { preload } from "react-dom"
 
 import type { HomeHero } from "@/lib/blog"
 import { GENDERS, routes } from "@/lib/routes"
 import type { CatalogItem } from "@/lib/types"
+import { HeroVideo } from "./hero-video"
 import { ArrowIcon } from "./icons"
 
 /**
@@ -38,15 +38,15 @@ export function HomeHeroBlock({ hero, picks }: { hero: HomeHero | null; picks: R
   const buttons = hero.buttons.length ? hero.buttons : GENDERS.map((g) => ({ label: g.name, link: routes.gender(g.slug) }))
   const light = hero.textColor === "light"
   const pos = { top: "object-[50%_15%]", center: "object-center", bottom: "object-[50%_85%]" }[hero.focus]
-  // Видео: обложка — первое, что видно на экране (LCP), грузим её раньше всего остального;
-  // фото под видео тогда не нужно — иначе телефон качает две картинки
+  // Видео: сначала показываем фото-обложку (лёгкое, это и есть «первая отрисовка»), видео подгружается после
   const video = hero.video && hero.video.type !== "image/gif" ? hero.video : null
-  if (video) preload(hero.image.url, { as: "image", fetchPriority: "high" })
   return (
     <section className="px-2 md:px-4">
       <div className="relative h-[min(78vh,640px)] min-h-[440px] overflow-hidden rounded-[28px] bg-surface md:h-[min(64vh,640px)]">
         {/* Отдельное фото для телефона, если загружено */}
-        {video ? null : hero.imageMobile ? (
+        {video ? (
+          <Image src={hero.image.url} alt={hero.image.alt || hero.title || ""} fill priority sizes="100vw" className={`object-cover ${pos}`} />
+        ) : hero.imageMobile ? (
           <>
             <Image src={hero.imageMobile.url} alt={hero.imageMobile.alt || hero.title || ""} fill priority sizes="100vw" className="object-cover md:hidden" />
             <Image src={hero.image.url} alt={hero.image.alt || hero.title || ""} fill priority sizes="100vw" className={`hidden object-cover md:block ${pos}`} />
@@ -59,10 +59,7 @@ export function HomeHeroBlock({ hero, picks }: { hero: HomeHero | null; picks: R
           // eslint-disable-next-line @next/next/no-img-element -- анимированный GIF без пережатия
           <img src={hero.video.url} alt="" className={`absolute inset-0 h-full w-full object-cover ${pos}`} />
         ) : (
-          <video className={`absolute inset-0 h-full w-full object-cover ${pos}`} autoPlay muted loop playsInline preload="metadata"
-            poster={hero.image.url} aria-hidden>
-            <source src={hero.video.url} type={hero.video.type} />
-          </video>
+          <HeroVideo src={hero.video.url} type={hero.video.type} className={`absolute inset-0 h-full w-full object-cover ${pos}`} />
         ))}
         {/* Затемнение снизу для читаемости белого текста */}
         {light && <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/35 to-transparent" aria-hidden />}

@@ -7,7 +7,7 @@ export function Price({ price, compareAt, size = "sm" }: { price: number; compar
   return (
     <span className={`tag-font inline-flex flex-wrap items-baseline gap-x-2 ${cls}`}>
       <span>{formatPrice(price)}</span>
-      {off && <s className="text-subtle">{formatPrice(compareAt!)}</s>}
+      {off && <s className="text-muted">{formatPrice(compareAt!)}</s>}
       {off && <span className={`text-sale ${size === "lg" ? "text-[14px]" : ""}`}>−{off}%</span>}
     </span>
   )

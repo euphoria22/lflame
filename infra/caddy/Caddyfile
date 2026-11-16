@@ -49,7 +49,11 @@ www.{$SITE_DOMAIN} {
 	encode zstd gzip
 	@media path /api/media/file/*
 	handle @media {
-		reverse_proxy cms:3001
+		# Картинки и видео баннеров кэшируются у покупателя на 30 дней (при повторной загрузке файла
+		# с тем же именем CMS даёт ему новое имя, так что старая версия не «залипает»)
+		reverse_proxy cms:3001 {
+			header_down Cache-Control "public, max-age=2592000, stale-while-revalidate=86400"
+		}
 	}
 	handle {
 		import admin_only
