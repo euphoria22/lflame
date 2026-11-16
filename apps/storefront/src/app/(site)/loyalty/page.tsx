@@ -61,8 +61,8 @@ export default async function LoyaltyPage() {
       </div>
 
       <div className="mt-10 flex flex-wrap items-center gap-3">
-        <Link href="/account/login?next=/account/club" className="inline-block rounded-full bg-foreground px-6 py-3 text-[14px] text-background">Мой уровень</Link>
-        <Link href="/loyalty/rules" className="pill">Полные правила</Link>
+        <Link href="/account/login?next=/account/club" className="inline-flex h-[46px] items-center rounded-full bg-foreground px-6 text-[14px] text-background hover:opacity-85">Мой уровень</Link>
+        <Link href="/loyalty/rules" className="pill pill-lg">Полные правила</Link>
       </div>
     </InfoPage>
   )

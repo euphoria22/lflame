@@ -89,6 +89,8 @@ h1 {
 .pill:hover { border-color: var(--color-foreground); }
 .pill:disabled { opacity: 0.5; }
 .pill-sm { padding: 5px 11px; font-size: 12px; }
+/* Рядом с главной чёрной кнопкой — той же высоты, чтобы пара кнопок смотрелась ровно */
+.pill-lg { padding: 0 24px; height: 46px; font-size: 14px; }
 
 /* Liquid Glass: полупрозрачное стекло с размытием и светлой кромкой */
 .glass {
