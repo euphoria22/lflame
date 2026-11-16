@@ -1,7 +1,7 @@
 import type { Payload } from "payload"
 
 import { OFFER, PRIVACY } from "./legal"
-import { CONTACTS_V4, CONTACTS_V5, FAQ_V6, OFFER_V4, PRIVACY_V4 } from "./previous"
+import { CONTACTS_V4, CONTACTS_V5, FAQ_V6, FAQ_V8, OFFER_V4, PRIVACY_V4, RETURNS_V8 } from "./previous"
 import { md } from "./lexical"
 
 /**
@@ -89,18 +89,14 @@ const PAGES: { slug: string; title: string; order: number; intro?: string; text:
 - Деньги возвращаем в течение 10 дней с момента получения товара, без учёта стоимости доставки в обе стороны.
 - Мы вправе отказать в обмене или возврате вещей с признаками использования, повреждёнными или удалёнными бирками.
 
-Все случаи обмена и возврата регулируются Законом РФ от 7 февраля 1992 г. № 2300-1 «О защите прав потребителей» и Постановлением Правительства РФ от 27 сентября 2007 г. № 612.
+Все случаи обмена и возврата регулируются Законом РФ от 7 февраля 1992 г. № 2300-1 «О защите прав потребителей» и Правилами продажи товаров по договору розничной купли-продажи (Постановление Правительства РФ от 31 декабря 2020 г. № 2463).
 
-## Претензии по заказу
-Претензии, связанные с комплектностью заказа, браком или повреждением товаров при транспортировке, рассматриваются только при наличии видеозаписи распаковки посылки.
+## Если с заказом что-то не так
+Посылка пришла повреждённой, неполной или с браком — напишите нам в VK, Telegram или на admin@laflamme.ru. Заменим вещь или вернём деньги.
 
-Видеозапись должна быть сделана:
-- в пункте выдачи заказов (ПВЗ);
-- при сотруднике Почты России или СДЭК (если доставка была курьером).
+Пожалуйста, снимите распаковку на видео — в пункте выдачи или при курьере. Видео не обязательно, но с ним мы и служба доставки разберёмся намного быстрее.
 
-> Убедитесь, что видео чётко фиксирует момент вскрытия упаковки и всё содержимое посылки, включая состояние товаров и сопроводительных документов.
-
-Это требование нужно для объективного рассмотрения и быстрого решения вопросов.
+> Хорошо, если на видео видно, как вскрывается упаковка и что лежит внутри.
 `,
   },
   {
@@ -160,7 +156,7 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 Да, в течение 7 дней с момента получения, если сохранены товарный вид, бирки производителя и упаковка. Обратная пересылка — за счёт покупателя. Подробнее — на странице [«Обмен и возврат»](/returns).
 
 ## Посылка пришла повреждённой или неполной
-Претензии рассматриваем только при наличии видеозаписи распаковки — в пункте выдачи или при курьере. Снимите видео и напишите нам.
+Напишите нам — заменим вещь или вернём деньги. Пожалуйста, снимите распаковку на видео в пункте выдачи или при курьере: так мы и служба доставки разберёмся быстрее.
 
 ## Что значит «Предзаказ»?
 Товар уже едет к нам. Оформите заказ сейчас — мы свяжемся, когда он поступит, и отправим в первую очередь.
@@ -198,9 +194,9 @@ Telegram: [t.me/laflammeru](https://t.me/laflammeru)
 ]
 
 /** Увеличивается, когда меняются стартовые тексты. */
-const SEED_VERSION = 8
+const SEED_VERSION = 9
 /** В какой версии менялся стартовый текст страницы. */
-const CHANGED: Record<string, number> = { delivery: 8, payment: 8, returns: 2, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 7 }
+const CHANGED: Record<string, number> = { delivery: 8, payment: 8, returns: 9, contacts: 6, offer: 5, privacy: 5, about: 7, faq: 9 }
 
 /** Стартовые тексты прошлой версии: страницу обновляем, только если в ней всё ещё он (её не правили в CMS). */
 const PREVIOUS: Record<string, string> = {
@@ -341,7 +337,7 @@ export async function seedPages(payload: Payload): Promise<void> {
       // или в ней всё ещё стартовый текст прошлой версии
       const fresh = Math.abs(new Date(doc.updatedAt).getTime() - new Date(doc.createdAt).getTime()) < 5000
       const current = plain(doc.content?.root)
-      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "delivery" ? DELIVERY_V7 : undefined, p.slug === "payment" ? PAYMENT_V7 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
+      const untouched = fresh || [PREVIOUS[p.slug], PREVIOUS_V4[p.slug], p.slug === "contacts" ? CONTACTS_V5 : undefined, p.slug === "faq" ? FAQ_V6 : undefined, p.slug === "faq" ? FAQ_V8 : undefined, p.slug === "returns" ? RETURNS_V8 : undefined, p.slug === "delivery" ? DELIVERY_V7 : undefined, p.slug === "payment" ? PAYMENT_V7 : undefined, p.slug === "about" ? ABOUT_V2.replace("## Программа LAFLAMME", "## LAFLAMME Club") : undefined].some((t) => !!t && current === plain(md(t).root as Lex))
       if (version < SEED_VERSION && changed > version && untouched) {
         await payload.update({
           collection: "pages", id: doc.id,

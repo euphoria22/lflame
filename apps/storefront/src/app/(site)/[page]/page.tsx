@@ -29,10 +29,17 @@ async function load(slug: string) {
   return getInfoPage(slug).catch(() => null)
 }
 
+/** Описания для поиска, если в CMS не заполнены ни SEO-описание, ни вступление */
+const PAGE_DESCRIPTION: Record<string, string> = {
+  about: "Laflamme — магазин оригинальной одежды в Омске: Stone Island, C.P. Company, Carhartt WIP, Calvin Klein, Tommy Hilfiger. Шоурум на Партизанской, 5а/8, доставка по России.",
+  contacts: "Магазин Laflamme в Омске: ул. Партизанская, 5а/8, ежедневно с 12:00 до 21:00. Телефон +7 913 144-64-82, Telegram и ВКонтакте.",
+  faq: "Частые вопросы о Laflamme: оригинальность вещей, подбор размера, сроки и стоимость доставки, оплата частями, возврат, предзаказ.",
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = await load((await params).page)
   if (!p) return { title: "Страница не найдена" }
-  return pageMeta({ title: p.seo.title || p.title, description: p.seo.description || p.intro || `${p.title} в магазине ${SITE_NAME}`, path: routes.page(p.slug) })
+  return pageMeta({ title: p.seo.title || p.title, description: p.seo.description || p.intro || PAGE_DESCRIPTION[p.slug] || `${p.title} — ${SITE_NAME}, магазин оригинальной одежды в Омске с доставкой по России`, path: routes.page(p.slug) })
 }
 
 type Section = { title: string; nodes: LexicalNode[] }

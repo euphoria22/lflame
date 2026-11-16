@@ -8,6 +8,7 @@ import type { CatalogItem } from "./types"
 /**
  * Товарные фиды: Яндекс (YML — «Товары» в поиске Яндекса, Яндекс Бизнес) и Google (Merchant Center).
  * Одно предложение на размер в наличии, размеры одной модели связаны group_id / item_group_id.
+ * Предзаказ: в Яндексе available="false" («под заказ»), в Google — preorder с датой или backorder.
  * Строятся из закэшированного каталога; цены и наличие — те же, что на сайте.
  */
 const esc = (s: unknown) =>
@@ -47,7 +48,7 @@ export async function yandexFeed(): Promise<string> {
   for (const i of items) {
     const cat = i.category ? cats.get(i.category.handle) : undefined
     for (const o of offers(i)) {
-      out.push(`<offer id="${esc(o.id)}" group_id="${groupId(i.handle)}" available="true">
+      out.push(`<offer id="${esc(o.id)}" group_id="${groupId(i.handle)}" available="${i.preorder ? "false" : "true"}">
 <url>${esc(url(i))}</url>
 <price>${i.price}</price>${i.compare_at && i.compare_at > i.price ? `\n<oldprice>${i.compare_at}</oldprice>` : ""}
 <currencyId>RUB</currencyId>${cat ? `\n<categoryId>${cat.id}</categoryId>` : ""}
@@ -93,7 +94,7 @@ export async function googleFeed(): Promise<string> {
 <description>${esc(describe(i))}</description>
 <link>${esc(url(i))}</link>
 <g:image_link>${esc(main)}</g:image_link>${rest.map((p) => `\n<g:additional_image_link>${esc(p)}</g:additional_image_link>`).join("")}
-<g:availability>in_stock</g:availability>
+<g:availability>${i.preorder ? (i.preorder_date ? "preorder" : "backorder") : "in_stock"}</g:availability>${i.preorder && i.preorder_date ? `\n<g:availability_date>${i.preorder_date}T00:00+06:00</g:availability_date>` : ""}
 <g:price>${(sale ? i.compare_at! : i.price).toFixed(2)} RUB</g:price>${sale ? `\n<g:sale_price>${i.price.toFixed(2)} RUB</g:sale_price>` : ""}${i.brand ? `\n<g:brand>${esc(i.brand.name)}</g:brand>` : ""}
 <g:condition>new</g:condition>
 <g:identifier_exists>no</g:identifier_exists>

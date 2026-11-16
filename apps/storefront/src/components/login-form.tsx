@@ -77,8 +77,8 @@ export function LoginForm({ next }: { next: string }) {
           {error && <p className="text-[13px] text-sale" role="alert">{error}</p>}
           <button disabled={busy || code.length !== 6} className="h-12 w-full rounded-full bg-foreground text-[14px] text-background disabled:opacity-60">{busy ? "Входим…" : "Войти"}</button>
           <div className="flex justify-between text-[13px] text-muted">
-            <button type="button" className="underline underline-offset-4" onClick={() => { setStep("email"); setCode(""); setError(null) }}>Другой email</button>
-            <button type="button" disabled={wait > 0 || busy} className="underline underline-offset-4 disabled:no-underline" onClick={() => requestCode()}>
+            <button type="button" className="pill pill-sm" onClick={() => { setStep("email"); setCode(""); setError(null) }}>Другой email</button>
+            <button type="button" disabled={wait > 0 || busy} className="pill pill-sm" onClick={() => requestCode()}>
               {wait > 0 ? `Отправить снова через ${wait} с` : "Отправить код снова"}
             </button>
           </div>

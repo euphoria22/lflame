@@ -19,18 +19,20 @@ export type PageMetaInput = {
   index?: boolean
   image?: string | null
   type?: "website" | "article"
+  /** false — без « | Laflamme» на конце (длинные названия товаров) */
+  suffix?: boolean
 }
 
 /**
  * Метаданные страницы. Пагинация: canonical на саму страницу, «— страница N» в title (п. 7.4).
  * Пока INDEXING не включён (staging), всё закрыто от индексации (п. 7.8).
  */
-export function pageMeta({ title, description, path, page = 1, index = true, image, type = "website" }: PageMetaInput): Metadata {
+export function pageMeta({ title, description, path, page = 1, index = true, image, type = "website", suffix = true }: PageMetaInput): Metadata {
   // «Название | Laflamme»: обрезается само название, суффикс остаётся (title ≤ 70)
   const core = title.endsWith(TITLE_SUFFIX) ? title.slice(0, -TITLE_SUFFIX.length) : title
-  const fullTitle = `${clip(page > 1 ? `${core} — страница ${page}` : core, 70 - TITLE_SUFFIX.length)}${TITLE_SUFFIX}`
+  const fullTitle = suffix ? `${clip(page > 1 ? `${core} — страница ${page}` : core, 70 - TITLE_SUFFIX.length)}${TITLE_SUFFIX}` : clip(core, 70)
   const canonical = `${SITE_URL}${path === "/" ? "" : path}${page > 1 ? `?page=${page}` : ""}` || SITE_URL
-  const desc = clip(description, 160)
+  const desc = clip(page > 1 ? `Страница ${page}. ${description}` : description, 160)
   const allowIndex = INDEXING_ENABLED && index
   return {
     title: fullTitle,
@@ -44,7 +46,8 @@ export function pageMeta({ title, description, path, page = 1, index = true, ima
       siteName: SITE_NAME,
       locale: "ru_RU",
       type,
-      ...(image ? { images: [{ url: image }] } : {}),
+      // Без своей картинки — общая обложка магазина, иначе превью ссылки в Telegram и VK пустое
+      images: [image ? { url: image } : { url: `${SITE_URL}/og.png`, width: 1200, height: 630 }],
     },
   }
 }

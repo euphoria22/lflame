@@ -49,6 +49,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${product.title} — купить за ${formatPrice(product.price)}`.length <= 70 - TITLE_SUFFIX.length ? `${product.title} — купить за ${formatPrice(product.price)}` : product.title,
     description: `${product.title}${color} — оригинал по цене ${formatPrice(product.price)}${product.compare_at ? ` вместо ${formatPrice(product.compare_at)}` : ""}. Доставка по России, оплата частями, обмен и возврат в ${SITE_NAME}.`,
     path: routes.product(product.handle),
+    // Длинное название (с цветом на конце) важнее имени магазина: не обрезаем его ради суффикса
+    suffix: product.title.length <= 70 - TITLE_SUFFIX.length,
     image: product.images[0] ?? product.thumbnail,
     index: product.status === "published",
   })
@@ -180,10 +182,21 @@ function productJsonLd(p: CatalogProduct, inStock: boolean) {
       lowPrice: Math.min(...prices),
       highPrice: Math.max(...prices),
       offerCount: p.variants.length,
-      availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      // Предзаказ — отдельный статус: «в наличии» для него поисковики считают обманом
+      availability: p.preorder ? "https://schema.org/PreOrder" : inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      ...(p.preorder && p.preorder_date ? { availabilityStarts: p.preorder_date } : {}),
       itemCondition: "https://schema.org/NewCondition",
       url,
       seller: { "@type": "Organization", name: SITE_NAME },
+      // Условия возврата со страницы «Обмен и возврат»: 7 дней, отправка за счёт покупателя
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "RU",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 7,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/ReturnShippingFees",
+      },
     },
   }
 }

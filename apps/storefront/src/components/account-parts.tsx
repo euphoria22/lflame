@@ -13,7 +13,7 @@ export function Card({ title, action, children, className = "" }: { title?: Reac
       {(title || action) && (
         <div className="mb-5 flex items-baseline justify-between gap-4">
           {title && <h2 className="text-[22px] tracking-tight md:text-[26px]">{title}</h2>}
-          {action && <Link href={action.href} className="shrink-0 text-[13px] underline underline-offset-4 hover:opacity-60">{action.label} →</Link>}
+          {action && <Link href={action.href} className="pill pill-sm">{action.label}</Link>}
         </div>
       )}
       {children}
@@ -63,7 +63,7 @@ export function ClubCard({ s, compact = false }: { s: LoyaltyStatus; compact?: b
           <p className="eyebrow text-muted">Программа лояльности</p>
           <p className="mt-1 text-[24px] tracking-tight md:text-[28px]">Laflamme Club</p>
         </div>
-        {compact && <Link href="/account/club" className="shrink-0 pt-5 text-[13px] underline underline-offset-4 hover:opacity-60">Подробнее →</Link>}
+        {compact && <Link href="/account/club" className="pill pill-sm mt-4">Подробнее</Link>}
       </div>
       {!s.confirmed ? (
         <p className="mt-5 max-w-xl text-[14px] leading-relaxed text-muted">

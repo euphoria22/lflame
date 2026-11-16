@@ -347,7 +347,7 @@ function ActiveFilters({ filters, facets, names, onRemove, onReset }: {
     <div>
       <div className="mb-3 flex items-center justify-between text-[13px] font-medium">
         Выбрано
-        <button type="button" onClick={onReset} className="text-[12px] font-normal text-muted underline underline-offset-4 hover:text-foreground">Сбросить всё</button>
+        <button type="button" onClick={onReset} className="pill pill-sm font-normal">Сбросить всё</button>
       </div>
       <ul className="flex flex-wrap gap-1.5">
         {items.map((i) => (

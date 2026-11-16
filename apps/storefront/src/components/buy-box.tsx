@@ -21,7 +21,7 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null, pr
   })
   const [message, setMessage] = useState<string | null>(null)
   const [barVisible, setBarVisible] = useState(false)
-  // Нажали «Выберите размер» без размера — сетка размеров коротко подсвечивается
+  // Нажали «В корзину» без размера — сетка размеров коротко подсвечивается
   const [nudge, setNudge] = useState(false)
   const cart = useCart()
   const box = useRef<HTMLDivElement>(null)
@@ -35,8 +35,6 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null, pr
   const chosen = picked && picked.available > 0 ? picked : undefined
   const restock = picked && picked.available <= 0 ? picked : onlyOneSize && !anyAvailable ? variants[0] : undefined
   const lastOnes = allSingles ? [] : availableSizes.filter((v) => v.available === 1)
-  // Кнопка ждёт выбора размера — светлая, чтобы не выглядеть активной
-  const needSize = anyAvailable && !chosen && !onlyOneSize
 
   // Размер из ссылки ?size=… (кнопки размеров в карточке каталога)
   useEffect(() => {
@@ -59,7 +57,9 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null, pr
   const add = async () => {
     const target = chosen ?? (onlyOneSize ? variants[0] : undefined)
     if (!target) {
+      // Размер не выбран: кнопка остаётся чёрной и рабочей — подсвечиваем размеры и подсказываем словами
       setNudge(true)
+      setMessage("Выберите размер")
       setTimeout(() => setNudge(false), 700)
       box.current?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
@@ -76,8 +76,8 @@ export function BuyBox({ variants, price, preorder = false, sizeChart = null, pr
   const button = (
     // Пока товар добавляется, кнопка остаётся чёрной и пишет «Добавляем…» — без резкого серого мигания
     <button type="button" onClick={() => { if (!adding && !cart.busy) add() }} disabled={!anyAvailable} aria-busy={adding}
-      className={`h-12 w-full rounded-full text-[14px] transition-colors disabled:bg-surface-2 disabled:text-muted aria-busy:opacity-70 ${needSize ? "bg-surface-2 text-muted" : "bg-foreground text-background hover:opacity-85"}`}>
-      {!anyAvailable ? "Нет в наличии" : adding ? "Добавляем…" : chosen || onlyOneSize ? (preorder ? "Оформить предзаказ" : "В корзину") : "Выберите размер"}
+      className={`h-12 w-full rounded-full text-[14px] transition-colors bg-foreground text-background hover:opacity-85 disabled:bg-surface-2 disabled:text-muted aria-busy:opacity-70`}>
+      {!anyAvailable ? "Нет в наличии" : adding ? "Добавляем…" : preorder ? "Оформить предзаказ" : "В корзину"}
     </button>
   )
 

@@ -29,7 +29,7 @@ const ReturnIcon = ({ className }: { className?: string }) => (
 export function ProductInfo({ product, sizeChart }: { product: CatalogProduct; sizeChart: SizeChart | null }) {
   const ask = `${SUPPORT.telegram}?text=${encodeURIComponent(`Здравствуйте! Вопрос по товару «${product.title}»: ${SITE_URL}${routes.product(product.handle)}`)}`
   // Стеклянные плитки — как шапка и плашки на фото: на белом фоне видны по мягкой тени и кромке
-  const cond = "glass flex flex-col items-start gap-1.5 rounded-2xl px-3 py-3 text-[12px] leading-tight transition-transform duration-300 hover:-translate-y-0.5"
+  const cond = "glass flex min-w-0 flex-col items-start gap-1.5 break-words rounded-2xl px-2.5 py-3 text-[12px] leading-tight transition-transform duration-300 hover:-translate-y-0.5"
   return (
     <>
       {product.brand && (
@@ -66,7 +66,7 @@ export function ProductInfo({ product, sizeChart }: { product: CatalogProduct; s
       {/* Условия — три короткие ссылки на страницы «Доставка», «Оплата», «Обмен и возврат» */}
       <div className="mt-5 grid grid-cols-3 gap-2">
         <Link href="/delivery" className={cond}><TruckIcon className="size-[18px]" /><span>Доставка<span className="block text-muted">по всей России</span></span></Link>
-        <Link href="/payment" className={cond}><CardIcon className="size-[18px]" /><span>Оплата<span className="block text-muted">картой, СБП, частями</span></span></Link>
+        <Link href="/payment" className={cond}><CardIcon className="size-[18px]" /><span>Оплата<span className="block text-muted">карта, СБП, Сплит</span></span></Link>
         <Link href="/returns" className={cond}><ReturnIcon className="size-[18px]" /><span>Возврат<span className="block text-muted">7 дней</span></span></Link>
       </div>
       <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">

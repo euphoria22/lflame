@@ -71,6 +71,25 @@ h1 {
   text-transform: uppercase;
 }
 
+/* Второстепенная кнопка-«таблетка»: вместо подчёркнутого текста («Смотреть все», «Таблица размеров», «Есть промокод?») */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--color-foreground);
+  white-space: nowrap;
+  transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
+}
+.pill:hover { border-color: var(--color-foreground); }
+.pill:disabled { opacity: 0.5; }
+.pill-sm { padding: 5px 11px; font-size: 12px; }
+
 /* Liquid Glass: полупрозрачное стекло с размытием и светлой кромкой */
 .glass {
   background: rgba(255, 255, 255, 0.62);

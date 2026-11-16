@@ -44,7 +44,7 @@ export function GiftCardField({ value, onChange, due }: { value: AppliedGift | n
       <div className="rounded-xl border border-foreground p-4 text-[13px]">
         <div className="flex items-center justify-between gap-3">
           <span>Подарочная карта <b className="font-medium tag-font">{value.code}</b></span>
-          <button type="button" disabled={busy} onClick={() => send("DELETE")} className="text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50">Убрать</button>
+          <button type="button" disabled={busy} onClick={() => send("DELETE")} className="pill pill-sm">Убрать</button>
         </div>
         <p className="mt-1 text-muted">
           Спишем {formatPrice(spend)}{value.balance > spend ? `, на карте останется ${formatPrice(value.balance - spend)}` : ""}
@@ -55,7 +55,7 @@ export function GiftCardField({ value, onChange, due }: { value: AppliedGift | n
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="text-[13px] text-muted underline underline-offset-4 hover:text-foreground">
+      <button type="button" onClick={() => setOpen(true)} className="pill pill-sm">
         Есть подарочная карта?
       </button>
     )

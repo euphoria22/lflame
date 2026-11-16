@@ -66,10 +66,18 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <JsonLd data={[
           {
             "@context": "https://schema.org",
-            "@type": "Organization",
+            // Магазин с адресом и часами работы: для выдачи по запросам «… Омск» и карточки организации
+            "@type": "ClothingStore",
+            "@id": `${SITE_URL}/#store`,
             name: SITE_NAME,
             url: SITE_URL,
             logo: `${SITE_URL}/icon.png`,
+            image: `${SITE_URL}/og.png`,
+            telephone: "+79131446482",
+            email: "admin@laflamme.ru",
+            priceRange: "₽₽₽",
+            address: { "@type": "PostalAddress", addressCountry: "RU", addressRegion: "Омская область", addressLocality: "Омск", streetAddress: "ул. Партизанская, 5а/8" },
+            openingHoursSpecification: [{ "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], opens: "12:00", closes: "21:00" }],
             sameAs: SOCIAL.map((s) => s.url),
           },
           {

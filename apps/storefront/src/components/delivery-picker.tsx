@@ -277,7 +277,7 @@ function PochtaOffices({ cityCode, value, onChange }: { cityCode: number; value:
           const o = data.offices.find((x) => x.postal_code === id)
           if (o) onChange({ pvz_code: o.postal_code, pvz_address: o.address, postal_code: o.postal_code, address: `До востребования, отделение ${o.postal_code}` })
         }} />
-        <button type="button" className="text-[12px] text-muted underline underline-offset-4" onClick={() => { setManual(true); onChange({ pvz_code: undefined, address: "" }) }}>
+        <button type="button" className="pill pill-sm" onClick={() => { setManual(true); onChange({ pvz_code: undefined, address: "" }) }}>
           Доставить на домашний адрес
         </button>
       </>

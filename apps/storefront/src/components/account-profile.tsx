@@ -48,7 +48,7 @@ export function ProfileCard({ customer }: { customer: AccountCustomer }) {
     <section className="rounded-[24px] border border-line bg-background p-5 md:p-8">
       <div className="mb-5 flex items-baseline justify-between gap-4">
         <h2 className="text-[22px] tracking-tight md:text-[26px]">Профиль</h2>
-        {!edit && <button type="button" onClick={() => setEdit(true)} className="text-[13px] underline underline-offset-4 hover:opacity-60">Редактировать →</button>}
+        {!edit && <button type="button" onClick={() => setEdit(true)} className="pill pill-sm">Редактировать</button>}
       </div>
       {!edit ? (
         <dl className="divide-y divide-line">
@@ -99,7 +99,7 @@ export function FavoritesPreview() {
     <section className="rounded-[24px] border border-line bg-background p-5 md:p-8">
       <div className="mb-3 flex items-baseline justify-between gap-4">
         <h2 className="text-[22px] tracking-tight md:text-[26px]">Избранное</h2>
-        {!!fav.list.length && <Link href="/account/favorites" className="text-[13px] underline underline-offset-4 hover:opacity-60">Все товары ({fav.list.length}) →</Link>}
+        {!!fav.list.length && <Link href="/account/favorites" className="pill pill-sm">Все товары ({fav.list.length})</Link>}
       </div>
       {items !== null && !shown.length ? (
         <p className="text-[14px] text-muted">Пока пусто — нажмите ♡ на товаре, чтобы сохранить его.</p>

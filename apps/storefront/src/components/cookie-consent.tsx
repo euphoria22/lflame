@@ -64,15 +64,17 @@ export function CookieConsent() {
 
   if (choice !== null) return null
   return (
-    <div role="dialog" aria-label="Cookie" className="glass-strong fixed inset-x-2 bottom-2 z-[55] mx-auto max-w-3xl rounded-[24px] p-4 md:bottom-4 md:p-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-        <p className="flex-1 text-[13px] leading-relaxed">
-          Мы используем cookie: необходимые — чтобы работали корзина и вход, и аналитические (Яндекс Метрика) — чтобы делать сайт удобнее.
-          Подробнее — в <Link href="/privacy" className="underline underline-offset-4">политике обработки данных</Link>.
+    <div role="dialog" aria-label="Cookie" className="glass-strong fixed inset-x-2 bottom-2 z-[55] mx-auto max-w-3xl rounded-[20px] p-3 md:bottom-4 md:rounded-[24px] md:p-5">
+      <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-6">
+        {/* На телефоне — одна короткая строка: баннер не должен закрывать товары */}
+        <p className="flex-1 text-[12px] leading-snug md:text-[13px] md:leading-relaxed">
+          <span className="md:hidden">Cookie нужны для корзины, входа и статистики. </span>
+          <span className="hidden md:inline">Мы используем cookie: необходимые — чтобы работали корзина и вход, и аналитические (Яндекс Метрика) — чтобы делать сайт удобнее. </span>
+          <Link href="/privacy" className="underline underline-offset-4">Политика обработки данных</Link>
         </p>
         <div className="flex shrink-0 gap-2">
-          <button type="button" onClick={() => decide("necessary")} className="h-10 rounded-full border border-line bg-background px-4 text-[13px] hover:border-foreground">Только необходимые</button>
-          <button type="button" onClick={() => decide("all")} className="h-10 rounded-full bg-foreground px-5 text-[13px] text-background">Принять</button>
+          <button type="button" onClick={() => decide("necessary")} className="h-9 flex-1 rounded-full border border-line bg-background px-4 text-[12px] hover:border-foreground md:h-10 md:flex-none md:text-[13px]">Только необходимые</button>
+          <button type="button" onClick={() => decide("all")} className="h-9 flex-1 rounded-full bg-foreground px-5 text-[12px] text-background md:h-10 md:flex-none md:text-[13px]">Принять</button>
         </div>
       </div>
     </div>

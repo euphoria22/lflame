@@ -75,12 +75,11 @@ export default async function HomePage() {
           {topBrands.map(([handle, b]) => (
             <li key={handle}>
               <Link href={routes.brand(handle)} className="transition-opacity hover:opacity-40">{b.name}</Link>
-              <sup className="ml-1 text-[11px] text-subtle md:text-[13px]">{b.count}</sup>
             </li>
           ))}
         </ul>
-        <Link href={routes.brands()} className="eyebrow mt-8 inline-flex items-center gap-2 underline underline-offset-4">
-          Все бренды <ArrowIcon className="size-4" />
+        <Link href={routes.brands()} className="pill mt-8">
+          Все бренды <ArrowIcon className="size-3.5" />
         </Link>
       </section>
 

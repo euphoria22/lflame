@@ -26,7 +26,7 @@ export function PromoField({ className = "", defaultOpen = false }: { className?
       <div className={`text-[13px] ${className}`}>
         <div className="flex items-center justify-between gap-3">
           <span>Промокод <b className="font-medium">{current.code}</b>{current.applied && <span className="text-muted"> · применён</span>}</span>
-          <button type="button" disabled={busy} onClick={async () => { setError(await promo(null)) }} className="text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50">Убрать</button>
+          <button type="button" disabled={busy} onClick={async () => { setError(await promo(null)) }} className="pill pill-sm">Убрать</button>
         </div>
         {current.note && <p className="mt-1 text-[12px] leading-snug text-muted">{current.note}</p>}
       </div>
@@ -35,7 +35,7 @@ export function PromoField({ className = "", defaultOpen = false }: { className?
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={`text-[13px] text-muted underline underline-offset-4 hover:text-foreground ${className}`}>
+      <button type="button" onClick={() => setOpen(true)} className={`pill pill-sm ${className}`}>
         Есть промокод?
       </button>
     )

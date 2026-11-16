@@ -35,7 +35,7 @@ export function SizeGuide({ chart }: { chart: SizeChart }) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-[13px] text-muted underline underline-offset-4 hover:text-foreground">
+      <button type="button" onClick={() => setOpen(true)} className="pill pill-sm">
         Таблица размеров
       </button>
       {mounted && createPortal(

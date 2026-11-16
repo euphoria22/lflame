@@ -27,7 +27,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   )
   return (
     <div>
-      <Link href="/account/orders" className="text-[13px] text-muted underline underline-offset-4 hover:text-foreground">← Ко всем заказам</Link>
+      <Link href="/account/orders" className="pill pill-sm">← Ко всем заказам</Link>
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           <section className="flex items-start justify-between gap-4 rounded-[24px] border border-line bg-background p-5 md:p-8">

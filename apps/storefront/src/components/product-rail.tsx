@@ -1,4 +1,5 @@
 import type { CatalogItem } from "@/lib/types"
+import { ArrowIcon } from "./icons"
 import { ProductCard } from "./product-card"
 
 /** Подборка товаров: лента на телефоне, сетка из 4 на десктопе (ТЗ, п. 6.3: рекомендации). */
@@ -11,9 +12,9 @@ export function ProductRail({ title, items, href, linkLabel = "Смотреть 
   if (!items.length) return null
   return (
     <section className="mt-20">
-      <div className="mb-5 flex items-baseline justify-between px-4 md:px-8">
+      <div className="mb-5 flex items-center justify-between gap-4 px-4 md:px-8">
         <h2 className="text-[20px] tracking-tight md:text-[24px]">{title}</h2>
-        {href && <a href={href} className="eyebrow underline underline-offset-4">{linkLabel}</a>}
+        {href && <a href={href} className="pill">{linkLabel} <ArrowIcon className="size-3.5" /></a>}
       </div>
       {/* Компактный ряд: 6 карточек на десктопе (4 на планшете), лента на телефоне */}
       <ul className="rail grid-lines grid auto-cols-[42%] grid-flow-col overflow-x-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-4 md:overflow-visible xl:grid-cols-6">
